@@ -66,10 +66,11 @@ Plans:
   1. @cap, @upper, @lower transforms work on any input string
   2. Numeric selection uses CLDR plural category (zero, one, two, few, many, other)
   3. All 24 documented languages have working plural rules via ICU4X
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: TBD
+- [ ] 03-01-PLAN.md — TransformKind enum with ICU4X case transforms (@cap, @upper, @lower)
+- [ ] 03-02-PLAN.md — Evaluator transform wiring and comprehensive tests
 
 ### Phase 4: Locale Management and Error Handling
 **Goal**: Users can manage language selection and get clear errors on failures
@@ -186,7 +187,7 @@ Note: Phases 6-9 (language transforms) can proceed in parallel after Phase 3 com
 |-------|----------------|--------|-----------|
 | 1. Core Types and Parser | 3/3 | Complete | 2026-02-04 |
 | 2. Interpreter Engine | 2/2 | Complete | 2026-02-04 |
-| 3. Universal Transforms and ICU4X | 0/1 | Ready to plan | - |
+| 3. Universal Transforms and ICU4X | 0/2 | Planned | - |
 | 4. Locale Management and Error Handling | 0/2 | Not started | - |
 | 5. Macro Code Generation | 0/3 | Not started | - |
 | 6. English and Germanic Transforms | 0/1 | Not started | - |
@@ -197,4 +198,4 @@ Note: Phases 6-9 (language transforms) can proceed in parallel after Phase 3 com
 
 ---
 *Roadmap created: 2026-02-04*
-*Last updated: 2026-02-04 after Phase 2 execution*
+*Last updated: 2026-02-04 after Phase 3 planning*
