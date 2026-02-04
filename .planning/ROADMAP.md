@@ -12,7 +12,7 @@ RLF (Rust Localization Framework) is built from the ground up: core types and pa
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Core Types and Parser** - Foundation types (Phrase, Value, PhraseId) and parser for template/file syntax
+- [x] **Phase 1: Core Types and Parser** - Foundation types (Phrase, Value, PhraseId) and parser for template/file syntax
 - [ ] **Phase 2: Interpreter Engine** - Evaluation engine for templates with variant resolution and phrase calls
 - [ ] **Phase 3: Universal Transforms and ICU4X** - Case transforms and CLDR plural rules integration
 - [ ] **Phase 4: Locale Management and Error Handling** - Locale struct, phrase loading, and comprehensive error types
@@ -38,9 +38,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Core types (Phrase, Value, PhraseId, VariantKey, Tag) and crate setup
-- [ ] 01-02-PLAN.md — Template string parser (interpolations, transforms, selections, escapes)
-- [ ] 01-03-PLAN.md — File format parser (.rlf phrase definitions, variants, metadata)
+- [x] 01-01-PLAN.md — Core types (Phrase, Value, PhraseId, VariantKey, Tag) and crate setup
+- [x] 01-02-PLAN.md — Template string parser (interpolations, transforms, selections, escapes)
+- [x] 01-03-PLAN.md — File format parser (.rlf phrase definitions, variants, metadata)
 
 ### Phase 2: Interpreter Engine
 **Goal**: Interpreter can evaluate templates and resolve phrases with variants and parameters
@@ -184,7 +184,7 @@ Note: Phases 6-9 (language transforms) can proceed in parallel after Phase 3 com
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Types and Parser | 0/3 | Planned | - |
+| 1. Core Types and Parser | 3/3 | Complete | 2026-02-04 |
 | 2. Interpreter Engine | 0/2 | Not started | - |
 | 3. Universal Transforms and ICU4X | 0/1 | Not started | - |
 | 4. Locale Management and Error Handling | 0/2 | Not started | - |
@@ -197,4 +197,4 @@ Note: Phases 6-9 (language transforms) can proceed in parallel after Phase 3 com
 
 ---
 *Roadmap created: 2026-02-04*
-*Last updated: 2026-02-04*
+*Last updated: 2026-02-04 after Phase 1 completion*

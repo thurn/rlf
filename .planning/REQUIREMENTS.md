@@ -239,23 +239,23 @@ Requirements derived from design documents. All features documented in DESIGN.md
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LANG-01 | Phase 1 | Pending |
-| LANG-02 | Phase 1 | Pending |
-| LANG-03 | Phase 1 | Pending |
-| LANG-04 | Phase 1 | Pending |
-| LANG-05 | Phase 1 | Pending |
-| LANG-06 | Phase 1 | Pending |
-| LANG-07 | Phase 1 | Pending |
-| LANG-08 | Phase 1 | Pending |
-| LANG-09 | Phase 1 | Pending |
-| LANG-10 | Phase 1 | Pending |
-| LANG-11 | Phase 1 | Pending |
-| LANG-12 | Phase 1 | Pending |
-| LANG-13 | Phase 1 | Pending |
-| LANG-14 | Phase 1 | Pending |
-| LANG-15 | Phase 1 | Pending |
-| LANG-16 | Phase 1 | Pending |
-| LANG-17 | Phase 1 | Pending |
+| LANG-01 | Phase 1 | Complete |
+| LANG-02 | Phase 1 | Complete |
+| LANG-03 | Phase 1 | Complete |
+| LANG-04 | Phase 1 | Complete |
+| LANG-05 | Phase 1 | Complete |
+| LANG-06 | Phase 1 | Complete |
+| LANG-07 | Phase 1 | Complete |
+| LANG-08 | Phase 1 | Complete |
+| LANG-09 | Phase 1 | Complete |
+| LANG-10 | Phase 1 | Complete |
+| LANG-11 | Phase 1 | Complete |
+| LANG-12 | Phase 1 | Complete |
+| LANG-13 | Phase 1 | Complete |
+| LANG-14 | Phase 1 | Complete |
+| LANG-15 | Phase 1 | Complete |
+| LANG-16 | Phase 1 | Complete |
+| LANG-17 | Phase 1 | Complete |
 | MACRO-01 | Phase 5 | Pending |
 | MACRO-02 | Phase 5 | Pending |
 | MACRO-03 | Phase 5 | Pending |
@@ -273,19 +273,19 @@ Requirements derived from design documents. All features documented in DESIGN.md
 | MACRO-15 | Phase 5 | Pending |
 | MACRO-16 | Phase 5 | Pending |
 | MACRO-17 | Phase 5 | Pending |
-| TYPE-01 | Phase 1 | Pending |
-| TYPE-02 | Phase 1 | Pending |
-| TYPE-03 | Phase 1 | Pending |
-| TYPE-04 | Phase 1 | Pending |
-| TYPE-05 | Phase 1 | Pending |
-| TYPE-06 | Phase 1 | Pending |
-| TYPE-07 | Phase 1 | Pending |
+| TYPE-01 | Phase 1 | Complete |
+| TYPE-02 | Phase 1 | Complete |
+| TYPE-03 | Phase 1 | Complete |
+| TYPE-04 | Phase 1 | Complete |
+| TYPE-05 | Phase 1 | Complete |
+| TYPE-06 | Phase 1 | Complete |
+| TYPE-07 | Phase 1 | Complete |
 | TYPE-08 | Phase 1 | Pending |
 | TYPE-09 | Phase 1 | Pending |
 | TYPE-10 | Phase 1 | Pending |
-| TYPE-11 | Phase 1 | Pending |
-| INTERP-01 | Phase 1 | Pending |
-| INTERP-02 | Phase 1 | Pending |
+| TYPE-11 | Phase 1 | Complete |
+| INTERP-01 | Phase 1 | Complete |
+| INTERP-02 | Phase 1 | Complete |
 | INTERP-03 | Phase 2 | Pending |
 | INTERP-04 | Phase 2 | Pending |
 | INTERP-05 | Phase 2 | Pending |
@@ -381,4 +381,4 @@ Requirements derived from design documents. All features documented in DESIGN.md
 
 ---
 *Requirements defined: 2026-02-04*
-*Last updated: 2026-02-04 after roadmap creation*
+*Last updated: 2026-02-04 after Phase 1 completion*
