@@ -16,4 +16,4 @@ pub use error::EvalError;
 pub use evaluator::{eval_phrase_def, eval_template};
 pub use plural::plural_category;
 pub use registry::PhraseRegistry;
-pub use transforms::TransformRegistry;
+pub use transforms::{TransformKind, TransformRegistry};

@@ -44,4 +44,8 @@ pub enum EvalError {
     /// Maximum recursion depth exceeded.
     #[error("maximum recursion depth exceeded")]
     MaxDepthExceeded,
+
+    /// Unknown transform name.
+    #[error("unknown transform '@{name}'")]
+    UnknownTransform { name: String },
 }
