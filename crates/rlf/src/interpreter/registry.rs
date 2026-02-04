@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use crate::interpreter::EvalError;
 use crate::parser::ast::PhraseDefinition;
+use crate::parser::{parse_file, ParseError};
 use crate::types::PhraseId;
 
 /// A registry for storing and looking up phrase definitions.
@@ -45,21 +46,51 @@ impl PhraseRegistry {
         let hash = id.as_u64();
 
         // Check for hash collision (different name but same hash)
-        if let Some(existing_name) = self.id_to_name.get(&hash) {
-            if existing_name != &name {
-                // This is a hash collision - different names producing same hash
-                // This should be extremely rare with 64-bit FNV-1a but we handle it
-                return Err(EvalError::PhraseNotFound {
-                    name: format!(
-                        "hash collision: '{}' and '{}' produce same hash",
-                        existing_name, name
-                    ),
-                });
-            }
+        if let Some(existing_name) = self.id_to_name.get(&hash)
+            && existing_name != &name
+        {
+            // This is a hash collision - different names producing same hash
+            // This should be extremely rare with 64-bit FNV-1a but we handle it
+            return Err(EvalError::PhraseNotFound {
+                name: format!(
+                    "hash collision: '{}' and '{}' produce same hash",
+                    existing_name, name
+                ),
+            });
         }
 
         self.id_to_name.insert(hash, name.clone());
         self.phrases.insert(name, def);
         Ok(())
+    }
+
+    /// Load phrases from a string containing .rlf format.
+    ///
+    /// Returns the number of phrases loaded.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rlf::PhraseRegistry;
+    ///
+    /// let mut registry = PhraseRegistry::new();
+    /// let count = registry.load_phrases(r#"
+    ///     hello = "Hello, world!";
+    ///     card = { one: "card", other: "cards" };
+    /// "#).unwrap();
+    /// assert_eq!(count, 2);
+    /// ```
+    pub fn load_phrases(&mut self, content: &str) -> Result<usize, ParseError> {
+        let definitions = parse_file(content)?;
+        let count = definitions.len();
+        for def in definitions {
+            // insert handles collision detection
+            self.insert(def).map_err(|e| ParseError::Syntax {
+                line: 0,
+                column: 0,
+                message: format!("{e}"),
+            })?;
+        }
+        Ok(count)
     }
 }

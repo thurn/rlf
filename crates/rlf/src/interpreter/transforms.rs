@@ -46,10 +46,10 @@ impl TransformRegistry {
     /// Checks language-specific transforms first, then falls back to universal.
     pub fn get(&self, name: &str, lang: &str) -> Option<TransformFn> {
         // Language-specific takes precedence
-        if let Some(lang_transforms) = self.language_specific.get(lang) {
-            if let Some(f) = lang_transforms.get(name) {
-                return Some(*f);
-            }
+        if let Some(lang_transforms) = self.language_specific.get(lang)
+            && let Some(f) = lang_transforms.get(name)
+        {
+            return Some(*f);
         }
         // Fall back to universal
         self.universal.get(name).copied()
