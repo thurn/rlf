@@ -21,7 +21,7 @@ Requirements derived from design documents. All features documented in DESIGN.md
 - [ ] **LANG-10**: Multi-key shorthand (`nom, acc: "value"`)
 - [ ] **LANG-11**: Wildcard fallbacks (partial keys as fallbacks)
 - [ ] **LANG-12**: Metadata inheritance with `:from(param)` modifier
-- [ ] **LANG-13**: Automatic capitalization (`{Card}` → `{@cap card}`)
+- [ ] **LANG-13**: Automatic capitalization (`{Card}` -> `{@cap card}`)
 - [ ] **LANG-14**: Phrase calls with arguments `{phrase(arg1, arg2)}`
 - [ ] **LANG-15**: Chained selectors `{phrase:sel1:sel2}`
 - [ ] **LANG-16**: Chained transforms `{@t1 @t2 phrase}`
@@ -73,7 +73,7 @@ Requirements derived from design documents. All features documented in DESIGN.md
 - [ ] **INTERP-08**: `load_phrases()` to load phrases from string
 - [ ] **INTERP-09**: Phrase registry per language
 - [ ] **INTERP-10**: Transform registry with universal and language-specific
-- [ ] **INTERP-11**: Variant resolution with fallback (exact → progressively shorter)
+- [ ] **INTERP-11**: Variant resolution with fallback (exact -> progressively shorter)
 - [ ] **INTERP-12**: Numeric selection via CLDR plural category
 - [ ] **INTERP-13**: Tag-based selection (read phrase tag, use as variant key)
 - [ ] **INTERP-14**: Transform execution with optional context
@@ -133,7 +133,7 @@ Requirements derived from design documents. All features documented in DESIGN.md
 - [ ] **FR-01**: `@le` / `@la` - Definite article with elision from `:vowel`
 - [ ] **FR-02**: `@un` / `@une` - Indefinite article
 - [ ] **FR-03**: `@de` - "de" + article contraction
-- [ ] **FR-04**: `@au` - "à" + article contraction
+- [ ] **FR-04**: `@au` - "a" + article contraction
 - [ ] **FR-05**: `@liaison` - Prevocalic form selection
 
 ### German Transforms
@@ -221,7 +221,7 @@ Requirements derived from design documents. All features documented in DESIGN.md
 
 ## v2 Requirements
 
-(None — all documented features are v1)
+(None - all documented features are v1)
 
 ## Out of Scope
 
@@ -239,13 +239,146 @@ Requirements derived from design documents. All features documented in DESIGN.md
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (To be filled during roadmap creation) | | |
+| LANG-01 | Phase 1 | Pending |
+| LANG-02 | Phase 1 | Pending |
+| LANG-03 | Phase 1 | Pending |
+| LANG-04 | Phase 1 | Pending |
+| LANG-05 | Phase 1 | Pending |
+| LANG-06 | Phase 1 | Pending |
+| LANG-07 | Phase 1 | Pending |
+| LANG-08 | Phase 1 | Pending |
+| LANG-09 | Phase 1 | Pending |
+| LANG-10 | Phase 1 | Pending |
+| LANG-11 | Phase 1 | Pending |
+| LANG-12 | Phase 1 | Pending |
+| LANG-13 | Phase 1 | Pending |
+| LANG-14 | Phase 1 | Pending |
+| LANG-15 | Phase 1 | Pending |
+| LANG-16 | Phase 1 | Pending |
+| LANG-17 | Phase 1 | Pending |
+| MACRO-01 | Phase 5 | Pending |
+| MACRO-02 | Phase 5 | Pending |
+| MACRO-03 | Phase 5 | Pending |
+| MACRO-04 | Phase 5 | Pending |
+| MACRO-05 | Phase 5 | Pending |
+| MACRO-06 | Phase 5 | Pending |
+| MACRO-07 | Phase 5 | Pending |
+| MACRO-08 | Phase 5 | Pending |
+| MACRO-09 | Phase 5 | Pending |
+| MACRO-10 | Phase 5 | Pending |
+| MACRO-11 | Phase 5 | Pending |
+| MACRO-12 | Phase 5 | Pending |
+| MACRO-13 | Phase 5 | Pending |
+| MACRO-14 | Phase 5 | Pending |
+| MACRO-15 | Phase 5 | Pending |
+| MACRO-16 | Phase 5 | Pending |
+| MACRO-17 | Phase 5 | Pending |
+| TYPE-01 | Phase 1 | Pending |
+| TYPE-02 | Phase 1 | Pending |
+| TYPE-03 | Phase 1 | Pending |
+| TYPE-04 | Phase 1 | Pending |
+| TYPE-05 | Phase 1 | Pending |
+| TYPE-06 | Phase 1 | Pending |
+| TYPE-07 | Phase 1 | Pending |
+| TYPE-08 | Phase 1 | Pending |
+| TYPE-09 | Phase 1 | Pending |
+| TYPE-10 | Phase 1 | Pending |
+| TYPE-11 | Phase 1 | Pending |
+| INTERP-01 | Phase 1 | Pending |
+| INTERP-02 | Phase 1 | Pending |
+| INTERP-03 | Phase 2 | Pending |
+| INTERP-04 | Phase 2 | Pending |
+| INTERP-05 | Phase 2 | Pending |
+| INTERP-06 | Phase 2 | Pending |
+| INTERP-07 | Phase 2 | Pending |
+| INTERP-08 | Phase 2 | Pending |
+| INTERP-09 | Phase 2 | Pending |
+| INTERP-10 | Phase 2 | Pending |
+| INTERP-11 | Phase 2 | Pending |
+| INTERP-12 | Phase 2 | Pending |
+| INTERP-13 | Phase 2 | Pending |
+| INTERP-14 | Phase 2 | Pending |
+| INTERP-15 | Phase 2 | Pending |
+| INTERP-16 | Phase 2 | Pending |
+| INTERP-17 | Phase 2 | Pending |
+| LOC-01 | Phase 4 | Pending |
+| LOC-02 | Phase 4 | Pending |
+| LOC-03 | Phase 4 | Pending |
+| LOC-04 | Phase 4 | Pending |
+| LOC-05 | Phase 4 | Pending |
+| LOC-06 | Phase 4 | Pending |
+| LOC-07 | Phase 4 | Pending |
+| LOC-08 | Phase 4 | Pending |
+| LOC-09 | Phase 4 | Pending |
+| ERR-01 | Phase 4 | Pending |
+| ERR-02 | Phase 4 | Pending |
+| ERR-03 | Phase 4 | Pending |
+| ERR-04 | Phase 4 | Pending |
+| ERR-05 | Phase 4 | Pending |
+| ERR-06 | Phase 4 | Pending |
+| ERR-07 | Phase 4 | Pending |
+| ERR-08 | Phase 4 | Pending |
+| ERR-09 | Phase 4 | Pending |
+| XFORM-01 | Phase 3 | Pending |
+| XFORM-02 | Phase 3 | Pending |
+| XFORM-03 | Phase 3 | Pending |
+| ICU-01 | Phase 3 | Pending |
+| ICU-02 | Phase 3 | Pending |
+| ICU-03 | Phase 3 | Pending |
+| EN-01 | Phase 6 | Pending |
+| EN-02 | Phase 6 | Pending |
+| ES-01 | Phase 7 | Pending |
+| ES-02 | Phase 7 | Pending |
+| ES-03 | Phase 7 | Pending |
+| FR-01 | Phase 7 | Pending |
+| FR-02 | Phase 7 | Pending |
+| FR-03 | Phase 7 | Pending |
+| FR-04 | Phase 7 | Pending |
+| FR-05 | Phase 7 | Pending |
+| DE-01 | Phase 6 | Pending |
+| DE-02 | Phase 6 | Pending |
+| PT-01 | Phase 7 | Pending |
+| PT-02 | Phase 7 | Pending |
+| PT-03 | Phase 7 | Pending |
+| PT-04 | Phase 7 | Pending |
+| IT-01 | Phase 7 | Pending |
+| IT-02 | Phase 7 | Pending |
+| IT-03 | Phase 7 | Pending |
+| IT-04 | Phase 7 | Pending |
+| NL-01 | Phase 6 | Pending |
+| NL-02 | Phase 6 | Pending |
+| EL-01 | Phase 8 | Pending |
+| EL-02 | Phase 8 | Pending |
+| RO-01 | Phase 8 | Pending |
+| AR-01 | Phase 8 | Pending |
+| FA-01 | Phase 8 | Pending |
+| CJK-01 | Phase 9 | Pending |
+| CJK-02 | Phase 9 | Pending |
+| CJK-03 | Phase 9 | Pending |
+| CJK-04 | Phase 9 | Pending |
+| CJK-05 | Phase 9 | Pending |
+| CJK-06 | Phase 9 | Pending |
+| KO-01 | Phase 9 | Pending |
+| TR-01 | Phase 9 | Pending |
+| ID-01 | Phase 9 | Pending |
+| CLI-01 | Phase 10 | Pending |
+| CLI-02 | Phase 10 | Pending |
+| CLI-03 | Phase 10 | Pending |
+| CLI-04 | Phase 10 | Pending |
+| CLI-05 | Phase 10 | Pending |
+| CLI-06 | Phase 10 | Pending |
+| CLI-07 | Phase 10 | Pending |
+| CLI-08 | Phase 10 | Pending |
+| CLI-09 | Phase 10 | Pending |
+| CLI-10 | Phase 10 | Pending |
+| CLI-11 | Phase 10 | Pending |
+| CLI-12 | Phase 10 | Pending |
 
 **Coverage:**
 - v1 requirements: 111 total
-- Mapped to phases: 0
-- Unmapped: 111
+- Mapped to phases: 111
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-04*
-*Last updated: 2026-02-04 after initial definition*
+*Last updated: 2026-02-04 after roadmap creation*
