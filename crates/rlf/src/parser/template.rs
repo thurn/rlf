@@ -122,11 +122,12 @@ struct ParsedReference {
 
 /// Parse the content inside an interpolation.
 fn interpolation_content(input: &mut &str) -> ModalResult<Segment> {
-    let _ = ws(input)?;
-    let mut transforms: Vec<Transform> = repeat(0.., terminated(transform, ws)).parse_next(input)?;
+    ws(input)?;
+    let mut transforms: Vec<Transform> =
+        repeat(0.., terminated(transform, ws)).parse_next(input)?;
     let parsed_ref = reference(input)?;
     let selectors: Vec<Selector> = repeat(0.., selector).parse_next(input)?;
-    let _ = ws(input)?;
+    ws(input)?;
 
     // If auto-capitalization was triggered, prepend @cap transform
     if parsed_ref.auto_cap {
@@ -253,4 +254,3 @@ fn is_ident_start(c: char) -> bool {
 fn is_ident_cont(c: char) -> bool {
     c.is_ascii_alphanumeric() || c == '_'
 }
-

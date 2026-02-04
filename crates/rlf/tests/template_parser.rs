@@ -3,7 +3,7 @@
 //! These tests validate the public API of the template parser against all
 //! syntax forms documented in DESIGN.md.
 
-use rlf::parser::{parse_template, Reference, Segment, Selector};
+use rlf::parser::{Reference, Segment, Selector, parse_template};
 
 // =============================================================================
 // Basic parsing

@@ -1,6 +1,6 @@
 //! Integration tests for .rlf file parsing
 
-use rlf::parser::{parse_file, PhraseBody, Segment};
+use rlf::parser::{PhraseBody, Segment, parse_file};
 use rlf::types::Tag;
 
 #[test]
@@ -27,8 +27,7 @@ fn test_phrase_with_parameters() {
 
 #[test]
 fn test_phrase_with_multiple_parameters() {
-    let phrases =
-        parse_file(r#"damage(amount, target) = "Deal {amount} to {target}.";"#).unwrap();
+    let phrases = parse_file(r#"damage(amount, target) = "Deal {amount} to {target}.";"#).unwrap();
     assert_eq!(phrases[0].parameters, vec!["amount", "target"]);
 }
 
@@ -269,16 +268,14 @@ fn test_template_with_interpolations() {
 fn test_template_with_transforms() {
     let phrases = parse_file(r#"heading = "{@cap @a card}";"#).unwrap();
     match &phrases[0].body {
-        PhraseBody::Simple(t) => {
-            match &t.segments[0] {
-                Segment::Interpolation { transforms, .. } => {
-                    assert_eq!(transforms.len(), 2);
-                    assert_eq!(transforms[0].name, "cap");
-                    assert_eq!(transforms[1].name, "a");
-                }
-                _ => panic!("expected interpolation"),
+        PhraseBody::Simple(t) => match &t.segments[0] {
+            Segment::Interpolation { transforms, .. } => {
+                assert_eq!(transforms.len(), 2);
+                assert_eq!(transforms[0].name, "cap");
+                assert_eq!(transforms[1].name, "a");
             }
-        }
+            _ => panic!("expected interpolation"),
+        },
         _ => panic!("expected simple body"),
     }
 }
@@ -289,7 +286,10 @@ fn test_phrase_call_in_template() {
     match &phrases[0].body {
         PhraseBody::Simple(t) => {
             // Find the interpolation segment
-            let interp = t.segments.iter().find(|s| matches!(s, Segment::Interpolation { .. }));
+            let interp = t
+                .segments
+                .iter()
+                .find(|s| matches!(s, Segment::Interpolation { .. }));
             assert!(interp.is_some());
         }
         _ => panic!("expected simple body"),

@@ -56,7 +56,7 @@ fn calculate_position(original: &str, remaining: &str) -> (usize, usize) {
 
 /// Parse an entire file into phrase definitions.
 fn file(input: &mut &str) -> ModalResult<Vec<PhraseDefinition>> {
-    let _ = skip_ws_and_comments(input)?;
+    skip_ws_and_comments(input)?;
     let phrases: Vec<PhraseDefinition> =
         repeat(0.., terminated(phrase_definition, skip_ws_and_comments)).parse_next(input)?;
     Ok(phrases)
@@ -81,29 +81,29 @@ fn line_comment<'i>(input: &mut &'i str) -> ModalResult<&'i str> {
 /// Parse a phrase definition: name(params)? = tags? from? body ;
 fn phrase_definition(input: &mut &str) -> ModalResult<PhraseDefinition> {
     let name = snake_case_identifier(input)?;
-    let _ = skip_ws_and_comments(input)?;
+    skip_ws_and_comments(input)?;
 
     // Optional parameter list
     let parameters: Vec<String> = opt(parameter_list).parse_next(input)?.unwrap_or_default();
-    let _ = skip_ws_and_comments(input)?;
+    skip_ws_and_comments(input)?;
 
     // Equals sign
-    let _ = '='.parse_next(input)?;
-    let _ = skip_ws_and_comments(input)?;
+    '='.parse_next(input)?;
+    skip_ws_and_comments(input)?;
 
     // Optional tags
     let tags: Vec<Tag> = repeat(0.., terminated(tag, skip_ws_and_comments)).parse_next(input)?;
 
     // Optional :from(param)
-    let from_param: Option<String> = opt(terminated(from_modifier, skip_ws_and_comments))
-        .parse_next(input)?;
+    let from_param: Option<String> =
+        opt(terminated(from_modifier, skip_ws_and_comments)).parse_next(input)?;
 
     // Body (simple template or variant block)
     let body = phrase_body(input)?;
-    let _ = skip_ws_and_comments(input)?;
+    skip_ws_and_comments(input)?;
 
     // Semicolon
-    let _ = ';'.parse_next(input)?;
+    ';'.parse_next(input)?;
 
     Ok(PhraseDefinition {
         name,
@@ -134,7 +134,11 @@ fn snake_case_identifier(input: &mut &str) -> ModalResult<String> {
 fn parameter_list(input: &mut &str) -> ModalResult<Vec<String>> {
     delimited(
         '(',
-        separated(0.., preceded(skip_ws_and_comments, parameter_name), (skip_ws_and_comments, ',', skip_ws_and_comments)),
+        separated(
+            0..,
+            preceded(skip_ws_and_comments, parameter_name),
+            (skip_ws_and_comments, ',', skip_ws_and_comments),
+        ),
         preceded(skip_ws_and_comments, ')'),
     )
     .parse_next(input)
@@ -163,8 +167,7 @@ fn tag(input: &mut &str) -> ModalResult<Tag> {
 
 /// Parse a :from(param) modifier.
 fn from_modifier(input: &mut &str) -> ModalResult<String> {
-    preceded(":from", delimited('(', parameter_name, ')'))
-        .parse_next(input)
+    preceded(":from", delimited('(', parameter_name, ')')).parse_next(input)
 }
 
 /// Parse a phrase body: simple template or variant block.
@@ -189,9 +192,12 @@ fn variant_block(input: &mut &str) -> ModalResult<Vec<VariantEntry>> {
 /// Parse variant entries with trailing comma support.
 fn variant_entries(input: &mut &str) -> ModalResult<Vec<VariantEntry>> {
     // Parse entries separated by commas, allow trailing comma
-    let entries: Vec<VariantEntry> =
-        separated(0.., variant_entry, (skip_ws_and_comments, ',', skip_ws_and_comments))
-            .parse_next(input)?;
+    let entries: Vec<VariantEntry> = separated(
+        0..,
+        variant_entry,
+        (skip_ws_and_comments, ',', skip_ws_and_comments),
+    )
+    .parse_next(input)?;
 
     // Allow trailing comma
     let _ = opt((skip_ws_and_comments, ',')).parse_next(input)?;
@@ -202,9 +208,9 @@ fn variant_entries(input: &mut &str) -> ModalResult<Vec<VariantEntry>> {
 /// Parse a single variant entry: key1, key2: "template"
 fn variant_entry(input: &mut &str) -> ModalResult<VariantEntry> {
     let keys = variant_keys(input)?;
-    let _ = skip_ws_and_comments(input)?;
-    let _ = ':'.parse_next(input)?;
-    let _ = skip_ws_and_comments(input)?;
+    skip_ws_and_comments(input)?;
+    ':'.parse_next(input)?;
+    skip_ws_and_comments(input)?;
     let template = template_string(input)?;
 
     Ok(VariantEntry { keys, template })
@@ -212,14 +218,21 @@ fn variant_entry(input: &mut &str) -> ModalResult<VariantEntry> {
 
 /// Parse variant keys: key1, key2, key3 (before the colon).
 fn variant_keys(input: &mut &str) -> ModalResult<Vec<String>> {
-    separated(1.., variant_key, (skip_ws_and_comments, ',', skip_ws_and_comments)).parse_next(input)
+    separated(
+        1..,
+        variant_key,
+        (skip_ws_and_comments, ',', skip_ws_and_comments),
+    )
+    .parse_next(input)
 }
 
 /// Parse a single variant key (may include dots for multi-dimensional: nom.one).
 fn variant_key(input: &mut &str) -> ModalResult<String> {
-    take_while(1.., |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '.')
-        .map(|s: &str| s.to_string())
-        .parse_next(input)
+    take_while(1.., |c: char| {
+        c.is_ascii_alphanumeric() || c == '_' || c == '.'
+    })
+    .map(|s: &str| s.to_string())
+    .parse_next(input)
 }
 
 /// Parse a template string: "content"
@@ -264,11 +277,11 @@ fn interpolation(input: &mut &str) -> ModalResult<Segment> {
 
 /// Parse interpolation content.
 fn interpolation_content(input: &mut &str) -> ModalResult<Segment> {
-    let _ = ws(input)?;
+    ws(input)?;
     let transforms: Vec<Transform> = repeat(0.., terminated(transform, ws)).parse_next(input)?;
     let reference = reference(input)?;
     let selectors: Vec<Selector> = repeat(0.., selector).parse_next(input)?;
-    let _ = ws(input)?;
+    ws(input)?;
 
     Ok(Segment::Interpolation {
         transforms,
@@ -288,10 +301,7 @@ fn ws(input: &mut &str) -> ModalResult<()> {
 fn transform(input: &mut &str) -> ModalResult<Transform> {
     preceded(
         '@',
-        (
-            simple_identifier,
-            opt(preceded(':', selector_identifier)),
-        ),
+        (simple_identifier, opt(preceded(':', selector_identifier))),
     )
     .map(|(name, context)| Transform {
         name: name.to_string(),
@@ -411,4 +421,3 @@ fn merge_literals(segments: Vec<Segment>) -> Vec<Segment> {
 
     result
 }
-
