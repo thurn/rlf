@@ -2,9 +2,9 @@
 
 use std::collections::HashMap;
 
-use crate::interpreter::{eval_phrase_def, EvalContext, EvalError};
+use crate::interpreter::{EvalContext, EvalError, eval_phrase_def};
 use crate::parser::ast::PhraseDefinition;
-use crate::parser::{parse_file, parse_template, ParseError};
+use crate::parser::{ParseError, parse_file, parse_template};
 use crate::types::{Phrase, PhraseId, Value};
 
 /// A registry for storing and looking up phrase definitions.
@@ -159,17 +159,10 @@ impl PhraseRegistry {
     /// let result = registry.call_phrase("en", "greet", &[Value::from("World")]).unwrap();
     /// assert_eq!(result.to_string(), "Hello, World!");
     /// ```
-    pub fn call_phrase(
-        &self,
-        lang: &str,
-        name: &str,
-        args: &[Value],
-    ) -> Result<Phrase, EvalError> {
-        let def = self
-            .get(name)
-            .ok_or_else(|| EvalError::PhraseNotFound {
-                name: name.to_string(),
-            })?;
+    pub fn call_phrase(&self, lang: &str, name: &str, args: &[Value]) -> Result<Phrase, EvalError> {
+        let def = self.get(name).ok_or_else(|| EvalError::PhraseNotFound {
+            name: name.to_string(),
+        })?;
 
         // Check argument count
         if def.parameters.len() != args.len() {
@@ -217,11 +210,9 @@ impl PhraseRegistry {
     /// assert_eq!(result.to_string(), "Hello, world!");
     /// ```
     pub fn get_phrase(&self, lang: &str, name: &str) -> Result<Phrase, EvalError> {
-        let def = self
-            .get(name)
-            .ok_or_else(|| EvalError::PhraseNotFound {
-                name: name.to_string(),
-            })?;
+        let def = self.get(name).ok_or_else(|| EvalError::PhraseNotFound {
+            name: name.to_string(),
+        })?;
 
         if !def.parameters.is_empty() {
             return Err(EvalError::ArgumentCount {

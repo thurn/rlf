@@ -297,7 +297,9 @@ fn eval_str_basic() {
         .unwrap();
 
     let params: HashMap<String, Value> = [("n".to_string(), Value::from(3))].into_iter().collect();
-    let result = registry.eval_str("Draw {n} {card:n}.", "en", params).unwrap();
+    let result = registry
+        .eval_str("Draw {n} {card:n}.", "en", params)
+        .unwrap();
     assert_eq!(result.to_string(), "Draw 3 cards.");
 }
 
@@ -308,9 +310,7 @@ fn eval_str_basic() {
 #[test]
 fn phrase_id_resolve() {
     let mut registry = PhraseRegistry::new();
-    registry
-        .load_phrases(r#"hello = "Hello!";"#)
-        .unwrap();
+    registry.load_phrases(r#"hello = "Hello!";"#).unwrap();
 
     let id = PhraseId::from_name("hello");
     let phrase = id.resolve_with_registry(&registry, "en").unwrap();

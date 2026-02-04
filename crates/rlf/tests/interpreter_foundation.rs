@@ -1,7 +1,7 @@
 //! Tests for interpreter foundation: registry, context, plural rules.
 
-use rlf::interpreter::{plural_category, EvalContext, EvalError, PhraseRegistry};
 use rlf::Value;
+use rlf::interpreter::{EvalContext, EvalError, PhraseRegistry, plural_category};
 use std::collections::HashMap;
 
 // === PhraseRegistry Tests ===

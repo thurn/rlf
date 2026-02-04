@@ -14,8 +14,8 @@ Evaluation engine that takes parsed templates and produces formatted strings. Re
 ## Implementation Decisions
 
 ### Evaluation API Shape
-- Return type: Always `Result<String, EvalError>` — caller must handle errors explicitly
-- Parameter passing: `params!()` macro helper that builds the parameter map
+- Return type: Always `Result<Phrase, EvalError>` — per APPENDIX_RUNTIME_INTERPRETER.md, Phrase carries variants/tags needed for downstream selection
+- Parameter passing: `HashMap<String, Value>` (params!() macro helper deferred to Phase 5)
 - Context required: Full locale context (phrases + current language + transform functions)
 - Evaluation timing: Eager — `eval_str()` runs immediately and returns the result
 

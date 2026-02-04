@@ -197,12 +197,14 @@ fn eval_with_from_modifier(
                 name: format!("parameter '{}' not found for :from modifier", from_param),
             })?;
 
-        let source_phrase = source.as_phrase().ok_or_else(|| EvalError::PhraseNotFound {
-            name: format!(
-                "parameter '{}' must be a Phrase for :from modifier",
-                from_param
-            ),
-        })?;
+        let source_phrase = source
+            .as_phrase()
+            .ok_or_else(|| EvalError::PhraseNotFound {
+                name: format!(
+                    "parameter '{}' must be a Phrase for :from modifier",
+                    from_param
+                ),
+            })?;
 
         (source_phrase.tags.clone(), source_phrase.variants.clone())
     };
@@ -246,10 +248,7 @@ fn eval_with_from_modifier(
     } else {
         // No variants - just evaluate the template
         let text = eval_template(template, ctx, registry, lang)?;
-        Ok(Phrase::builder()
-            .text(text)
-            .tags(inherited_tags)
-            .build())
+        Ok(Phrase::builder().text(text).tags(inherited_tags).build())
     }
 }
 
@@ -298,7 +297,11 @@ fn apply_selectors(
 /// - String -> try parse as number, else use literally
 ///
 /// Otherwise -> literal key string
-fn resolve_selector(selector: &Selector, ctx: &EvalContext<'_>, lang: &str) -> Result<String, EvalError> {
+fn resolve_selector(
+    selector: &Selector,
+    ctx: &EvalContext<'_>,
+    lang: &str,
+) -> Result<String, EvalError> {
     match selector {
         Selector::Identifier(name) => {
             // Check if this is a parameter reference
