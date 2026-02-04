@@ -13,7 +13,7 @@ RLF (Rust Localization Framework) is built from the ground up: core types and pa
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Core Types and Parser** - Foundation types (Phrase, Value, PhraseId) and parser for template/file syntax
-- [ ] **Phase 2: Interpreter Engine** - Evaluation engine for templates with variant resolution and phrase calls
+- [x] **Phase 2: Interpreter Engine** - Evaluation engine for templates with variant resolution and phrase calls
 - [ ] **Phase 3: Universal Transforms and ICU4X** - Case transforms and CLDR plural rules integration
 - [ ] **Phase 4: Locale Management and Error Handling** - Locale struct, phrase loading, and comprehensive error types
 - [ ] **Phase 5: Macro Code Generation** - rlf! macro parsing, code generation, and compile-time validation
@@ -55,8 +55,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Interpreter foundation: EvalError, PhraseRegistry, EvalContext, CLDR plural rules
-- [ ] 02-02-PLAN.md — Template evaluation: eval_str, call_phrase, get_phrase, variant resolution, phrase calls
+- [x] 02-01-PLAN.md — Interpreter foundation: EvalError, PhraseRegistry, EvalContext, CLDR plural rules
+- [x] 02-02-PLAN.md — Template evaluation: eval_str, call_phrase, get_phrase, variant resolution, phrase calls
 
 ### Phase 3: Universal Transforms and ICU4X
 **Goal**: Case transforms and plural rules work for all languages
@@ -185,8 +185,8 @@ Note: Phases 6-9 (language transforms) can proceed in parallel after Phase 3 com
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core Types and Parser | 3/3 | Complete | 2026-02-04 |
-| 2. Interpreter Engine | 0/2 | Ready to execute | - |
-| 3. Universal Transforms and ICU4X | 0/1 | Not started | - |
+| 2. Interpreter Engine | 2/2 | Complete | 2026-02-04 |
+| 3. Universal Transforms and ICU4X | 0/1 | Ready to plan | - |
 | 4. Locale Management and Error Handling | 0/2 | Not started | - |
 | 5. Macro Code Generation | 0/3 | Not started | - |
 | 6. English and Germanic Transforms | 0/1 | Not started | - |
@@ -197,4 +197,4 @@ Note: Phases 6-9 (language transforms) can proceed in parallel after Phase 3 com
 
 ---
 *Roadmap created: 2026-02-04*
-*Last updated: 2026-02-04 after Phase 2 planning*
+*Last updated: 2026-02-04 after Phase 2 execution*
