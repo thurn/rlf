@@ -62,5 +62,69 @@ impl std::fmt::Display for PhraseId {
     }
 }
 
-// Note: resolve() and call() methods require Locale (Phase 4)
-// Note: name() method requires registry (Phase 2)
+// Resolution methods using PhraseRegistry directly
+// Full resolve(&Locale) and call(&Locale, &[Value]) methods will be added in Phase 4
+
+impl PhraseId {
+    /// Resolve using a registry directly (for use before Locale exists).
+    ///
+    /// This evaluates a parameterless phrase identified by this PhraseId.
+    /// Full `resolve(&Locale)` method will be added in Phase 4.
+    ///
+    /// # Arguments
+    ///
+    /// * `registry` - The phrase registry containing the phrase definition
+    /// * `lang` - Language code for plural rules
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rlf::{PhraseId, PhraseRegistry};
+    ///
+    /// let mut registry = PhraseRegistry::new();
+    /// registry.load_phrases(r#"hello = "Hello!";"#).unwrap();
+    ///
+    /// let id = PhraseId::from_name("hello");
+    /// let phrase = id.resolve_with_registry(&registry, "en").unwrap();
+    /// assert_eq!(phrase.to_string(), "Hello!");
+    /// ```
+    pub fn resolve_with_registry(
+        &self,
+        registry: &crate::interpreter::PhraseRegistry,
+        lang: &str,
+    ) -> Result<crate::Phrase, crate::interpreter::EvalError> {
+        registry.get_phrase_by_id(self.0, lang)
+    }
+
+    /// Call using a registry directly (for use before Locale exists).
+    ///
+    /// This evaluates a phrase with arguments identified by this PhraseId.
+    /// Full `call(&Locale, &[Value])` method will be added in Phase 4.
+    ///
+    /// # Arguments
+    ///
+    /// * `registry` - The phrase registry containing the phrase definition
+    /// * `lang` - Language code for plural rules
+    /// * `args` - Positional arguments for the phrase
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rlf::{PhraseId, PhraseRegistry, Value};
+    ///
+    /// let mut registry = PhraseRegistry::new();
+    /// registry.load_phrases(r#"greet(name) = "Hello, {name}!";"#).unwrap();
+    ///
+    /// let id = PhraseId::from_name("greet");
+    /// let phrase = id.call_with_registry(&registry, "en", &[Value::from("World")]).unwrap();
+    /// assert_eq!(phrase.to_string(), "Hello, World!");
+    /// ```
+    pub fn call_with_registry(
+        &self,
+        registry: &crate::interpreter::PhraseRegistry,
+        lang: &str,
+        args: &[crate::Value],
+    ) -> Result<crate::Phrase, crate::interpreter::EvalError> {
+        registry.call_phrase_by_id(self.0, lang, args)
+    }
+}

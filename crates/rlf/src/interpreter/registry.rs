@@ -2,10 +2,10 @@
 
 use std::collections::HashMap;
 
-use crate::interpreter::EvalError;
+use crate::interpreter::{eval_phrase_def, EvalContext, EvalError};
 use crate::parser::ast::PhraseDefinition;
-use crate::parser::{parse_file, ParseError};
-use crate::types::PhraseId;
+use crate::parser::{parse_file, parse_template, ParseError};
+use crate::types::{Phrase, PhraseId, Value};
 
 /// A registry for storing and looking up phrase definitions.
 ///
@@ -92,5 +92,199 @@ impl PhraseRegistry {
             })?;
         }
         Ok(count)
+    }
+
+    // =========================================================================
+    // Public Evaluation API
+    // =========================================================================
+
+    /// Evaluate a template string with parameters.
+    ///
+    /// This is the main entry point for runtime template evaluation. The template
+    /// string is parsed and evaluated with the given parameters in the specified
+    /// language context.
+    ///
+    /// # Arguments
+    ///
+    /// * `template_str` - A template string (e.g., "Draw {n} {card:n}.")
+    /// * `lang` - Language code for plural rules (e.g., "en", "ru")
+    /// * `params` - Parameters available during evaluation
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rlf::{PhraseRegistry, Value};
+    /// use std::collections::HashMap;
+    ///
+    /// let mut registry = PhraseRegistry::new();
+    /// registry.load_phrases(r#"card = { one: "card", other: "cards" };"#).unwrap();
+    ///
+    /// let params: HashMap<String, Value> = [("n".to_string(), Value::from(3))].into_iter().collect();
+    /// let result = registry.eval_str("Draw {n} {card:n}.", "en", params).unwrap();
+    /// assert_eq!(result.to_string(), "Draw 3 cards.");
+    /// ```
+    pub fn eval_str(
+        &self,
+        template_str: &str,
+        lang: &str,
+        params: HashMap<String, Value>,
+    ) -> Result<Phrase, EvalError> {
+        let template = parse_template(template_str).map_err(|e| EvalError::PhraseNotFound {
+            name: format!("parse error: {}", e),
+        })?;
+        let mut ctx = EvalContext::new(&params);
+        let text = crate::interpreter::eval_template(&template, &mut ctx, self, lang)?;
+        Ok(Phrase::builder().text(text).build())
+    }
+
+    /// Call a phrase by name with positional arguments.
+    ///
+    /// The phrase is looked up by name, the arguments are matched to parameters,
+    /// and the phrase is evaluated in the specified language context.
+    ///
+    /// # Arguments
+    ///
+    /// * `lang` - Language code for plural rules
+    /// * `name` - Name of the phrase to call
+    /// * `args` - Positional arguments (must match parameter count)
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rlf::{PhraseRegistry, Value};
+    ///
+    /// let mut registry = PhraseRegistry::new();
+    /// registry.load_phrases(r#"greet(name) = "Hello, {name}!";"#).unwrap();
+    ///
+    /// let result = registry.call_phrase("en", "greet", &[Value::from("World")]).unwrap();
+    /// assert_eq!(result.to_string(), "Hello, World!");
+    /// ```
+    pub fn call_phrase(
+        &self,
+        lang: &str,
+        name: &str,
+        args: &[Value],
+    ) -> Result<Phrase, EvalError> {
+        let def = self
+            .get(name)
+            .ok_or_else(|| EvalError::PhraseNotFound {
+                name: name.to_string(),
+            })?;
+
+        // Check argument count
+        if def.parameters.len() != args.len() {
+            return Err(EvalError::ArgumentCount {
+                phrase: name.to_string(),
+                expected: def.parameters.len(),
+                got: args.len(),
+            });
+        }
+
+        // Build param map
+        let params: HashMap<String, Value> = def
+            .parameters
+            .iter()
+            .zip(args.iter())
+            .map(|(name, value)| (name.clone(), value.clone()))
+            .collect();
+
+        let mut ctx = EvalContext::new(&params);
+        ctx.push_call(name)?;
+        let result = eval_phrase_def(def, &mut ctx, self, lang)?;
+        ctx.pop_call();
+        Ok(result)
+    }
+
+    /// Get a parameterless phrase as a Phrase value.
+    ///
+    /// The phrase is looked up by name and evaluated. It must not have any
+    /// parameters defined.
+    ///
+    /// # Arguments
+    ///
+    /// * `lang` - Language code for plural rules
+    /// * `name` - Name of the phrase to get
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rlf::PhraseRegistry;
+    ///
+    /// let mut registry = PhraseRegistry::new();
+    /// registry.load_phrases(r#"hello = "Hello, world!";"#).unwrap();
+    ///
+    /// let result = registry.get_phrase("en", "hello").unwrap();
+    /// assert_eq!(result.to_string(), "Hello, world!");
+    /// ```
+    pub fn get_phrase(&self, lang: &str, name: &str) -> Result<Phrase, EvalError> {
+        let def = self
+            .get(name)
+            .ok_or_else(|| EvalError::PhraseNotFound {
+                name: name.to_string(),
+            })?;
+
+        if !def.parameters.is_empty() {
+            return Err(EvalError::ArgumentCount {
+                phrase: name.to_string(),
+                expected: def.parameters.len(),
+                got: 0,
+            });
+        }
+
+        let params = HashMap::new();
+        let mut ctx = EvalContext::new(&params);
+        ctx.push_call(name)?;
+        let result = eval_phrase_def(def, &mut ctx, self, lang)?;
+        ctx.pop_call();
+        Ok(result)
+    }
+
+    /// Call a phrase by PhraseId with arguments.
+    ///
+    /// Like `call_phrase`, but looks up the phrase by its PhraseId hash.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - PhraseId hash of the phrase
+    /// * `lang` - Language code for plural rules
+    /// * `args` - Positional arguments
+    pub fn call_phrase_by_id(
+        &self,
+        id: u64,
+        lang: &str,
+        args: &[Value],
+    ) -> Result<Phrase, EvalError> {
+        let name = self
+            .id_to_name
+            .get(&id)
+            .ok_or(EvalError::PhraseNotFoundById { id })?;
+        self.call_phrase(lang, name, args)
+    }
+
+    /// Get a phrase by PhraseId (parameterless only).
+    ///
+    /// Like `get_phrase`, but looks up the phrase by its PhraseId hash.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - PhraseId hash of the phrase
+    /// * `lang` - Language code for plural rules
+    pub fn get_phrase_by_id(&self, id: u64, lang: &str) -> Result<Phrase, EvalError> {
+        let name = self
+            .id_to_name
+            .get(&id)
+            .ok_or(EvalError::PhraseNotFoundById { id })?;
+        self.get_phrase(lang, name)
+    }
+
+    /// Get the parameter count for a phrase by id.
+    ///
+    /// Returns 0 if the phrase is not found.
+    pub fn phrase_parameter_count(&self, id: u64) -> usize {
+        self.id_to_name
+            .get(&id)
+            .and_then(|name| self.get(name))
+            .map(|def| def.parameters.len())
+            .unwrap_or(0)
     }
 }
