@@ -52,11 +52,11 @@ Plans:
   3. Variant selection works with dot-notation keys and fallback resolution
   4. Tag-based selection reads phrase metadata and uses as variant key
   5. Cycle detection prevents infinite recursion and max depth limit enforced
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [ ] 02-01-PLAN.md — Interpreter foundation: EvalError, PhraseRegistry, EvalContext, CLDR plural rules
+- [ ] 02-02-PLAN.md — Template evaluation: eval_str, call_phrase, get_phrase, variant resolution, phrase calls
 
 ### Phase 3: Universal Transforms and ICU4X
 **Goal**: Case transforms and plural rules work for all languages
@@ -185,7 +185,7 @@ Note: Phases 6-9 (language transforms) can proceed in parallel after Phase 3 com
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core Types and Parser | 3/3 | Complete | 2026-02-04 |
-| 2. Interpreter Engine | 0/2 | Not started | - |
+| 2. Interpreter Engine | 0/2 | Ready to execute | - |
 | 3. Universal Transforms and ICU4X | 0/1 | Not started | - |
 | 4. Locale Management and Error Handling | 0/2 | Not started | - |
 | 5. Macro Code Generation | 0/3 | Not started | - |
@@ -197,4 +197,4 @@ Note: Phases 6-9 (language transforms) can proceed in parallel after Phase 3 com
 
 ---
 *Roadmap created: 2026-02-04*
-*Last updated: 2026-02-04 after Phase 1 completion*
+*Last updated: 2026-02-04 after Phase 2 planning*
