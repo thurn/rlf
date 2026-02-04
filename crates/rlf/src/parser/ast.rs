@@ -2,6 +2,8 @@
 //!
 //! These types are public to enable external tooling (linters, formatters, etc.).
 
+use crate::types::Tag;
+
 /// A parsed template string containing segments.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Template {
@@ -48,4 +50,41 @@ pub enum Selector {
     /// At parse time we don't distinguish literal selectors from parameter selectors.
     /// Resolution happens later during interpretation.
     Identifier(String),
+}
+
+// =============================================================================
+// File-level AST types (phrase definitions)
+// =============================================================================
+
+/// A parsed phrase definition from a .rlf file.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PhraseDefinition {
+    /// Phrase name (snake_case identifier).
+    pub name: String,
+    /// Parameter names (empty if no parameters).
+    pub parameters: Vec<String>,
+    /// Metadata tags (e.g., :fem, :masc, :a).
+    pub tags: Vec<Tag>,
+    /// :from(param) inheritance (None if not present).
+    pub from_param: Option<String>,
+    /// Phrase body (simple template or variants).
+    pub body: PhraseBody,
+}
+
+/// The body of a phrase definition.
+#[derive(Debug, Clone, PartialEq)]
+pub enum PhraseBody {
+    /// Simple phrase: name = "text";
+    Simple(Template),
+    /// Variant phrase: name = { one: "x", other: "y" };
+    Variants(Vec<VariantEntry>),
+}
+
+/// A single variant entry in a variant block.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VariantEntry {
+    /// Variant keys (multiple keys share the same template).
+    pub keys: Vec<String>,
+    /// Template for this variant.
+    pub template: Template,
 }
