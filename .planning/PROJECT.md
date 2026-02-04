@@ -65,6 +65,7 @@ When you add a phrase to `strings.rlf.rs`, it immediately appears in IDE autocom
 - **Testing**: Integration tests in `tests/` directory only (no `#[test]` in src/), insta for snapshots, proptest for fuzzing
 - **Build**: `justfile` as central command runner
 - **Dependencies**: ICU4X for CLDR plural rules, proc-macro2/quote/syn for macro
+- **Validation**: Every task MUST include `just review` in its `<verify>` tag to ensure code quality
 
 ## Key Decisions
 
@@ -76,4 +77,4 @@ When you add a phrase to `strings.rlf.rs`, it immediately appears in IDE autocom
 | Built-in transforms only | Predictable behavior, no user-defined complexity | — Pending |
 
 ---
-*Last updated: 2026-02-04 after initialization*
+*Last updated: 2026-02-04 - added validation constraint*
