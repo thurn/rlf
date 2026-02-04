@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** When you add a phrase to `strings.rlf.rs`, it immediately appears in IDE autocomplete
-**Current focus:** Phase 2 - Interpreter Engine (COMPLETE)
+**Current focus:** Phase 3 - Universal Transforms and ICU4X (In Progress)
 
 ## Current Position
 
-Phase: 2 of 10 (Interpreter Engine)
-Plan: 2 of 2 in current phase (PHASE COMPLETE)
-Status: Phase complete - ready for Phase 3
-Last activity: 2026-02-04 - Completed 02-02-PLAN.md (Evaluation Logic)
+Phase: 3 of 10 (Universal Transforms and ICU4X)
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-02-04 - Completed 03-01-PLAN.md (Universal Case Transforms)
 
-Progress: [#####-----] 17% (5/30 plans)
+Progress: [######----] 20% (6/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
-- Average duration: 4.6 min
-- Total execution time: 0.38 hours
+- Total plans completed: 6
+- Average duration: 4.2 min
+- Total execution time: 0.42 hours
 
 **By Phase:**
 
@@ -29,9 +29,10 @@ Progress: [#####-----] 17% (5/30 plans)
 |-------|-------|-------|----------|
 | 01-core-types-and-parser | 3 | 14 min | 5 min |
 | 02-interpreter-engine | 2 | 8 min | 4 min |
+| 03-universal-transforms-and-icu4x | 1 | 2 min | 2 min |
 
 **Recent Trend:**
-- Last 5 plans: 3 min, 5 min, 6 min, 3 min, 5 min
+- Last 5 plans: 5 min, 6 min, 3 min, 5 min, 2 min
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -57,6 +58,9 @@ Recent decisions affecting current work:
 - No scope inheritance: child phrase contexts don't see parent parameters
 - Selector syntax uses chained colons (:nom:one), variant keys use dots (nom.one)
 - :from modifier inherits both tags and variants from source phrase
+- Static dispatch via TransformKind enum, no trait objects or function pointers
+- ICU4X CaseMapper for locale-sensitive case mapping (Turkish dotted-I)
+- unicode-segmentation graphemes(true) for proper first-character handling
 
 ### Pending Todos
 
@@ -104,10 +108,17 @@ All 128 tests passing:
 - 27 interpreter evaluation tests
 - 12 doctests
 
-Ready to proceed to Phase 3 (Transform System).
+## Phase 3 Progress
+
+Phase 3 (Universal Transforms and ICU4X) in progress:
+- **03-01:** Universal Case Transforms (COMPLETE)
+  - TransformKind enum with Cap/Upper/Lower variants
+  - ICU4X CaseMapper for locale-sensitive case mapping
+  - unicode-segmentation for grapheme-aware @cap
+  - UnknownTransform error variant
 
 ## Session Continuity
 
-Last session: 2026-02-04T22:57:29Z
-Stopped at: Completed 02-02-PLAN.md
+Last session: 2026-02-04T23:45:39Z
+Stopped at: Completed 03-01-PLAN.md
 Resume file: None
