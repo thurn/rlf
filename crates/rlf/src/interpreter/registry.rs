@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use crate::interpreter::transforms::TransformRegistry;
 use crate::interpreter::{EvalContext, EvalError, eval_phrase_def};
 use crate::parser::ast::PhraseDefinition;
 use crate::parser::{ParseError, parse_file, parse_template};
@@ -132,8 +133,15 @@ impl PhraseRegistry {
         let template = parse_template(template_str).map_err(|e| EvalError::PhraseNotFound {
             name: format!("parse error: {}", e),
         })?;
+        let transform_registry = TransformRegistry::new();
         let mut ctx = EvalContext::new(&params);
-        let text = crate::interpreter::eval_template(&template, &mut ctx, self, lang)?;
+        let text = crate::interpreter::eval_template(
+            &template,
+            &mut ctx,
+            self,
+            &transform_registry,
+            lang,
+        )?;
         Ok(Phrase::builder().text(text).build())
     }
 
@@ -181,9 +189,10 @@ impl PhraseRegistry {
             .map(|(name, value)| (name.clone(), value.clone()))
             .collect();
 
+        let transform_registry = TransformRegistry::new();
         let mut ctx = EvalContext::new(&params);
         ctx.push_call(name)?;
-        let result = eval_phrase_def(def, &mut ctx, self, lang)?;
+        let result = eval_phrase_def(def, &mut ctx, self, &transform_registry, lang)?;
         ctx.pop_call();
         Ok(result)
     }
@@ -222,10 +231,11 @@ impl PhraseRegistry {
             });
         }
 
+        let transform_registry = TransformRegistry::new();
         let params = HashMap::new();
         let mut ctx = EvalContext::new(&params);
         ctx.push_call(name)?;
-        let result = eval_phrase_def(def, &mut ctx, self, lang)?;
+        let result = eval_phrase_def(def, &mut ctx, self, &transform_registry, lang)?;
         ctx.pop_call();
         Ok(result)
     }

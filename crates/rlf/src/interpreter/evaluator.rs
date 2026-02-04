@@ -7,9 +7,10 @@
 use std::collections::HashMap;
 
 use crate::interpreter::plural::plural_category;
+use crate::interpreter::transforms::TransformRegistry;
 use crate::interpreter::{EvalContext, EvalError, PhraseRegistry};
 use crate::parser::ast::{
-    PhraseBody, PhraseDefinition, Reference, Segment, Selector, Template, VariantEntry,
+    PhraseBody, PhraseDefinition, Reference, Segment, Selector, Template, Transform, VariantEntry,
 };
 use crate::types::{Phrase, Tag, Value, VariantKey};
 
@@ -24,6 +25,7 @@ use crate::types::{Phrase, Tag, Value, VariantKey};
 /// * `template` - The parsed template AST
 /// * `ctx` - Evaluation context with parameters and call stack
 /// * `registry` - Registry for looking up phrase definitions
+/// * `transform_registry` - Registry for looking up transforms
 /// * `lang` - Language code for plural rules
 ///
 /// # Errors
@@ -33,10 +35,12 @@ use crate::types::{Phrase, Tag, Value, VariantKey};
 /// - A variant is missing after selector resolution
 /// - Maximum recursion depth is exceeded
 /// - A cyclic reference is detected
+/// - An unknown transform is used
 pub fn eval_template(
     template: &Template,
     ctx: &mut EvalContext<'_>,
     registry: &PhraseRegistry,
+    transform_registry: &TransformRegistry,
     lang: &str,
 ) -> Result<String, EvalError> {
     let mut output = String::new();
@@ -49,12 +53,13 @@ pub fn eval_template(
                 selectors,
             } => {
                 // 1. Resolve reference to Value
-                let value = resolve_reference(reference, ctx, registry, lang)?;
+                let value = resolve_reference(reference, ctx, registry, transform_registry, lang)?;
                 // 2. Apply selectors to get variant/final value
                 let selected = apply_selectors(&value, selectors, ctx, lang)?;
-                // 3. Transforms are stub for Phase 3 - just pass through
-                let _ = transforms; // silence unused warning until Phase 3
-                output.push_str(&selected);
+                // 3. Apply transforms (right-to-left per DESIGN.md)
+                let transformed =
+                    apply_transforms(&selected, transforms, transform_registry, lang)?;
+                output.push_str(&transformed);
             }
         }
     }
@@ -72,6 +77,7 @@ fn resolve_reference(
     reference: &Reference,
     ctx: &mut EvalContext<'_>,
     registry: &PhraseRegistry,
+    transform_registry: &TransformRegistry,
     lang: &str,
 ) -> Result<Value, EvalError> {
     match reference {
@@ -94,7 +100,7 @@ fn resolve_reference(
 
                 // Evaluate the phrase
                 ctx.push_call(name)?;
-                let result = eval_phrase_def(def, ctx, registry, lang)?;
+                let result = eval_phrase_def(def, ctx, registry, transform_registry, lang)?;
                 ctx.pop_call();
                 return Ok(Value::Phrase(result));
             }
@@ -119,7 +125,7 @@ fn resolve_reference(
             // Resolve arguments to values
             let resolved_args: Vec<Value> = args
                 .iter()
-                .map(|arg| resolve_reference(arg, ctx, registry, lang))
+                .map(|arg| resolve_reference(arg, ctx, registry, transform_registry, lang))
                 .collect::<Result<Vec<_>, _>>()?;
 
             // Build param map for child context
@@ -133,7 +139,7 @@ fn resolve_reference(
             // Create child context (no scope inheritance per RESEARCH.md)
             let mut child_ctx = EvalContext::new(&params);
             child_ctx.push_call(name)?;
-            let result = eval_phrase_def(def, &mut child_ctx, registry, lang)?;
+            let result = eval_phrase_def(def, &mut child_ctx, registry, transform_registry, lang)?;
             child_ctx.pop_call();
 
             Ok(Value::Phrase(result))
@@ -151,6 +157,7 @@ pub fn eval_phrase_def(
     def: &PhraseDefinition,
     ctx: &mut EvalContext<'_>,
     registry: &PhraseRegistry,
+    transform_registry: &TransformRegistry,
     lang: &str,
 ) -> Result<Phrase, EvalError> {
     // Convert definition tags to Phrase tags
@@ -158,16 +165,17 @@ pub fn eval_phrase_def(
 
     // Handle :from modifier for metadata inheritance
     if let Some(from_param) = &def.from_param {
-        return eval_with_from_modifier(def, from_param, ctx, registry, lang);
+        return eval_with_from_modifier(def, from_param, ctx, registry, transform_registry, lang);
     }
 
     match &def.body {
         PhraseBody::Simple(template) => {
-            let text = eval_template(template, ctx, registry, lang)?;
+            let text = eval_template(template, ctx, registry, transform_registry, lang)?;
             Ok(Phrase::builder().text(text).tags(tags).build())
         }
         PhraseBody::Variants(entries) => {
-            let (text, variants) = build_phrase_from_variants(entries, ctx, registry, lang)?;
+            let (text, variants) =
+                build_phrase_from_variants(entries, ctx, registry, transform_registry, lang)?;
             Ok(Phrase::builder()
                 .text(text)
                 .variants(variants)
@@ -186,6 +194,7 @@ fn eval_with_from_modifier(
     from_param: &str,
     ctx: &mut EvalContext<'_>,
     registry: &PhraseRegistry,
+    transform_registry: &TransformRegistry,
     lang: &str,
 ) -> Result<Phrase, EvalError> {
     // Get the source phrase from the parameter and clone its data upfront
@@ -225,7 +234,7 @@ fn eval_with_from_modifier(
         let mut variants = HashMap::new();
 
         // Evaluate for default text first
-        let default_text = eval_template(template, ctx, registry, lang)?;
+        let default_text = eval_template(template, ctx, registry, transform_registry, lang)?;
 
         // Evaluate for each variant
         for (key, variant_text) in &source_variants {
@@ -236,7 +245,13 @@ fn eval_with_from_modifier(
                     .collect();
             let mut variant_ctx = EvalContext::new(&simple_params);
 
-            let variant_result = eval_template(template, &mut variant_ctx, registry, lang)?;
+            let variant_result = eval_template(
+                template,
+                &mut variant_ctx,
+                registry,
+                transform_registry,
+                lang,
+            )?;
             variants.insert(key.clone(), variant_result);
         }
 
@@ -247,7 +262,7 @@ fn eval_with_from_modifier(
             .build())
     } else {
         // No variants - just evaluate the template
-        let text = eval_template(template, ctx, registry, lang)?;
+        let text = eval_template(template, ctx, registry, transform_registry, lang)?;
         Ok(Phrase::builder().text(text).tags(inherited_tags).build())
     }
 }
@@ -376,6 +391,45 @@ fn variant_lookup(phrase: &Phrase, key: &str) -> Result<String, EvalError> {
     })
 }
 
+/// Apply transforms to a string value, executing right-to-left.
+///
+/// Per DESIGN.md: `{@cap @a card}` executes @a first, then @cap.
+/// Transforms receive the current value and return transformed string.
+fn apply_transforms(
+    initial_value: &str,
+    transforms: &[Transform],
+    transform_registry: &TransformRegistry,
+    lang: &str,
+) -> Result<String, EvalError> {
+    if transforms.is_empty() {
+        return Ok(initial_value.to_string());
+    }
+
+    // Start with the initial value as a string
+    let mut current = Value::String(initial_value.to_string());
+
+    // Process right-to-left (reverse iteration)
+    for transform in transforms.iter().rev() {
+        let transform_kind = transform_registry
+            .get(&transform.name, lang)
+            .ok_or_else(|| EvalError::UnknownTransform {
+                name: transform.name.clone(),
+            })?;
+
+        // Context is unused for universal transforms but passed for future phases
+        let context_value = transform.context.as_ref().map(|_ctx_selector| {
+            // For now, context is just parsed but not resolved
+            // This will be used in language-specific transforms
+            Value::String(String::new())
+        });
+
+        let result = transform_kind.execute(&current, context_value.as_ref(), lang)?;
+        current = Value::String(result);
+    }
+
+    Ok(current.to_string())
+}
+
 /// Build a Phrase from variant entries.
 ///
 /// Evaluates each variant template and populates the variants HashMap.
@@ -384,13 +438,14 @@ fn build_phrase_from_variants(
     entries: &[VariantEntry],
     ctx: &mut EvalContext<'_>,
     registry: &PhraseRegistry,
+    transform_registry: &TransformRegistry,
     lang: &str,
 ) -> Result<(String, HashMap<VariantKey, String>), EvalError> {
     let mut variants = HashMap::new();
     let mut default_text = String::new();
 
     for (i, entry) in entries.iter().enumerate() {
-        let text = eval_template(&entry.template, ctx, registry, lang)?;
+        let text = eval_template(&entry.template, ctx, registry, transform_registry, lang)?;
 
         // First variant's text becomes the default
         if i == 0 {
