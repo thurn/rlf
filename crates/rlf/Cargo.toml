@@ -9,6 +9,8 @@ thiserror = "2.0"
 serde = { version = "1.0", features = ["derive"] }
 const-fnv1a-hash = "1.1"
 winnow = "0.7"
+icu_plurals = "2"
+icu_locale_core = "2"
 
 [dev-dependencies]
 insta = "1.42"
