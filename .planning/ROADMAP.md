@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Core Types and Parser** - Foundation types (Phrase, Value, PhraseId) and parser for template/file syntax
 - [x] **Phase 2: Interpreter Engine** - Evaluation engine for templates with variant resolution and phrase calls
-- [ ] **Phase 3: Universal Transforms and ICU4X** - Case transforms and CLDR plural rules integration
+- [x] **Phase 3: Universal Transforms and ICU4X** - Case transforms and CLDR plural rules integration
 - [ ] **Phase 4: Locale Management and Error Handling** - Locale struct, phrase loading, and comprehensive error types
 - [ ] **Phase 5: Macro Code Generation** - rlf! macro parsing, code generation, and compile-time validation
 - [ ] **Phase 6: English and Germanic Transforms** - Article transforms for English, German, and Dutch
@@ -69,8 +69,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — TransformKind enum with ICU4X case transforms (@cap, @upper, @lower)
-- [ ] 03-02-PLAN.md — Evaluator transform wiring and comprehensive tests
+- [x] 03-01-PLAN.md — TransformKind enum with ICU4X case transforms (@cap, @upper, @lower)
+- [x] 03-02-PLAN.md — Evaluator transform wiring and comprehensive tests
 
 ### Phase 4: Locale Management and Error Handling
 **Goal**: Users can manage language selection and get clear errors on failures
@@ -187,7 +187,7 @@ Note: Phases 6-9 (language transforms) can proceed in parallel after Phase 3 com
 |-------|----------------|--------|-----------|
 | 1. Core Types and Parser | 3/3 | Complete | 2026-02-04 |
 | 2. Interpreter Engine | 2/2 | Complete | 2026-02-04 |
-| 3. Universal Transforms and ICU4X | 0/2 | Planned | - |
+| 3. Universal Transforms and ICU4X | 2/2 | Complete | 2026-02-04 |
 | 4. Locale Management and Error Handling | 0/2 | Not started | - |
 | 5. Macro Code Generation | 0/3 | Not started | - |
 | 6. English and Germanic Transforms | 0/1 | Not started | - |
@@ -198,4 +198,4 @@ Note: Phases 6-9 (language transforms) can proceed in parallel after Phase 3 com
 
 ---
 *Roadmap created: 2026-02-04*
-*Last updated: 2026-02-04 after Phase 3 planning*
+*Last updated: 2026-02-04 after Phase 3 execution*
