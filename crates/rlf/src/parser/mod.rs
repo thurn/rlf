@@ -6,8 +6,10 @@
 
 pub mod ast;
 pub mod error;
+mod file;
 mod template;
 
 pub use ast::*;
 pub use error::ParseError;
+pub use file::parse_file;
 pub use template::parse_template;
