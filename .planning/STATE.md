@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-04)
 Phase: 2 of 10 (Interpreter Engine)
 Plan: 0 of 2 in current phase
 Status: Ready to plan
-Last activity: 2026-02-04 - Phase 1 verified and complete
+Last activity: 2026-02-04 - Completed quick task 001: Move tests to separate crate
 
 Progress: [###-------] 10% (3/30 plans)
 
@@ -59,6 +59,12 @@ None.
 
 None.
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 001 | Move tests to separate crate with public API testing | 2026-02-04 | 8751eb4 | [001-move-tests-to-separate-crate-with-public](./quick/001-move-tests-to-separate-crate-with-public/) |
+
 ## Phase 1 Completion Summary
 
 Phase 1 (Core Types and Parser) is now complete with:
@@ -66,8 +72,7 @@ Phase 1 (Core Types and Parser) is now complete with:
 - **01-02:** Template string parser (winnow-based, full interpolation support)
 - **01-03:** File format parser (parse_file, phrase definitions, variants)
 
-All 126 tests passing:
-- 42 parser unit tests
+All 84 tests passing:
 - 33 file parser integration tests
 - 46 template parser integration tests
 - 5 doctests
