@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** When you add a phrase to `strings.rlf.rs`, it immediately appears in IDE autocomplete
-**Current focus:** Phase 8 - Greek, Romanian, and Middle Eastern Transforms (IN PROGRESS)
+**Current focus:** Phase 8 - Greek, Romanian, and Middle Eastern Transforms (COMPLETE)
 
 ## Current Position
 
 Phase: 8 of 10 (Greek, Romanian, and Middle Eastern Transforms)
-Plan: 1 of 2 in current phase (COMPLETE)
-Status: In progress
-Last activity: 2026-02-05 - Completed 08-01-PLAN.md
+Plan: 2 of 2 in current phase (COMPLETE)
+Status: Phase complete
+Last activity: 2026-02-05 - Completed 08-02-PLAN.md
 
-Progress: [###################] 63% (19/30 plans)
+Progress: [####################] 67% (20/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 19
+- Total plans completed: 20
 - Average duration: 4.6 min
-- Total execution time: 1.48 hours
+- Total execution time: 1.58 hours
 
 **By Phase:**
 
@@ -34,10 +34,10 @@ Progress: [###################] 63% (19/30 plans)
 | 05-macro-code-generation | 4 | 20 min | 5 min |
 | 06-english-and-germanic-transforms | 3 | 14 min | 5 min |
 | 07-romance-language-transforms | 2 | 13 min | 7 min |
-| 08-greek-romanian-and-middle-eastern-transforms | 1 | 6 min | 6 min |
+| 08-greek-romanian-and-middle-eastern-transforms | 2 | 12 min | 6 min |
 
 **Recent Trend:**
-- Last 5 plans: 5 min, 4 min, 5 min, 8 min, 6 min
+- Last 5 plans: 4 min, 5 min, 8 min, 6 min, 6 min
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -103,6 +103,10 @@ Recent decisions affecting current work:
 - Romanian suffix is simple append without morphological merging
 - Greek dative case included for completeness though archaic in modern Greek
 - Greek @i/@to -> @o, @mia/@ena -> @enas aliases in registry
+- Arabic @al uses :sun/:moon tags (no automatic first-letter detection)
+- Arabic shadda placed AFTER consonant per Unicode standard
+- Persian @ezafe uses ZWNJ before ye for proper rendering
+- Persian kasra (U+0650) for consonant-final, ye (U+06CC) for vowel-final
 
 ### Pending Todos
 
@@ -248,22 +252,28 @@ Phase 7 (Romance Language Transforms) is now complete with:
   - ItalianSound enum (Normal, Vowel, SImpura)
   - 59 new tests (21 French + 24 Italian + 14 integration)
 
-## Phase 8 Progress
+## Phase 8 Completion Summary
 
-Phase 8 (Greek, Romanian, and Middle Eastern Transforms) in progress:
-- **08-01:** Greek and Romanian Article Transforms (COMPLETE)
+Phase 8 (Greek, Romanian, and Middle Eastern Transforms) is now complete with:
+- **08-01:** Greek and Romanian Article Transforms
   - GreekO transform with 24 definite article forms (4 cases x 3 genders x 2 numbers)
   - GreekEnas transform with 12 indefinite article forms (4 cases x 3 genders)
   - RomanianDef transform with postposed suffix appending
   - Greek @i/@to -> @o, @mia/@ena -> @enas aliases
   - 38 new tests (29 Greek + 9 Romanian)
 
-All 207 transform tests passing (369 total tests):
+- **08-02:** Arabic and Persian Transforms
+  - ArabicAl transform with sun/moon letter assimilation using shadda
+  - PersianEzafe transform with kasra/ZWNJ connectors
+  - Byte-level Unicode verification for RTL text testing
+  - 14 new tests (7 Arabic + 7 Persian)
+
+All 221 transform tests passing (383 total tests):
 - 33 file parser integration tests
 - 46 template parser integration tests
 - 10 interpreter foundation tests
 - 27 interpreter evaluation tests
-- 207 interpreter transform tests
+- 221 interpreter transform tests
 - 7 interpreter error tests
 - 25 locale integration tests
 - 4 trybuild compile tests (1 pass, 3 fail)
@@ -271,6 +281,6 @@ All 207 transform tests passing (369 total tests):
 
 ## Session Continuity
 
-Last session: 2026-02-05T05:34:00Z
-Stopped at: Completed 08-01-PLAN.md
+Last session: 2026-02-05T05:35:45Z
+Stopped at: Completed 08-02-PLAN.md
 Resume file: None
