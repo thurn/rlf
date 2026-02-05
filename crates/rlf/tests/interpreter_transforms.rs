@@ -1,6 +1,6 @@
 //! Integration tests for transform execution in the interpreter.
 
-use rlf::interpreter::{EvalError, TransformKind, TransformRegistry};
+use rlf::interpreter::{EvalError, Locale, TransformKind, TransformRegistry};
 use rlf::{Phrase, PhraseRegistry, Tag, Value};
 use std::collections::HashMap;
 
@@ -569,4 +569,153 @@ fn english_transform_not_available_for_other_languages() {
     let registry = TransformRegistry::new();
     assert_eq!(registry.get("a", "de"), None);
     assert_eq!(registry.get("the", "de"), None);
+}
+
+// =============================================================================
+// English Article Transform Integration Tests (Full Evaluation Path)
+// =============================================================================
+
+#[test]
+fn english_a_in_template() {
+    // Test: "Draw {@a card}." with card = :a "card"
+    let source = r#"
+        card = :a "card";
+        event = :an "event";
+        draw_card = "Draw {@a card}.";
+        play_event = "Play {@a event}.";
+        the_card = "{@the card}";
+    "#;
+
+    let mut locale = Locale::builder().language("en").build();
+    locale.load_translations_str("en", source).unwrap();
+
+    assert_eq!(
+        locale.get_phrase("draw_card").unwrap().to_string(),
+        "Draw a card."
+    );
+    assert_eq!(
+        locale.get_phrase("play_event").unwrap().to_string(),
+        "Play an event."
+    );
+    assert_eq!(
+        locale.get_phrase("the_card").unwrap().to_string(),
+        "the card"
+    );
+}
+
+#[test]
+fn english_a_with_cap() {
+    // Test transform ordering: {@cap @a card} -> "A card"
+    let source = r#"
+        card = :a "card";
+        a_card = "{@cap @a card}";
+    "#;
+
+    let mut locale = Locale::builder().language("en").build();
+    locale.load_translations_str("en", source).unwrap();
+
+    // Right-to-left: @a first ("a card"), then @cap ("A card")
+    assert_eq!(locale.get_phrase("a_card").unwrap().to_string(), "A card");
+}
+
+#[test]
+fn english_a_missing_tag_full_eval() {
+    // Test error when tag missing in full evaluation
+    let source = r#"
+        thing = "thing";
+        draw_thing = "Draw {@a thing}.";
+    "#;
+
+    let mut locale = Locale::builder().language("en").build();
+    locale.load_translations_str("en", source).unwrap();
+
+    let result = locale.get_phrase("draw_thing");
+    assert!(matches!(result, Err(EvalError::MissingTag { .. })));
+}
+
+#[test]
+fn english_the_with_cap_chained() {
+    // Test {@cap @the card} -> "The card"
+    let source = r#"
+        card = :a "card";
+        the_card_cap = "{@cap @the card}";
+    "#;
+
+    let mut locale = Locale::builder().language("en").build();
+    locale.load_translations_str("en", source).unwrap();
+
+    // Right-to-left: @the first ("the card"), then @cap ("The card")
+    assert_eq!(
+        locale.get_phrase("the_card_cap").unwrap().to_string(),
+        "The card"
+    );
+}
+
+#[test]
+fn english_an_alias_in_template() {
+    // Test: @an alias works in template evaluation
+    let source = r#"
+        event = :an "event";
+        play_event = "Play {@an event}.";
+    "#;
+
+    let mut locale = Locale::builder().language("en").build();
+    locale.load_translations_str("en", source).unwrap();
+
+    assert_eq!(
+        locale.get_phrase("play_event").unwrap().to_string(),
+        "Play an event."
+    );
+}
+
+#[test]
+fn english_a_with_variant_phrase() {
+    // Test @a with a phrase that has variants - uses default text
+    let source = r#"
+        card = :a { one: "card", other: "cards" };
+        draw_card = "Draw {@a card}.";
+    "#;
+
+    let mut locale = Locale::builder().language("en").build();
+    locale.load_translations_str("en", source).unwrap();
+
+    // Default text is "card" (first variant), which has :a tag
+    assert_eq!(
+        locale.get_phrase("draw_card").unwrap().to_string(),
+        "Draw a card."
+    );
+}
+
+#[test]
+fn english_a_after_selector_fails() {
+    // When selector is applied, we get a String (losing tags), so @a fails
+    let source = r#"
+        card = :a { one: "card", other: "cards" };
+        draw_n(n) = "Draw {@a card:n}.";
+    "#;
+
+    let mut locale = Locale::builder().language("en").build();
+    locale.load_translations_str("en", source).unwrap();
+
+    // After :n selector, card:one returns "card" as String, losing the :a tag
+    let result = locale.call_phrase("draw_n", &[Value::from(1)]);
+    assert!(
+        matches!(result, Err(EvalError::MissingTag { .. })),
+        "Expected MissingTag error when selector strips tags"
+    );
+}
+
+#[test]
+fn english_upper_a_card() {
+    // Test {@upper @a card} -> "A CARD"
+    let source = r#"
+        card = :a "card";
+        shouted = "{@upper @a card}";
+    "#;
+
+    let mut locale = Locale::builder().language("en").build();
+    locale.load_translations_str("en", source).unwrap();
+
+    // Right-to-left: @a first ("a card"), then @upper ("A CARD")
+    assert_eq!(locale.get_phrase("shouted").unwrap().to_string(), "A CARD");
 }

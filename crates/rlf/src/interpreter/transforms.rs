@@ -126,7 +126,7 @@ fn english_a_transform(value: &Value) -> Result<String, EvalError> {
 ///
 /// Unconditionally prepends "the " to the value's text.
 fn english_the_transform(value: &Value) -> Result<String, EvalError> {
-    Ok(format!("the {}", value.to_string()))
+    Ok(format!("the {value}"))
 }
 
 /// Registry for transform functions.
