@@ -200,24 +200,24 @@ Requirements derived from design documents. All features documented in DESIGN.md
 
 ### CLI: rlf check
 
-- [ ] **CLI-01**: Parse and validate .rlf file syntax
-- [ ] **CLI-02**: Report errors with file, line, column
-- [ ] **CLI-03**: Exit 0 on success, non-zero on failure
-- [ ] **CLI-04**: `--strict` mode to check against source file
+- [x] **CLI-01**: Parse and validate .rlf file syntax
+- [x] **CLI-02**: Report errors with file, line, column
+- [x] **CLI-03**: Exit 0 on success, non-zero on failure
+- [x] **CLI-04**: `--strict` mode to check against source file
 
 ### CLI: rlf eval
 
-- [ ] **CLI-05**: `--lang <lang>` to specify language
-- [ ] **CLI-06**: `--template <template>` to evaluate
-- [ ] **CLI-07**: `--param <name>=<value>` for parameters (repeatable)
-- [ ] **CLI-08**: `--phrases <file>` to load phrase definitions
+- [x] **CLI-05**: `--lang <lang>` to specify language
+- [x] **CLI-06**: `--template <template>` to evaluate
+- [x] **CLI-07**: `--param <name>=<value>` for parameters (repeatable)
+- [x] **CLI-08**: `--phrases <file>` to load phrase definitions
 
 ### CLI: rlf coverage
 
-- [ ] **CLI-09**: `--source <file>` for source language file
-- [ ] **CLI-10**: `--lang <langs>` comma-separated language list
-- [ ] **CLI-11**: Output table with phrases, translated, missing counts
-- [ ] **CLI-12**: List missing phrase names per language
+- [x] **CLI-09**: `--source <file>` for source language file
+- [x] **CLI-10**: `--lang <langs>` comma-separated language list
+- [x] **CLI-11**: Output table with phrases, translated, missing counts
+- [x] **CLI-12**: List missing phrase names per language
 
 ## v2 Requirements
 
@@ -361,18 +361,18 @@ Requirements derived from design documents. All features documented in DESIGN.md
 | KO-01 | Phase 9 | Complete |
 | TR-01 | Phase 9 | Complete |
 | ID-01 | Phase 9 | Complete |
-| CLI-01 | Phase 10 | Pending |
-| CLI-02 | Phase 10 | Pending |
-| CLI-03 | Phase 10 | Pending |
-| CLI-04 | Phase 10 | Pending |
-| CLI-05 | Phase 10 | Pending |
-| CLI-06 | Phase 10 | Pending |
-| CLI-07 | Phase 10 | Pending |
-| CLI-08 | Phase 10 | Pending |
-| CLI-09 | Phase 10 | Pending |
-| CLI-10 | Phase 10 | Pending |
-| CLI-11 | Phase 10 | Pending |
-| CLI-12 | Phase 10 | Pending |
+| CLI-01 | Phase 10 | Complete |
+| CLI-02 | Phase 10 | Complete |
+| CLI-03 | Phase 10 | Complete |
+| CLI-04 | Phase 10 | Complete |
+| CLI-05 | Phase 10 | Complete |
+| CLI-06 | Phase 10 | Complete |
+| CLI-07 | Phase 10 | Complete |
+| CLI-08 | Phase 10 | Complete |
+| CLI-09 | Phase 10 | Complete |
+| CLI-10 | Phase 10 | Complete |
+| CLI-11 | Phase 10 | Complete |
+| CLI-12 | Phase 10 | Complete |
 
 **Coverage:**
 - v1 requirements: 111 total

@@ -21,7 +21,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 7: Romance Language Transforms** - Article and contraction transforms for Spanish, French, Portuguese, Italian
 - [x] **Phase 8: Greek, Romanian, and Middle Eastern Transforms** - Greek articles, Romanian postposed articles, Arabic/Persian
 - [x] **Phase 9: Asian Language Transforms** - CJK counters, Korean particles, Turkish inflection, Indonesian plural
-- [ ] **Phase 10: CLI Tools** - rlf check, rlf eval, rlf coverage commands
+- [x] **Phase 10: CLI Tools** - rlf check, rlf eval, rlf coverage commands
 
 ## Phase Details
 
@@ -179,9 +179,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 10-01-PLAN.md — rlf-cli crate setup and check command with miette diagnostics
-- [ ] 10-02-PLAN.md — eval command for template evaluation
-- [ ] 10-03-PLAN.md — coverage command with ASCII table output
+- [x] 10-01-PLAN.md — rlf-cli crate setup and check command with miette diagnostics
+- [x] 10-02-PLAN.md — eval command for template evaluation
+- [x] 10-03-PLAN.md — coverage command with ASCII table output
 
 ## Progress
 
@@ -200,8 +200,8 @@ Note: Phases 6-9 (language transforms) can proceed in parallel after Phase 3 com
 | 7. Romance Language Transforms | 2/2 | Complete | 2026-02-04 |
 | 8. Greek, Romanian, and Middle Eastern Transforms | 2/2 | Complete | 2026-02-04 |
 | 9. Asian Language Transforms | 3/3 | Complete | 2026-02-05 |
-| 10. CLI Tools | 0/3 | Not started | - |
+| 10. CLI Tools | 3/3 | Complete | 2026-02-05 |
 
 ---
 *Roadmap created: 2026-02-04*
-*Last updated: 2026-02-05 after Phase 10 planning*
+*Last updated: 2026-02-05 after Phase 10 execution complete*
