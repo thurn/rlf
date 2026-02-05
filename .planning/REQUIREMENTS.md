@@ -256,23 +256,23 @@ Requirements derived from design documents. All features documented in DESIGN.md
 | LANG-15 | Phase 1 | Complete |
 | LANG-16 | Phase 1 | Complete |
 | LANG-17 | Phase 1 | Complete |
-| MACRO-01 | Phase 5 | Pending |
-| MACRO-02 | Phase 5 | Pending |
-| MACRO-03 | Phase 5 | Pending |
-| MACRO-04 | Phase 5 | Pending |
-| MACRO-05 | Phase 5 | Pending |
-| MACRO-06 | Phase 5 | Pending |
-| MACRO-07 | Phase 5 | Pending |
-| MACRO-08 | Phase 5 | Pending |
-| MACRO-09 | Phase 5 | Pending |
-| MACRO-10 | Phase 5 | Pending |
-| MACRO-11 | Phase 5 | Pending |
-| MACRO-12 | Phase 5 | Pending |
-| MACRO-13 | Phase 5 | Pending |
-| MACRO-14 | Phase 5 | Pending |
-| MACRO-15 | Phase 5 | Pending |
-| MACRO-16 | Phase 5 | Pending |
-| MACRO-17 | Phase 5 | Pending |
+| MACRO-01 | Phase 5 | Complete |
+| MACRO-02 | Phase 5 | Complete |
+| MACRO-03 | Phase 5 | Complete |
+| MACRO-04 | Phase 5 | Complete |
+| MACRO-05 | Phase 5 | Complete |
+| MACRO-06 | Phase 5 | Complete |
+| MACRO-07 | Phase 5 | Complete |
+| MACRO-08 | Phase 5 | Complete |
+| MACRO-09 | Phase 5 | Complete |
+| MACRO-10 | Phase 5 | Complete |
+| MACRO-11 | Phase 5 | Complete |
+| MACRO-12 | Phase 5 | Complete |
+| MACRO-13 | Phase 5 | Complete |
+| MACRO-14 | Phase 5 | Complete |
+| MACRO-15 | Phase 5 | Complete |
+| MACRO-16 | Phase 5 | Complete |
+| MACRO-17 | Phase 5 | Complete |
 | TYPE-01 | Phase 1 | Complete |
 | TYPE-02 | Phase 1 | Complete |
 | TYPE-03 | Phase 1 | Complete |
@@ -381,4 +381,4 @@ Requirements derived from design documents. All features documented in DESIGN.md
 
 ---
 *Requirements defined: 2026-02-04*
-*Last updated: 2026-02-05 after Phase 4 completion*
+*Last updated: 2026-02-05 after Phase 5 completion*
