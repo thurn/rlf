@@ -456,3 +456,350 @@ fn extract_selectors(content: &str, span: Span) -> syn::Result<Vec<Selector>> {
 
     Ok(selectors)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Helper to assert segment count and get segments.
+    fn parse_ok(s: &str) -> Vec<Segment> {
+        parse_template_string(s, Span::call_site()).expect("should parse successfully")
+    }
+
+    /// Helper to assert parse failure.
+    fn parse_err(s: &str) -> syn::Error {
+        parse_template_string(s, Span::call_site()).expect_err("should fail to parse")
+    }
+
+    fn count_literals(segments: &[Segment]) -> usize {
+        segments
+            .iter()
+            .filter(|s| matches!(s, Segment::Literal(_)))
+            .count()
+    }
+
+    fn count_interpolations(segments: &[Segment]) -> usize {
+        segments
+            .iter()
+            .filter(|s| matches!(s, Segment::Interpolation(_)))
+            .count()
+    }
+
+    fn get_literal(segment: &Segment) -> &str {
+        match segment {
+            Segment::Literal(s) => s,
+            _ => panic!("expected Literal segment"),
+        }
+    }
+
+    fn get_interpolation(segment: &Segment) -> &Interpolation {
+        match segment {
+            Segment::Interpolation(i) => i,
+            _ => panic!("expected Interpolation segment"),
+        }
+    }
+
+    // =========================================================================
+    // Literal-only templates
+    // =========================================================================
+
+    #[test]
+    fn test_literal_only_simple() {
+        let segments = parse_ok("hello");
+        assert_eq!(segments.len(), 1);
+        assert_eq!(count_literals(&segments), 1);
+        assert_eq!(get_literal(&segments[0]), "hello");
+    }
+
+    #[test]
+    fn test_literal_with_spaces() {
+        let segments = parse_ok("hello world");
+        assert_eq!(segments.len(), 1);
+        assert_eq!(get_literal(&segments[0]), "hello world");
+    }
+
+    #[test]
+    fn test_empty_string() {
+        let segments = parse_ok("");
+        assert!(segments.is_empty());
+    }
+
+    // =========================================================================
+    // Escaped braces
+    // =========================================================================
+
+    #[test]
+    fn test_escaped_open_brace() {
+        let segments = parse_ok("{{escaped}}");
+        assert_eq!(segments.len(), 1);
+        assert_eq!(get_literal(&segments[0]), "{escaped}");
+    }
+
+    #[test]
+    fn test_escaped_braces_mixed() {
+        let segments = parse_ok("a {{b}} c");
+        assert_eq!(segments.len(), 1);
+        assert_eq!(get_literal(&segments[0]), "a {b} c");
+    }
+
+    // =========================================================================
+    // Single interpolation
+    // =========================================================================
+
+    #[test]
+    fn test_single_interpolation() {
+        let segments = parse_ok("{name}");
+        assert_eq!(segments.len(), 1);
+        assert_eq!(count_interpolations(&segments), 1);
+
+        let interp = get_interpolation(&segments[0]);
+        assert!(interp.transforms.is_empty());
+        assert!(interp.selectors.is_empty());
+        match &interp.reference {
+            Reference::Identifier(ident) => assert_eq!(ident.name, "name"),
+            _ => panic!("expected Identifier reference"),
+        }
+    }
+
+    // =========================================================================
+    // Mixed literal and interpolation
+    // =========================================================================
+
+    #[test]
+    fn test_mixed_literal_interpolation() {
+        let segments = parse_ok("Hello, {name}!");
+        assert_eq!(segments.len(), 3);
+        assert_eq!(count_literals(&segments), 2);
+        assert_eq!(count_interpolations(&segments), 1);
+
+        assert_eq!(get_literal(&segments[0]), "Hello, ");
+        let interp = get_interpolation(&segments[1]);
+        match &interp.reference {
+            Reference::Identifier(ident) => assert_eq!(ident.name, "name"),
+            _ => panic!("expected Identifier reference"),
+        }
+        assert_eq!(get_literal(&segments[2]), "!");
+    }
+
+    // =========================================================================
+    // Multiple interpolations
+    // =========================================================================
+
+    #[test]
+    fn test_multiple_interpolations() {
+        let segments = parse_ok("{a} and {b}");
+        assert_eq!(segments.len(), 3);
+        assert_eq!(count_interpolations(&segments), 2);
+
+        let interp1 = get_interpolation(&segments[0]);
+        match &interp1.reference {
+            Reference::Identifier(ident) => assert_eq!(ident.name, "a"),
+            _ => panic!("expected Identifier"),
+        }
+
+        assert_eq!(get_literal(&segments[1]), " and ");
+
+        let interp2 = get_interpolation(&segments[2]);
+        match &interp2.reference {
+            Reference::Identifier(ident) => assert_eq!(ident.name, "b"),
+            _ => panic!("expected Identifier"),
+        }
+    }
+
+    #[test]
+    fn test_adjacent_interpolations() {
+        let segments = parse_ok("{a}{b}");
+        assert_eq!(segments.len(), 2);
+        assert_eq!(count_interpolations(&segments), 2);
+    }
+
+    // =========================================================================
+    // Transforms
+    // =========================================================================
+
+    #[test]
+    fn test_transform_cap() {
+        let segments = parse_ok("{@cap name}");
+        assert_eq!(segments.len(), 1);
+
+        let interp = get_interpolation(&segments[0]);
+        assert_eq!(interp.transforms.len(), 1);
+        assert_eq!(interp.transforms[0].name.name, "cap");
+        assert!(interp.transforms[0].context.is_none());
+    }
+
+    #[test]
+    fn test_multiple_transforms() {
+        let segments = parse_ok("{@cap @upper name}");
+        assert_eq!(segments.len(), 1);
+
+        let interp = get_interpolation(&segments[0]);
+        assert_eq!(interp.transforms.len(), 2);
+        assert_eq!(interp.transforms[0].name.name, "cap");
+        assert_eq!(interp.transforms[1].name.name, "upper");
+    }
+
+    #[test]
+    fn test_transform_with_context() {
+        let segments = parse_ok("{@der:acc item}");
+        assert_eq!(segments.len(), 1);
+
+        let interp = get_interpolation(&segments[0]);
+        assert_eq!(interp.transforms.len(), 1);
+        assert_eq!(interp.transforms[0].name.name, "der");
+
+        let ctx = interp.transforms[0].context.as_ref().expect("should have context");
+        assert_eq!(ctx.name.name, "acc");
+    }
+
+    // =========================================================================
+    // Selectors
+    // =========================================================================
+
+    #[test]
+    fn test_single_selector() {
+        let segments = parse_ok("{noun:case}");
+        assert_eq!(segments.len(), 1);
+
+        let interp = get_interpolation(&segments[0]);
+        assert_eq!(interp.selectors.len(), 1);
+        assert_eq!(interp.selectors[0].name.name, "case");
+    }
+
+    #[test]
+    fn test_multiple_selectors() {
+        let segments = parse_ok("{noun:case:number}");
+        assert_eq!(segments.len(), 1);
+
+        let interp = get_interpolation(&segments[0]);
+        assert_eq!(interp.selectors.len(), 2);
+        assert_eq!(interp.selectors[0].name.name, "case");
+        assert_eq!(interp.selectors[1].name.name, "number");
+    }
+
+    // =========================================================================
+    // Phrase calls
+    // =========================================================================
+
+    #[test]
+    fn test_phrase_call() {
+        let segments = parse_ok("{foo(bar)}");
+        assert_eq!(segments.len(), 1);
+
+        let interp = get_interpolation(&segments[0]);
+        match &interp.reference {
+            Reference::Call { name, args } => {
+                assert_eq!(name.name, "foo");
+                assert_eq!(args.len(), 1);
+                match &args[0] {
+                    Reference::Identifier(ident) => assert_eq!(ident.name, "bar"),
+                    _ => panic!("expected Identifier arg"),
+                }
+            }
+            _ => panic!("expected Call reference"),
+        }
+    }
+
+    #[test]
+    fn test_nested_phrase_call() {
+        let segments = parse_ok("{foo(bar(baz))}");
+        assert_eq!(segments.len(), 1);
+
+        let interp = get_interpolation(&segments[0]);
+        match &interp.reference {
+            Reference::Call { name, args } => {
+                assert_eq!(name.name, "foo");
+                assert_eq!(args.len(), 1);
+                match &args[0] {
+                    Reference::Call { name: inner, args: inner_args } => {
+                        assert_eq!(inner.name, "bar");
+                        assert_eq!(inner_args.len(), 1);
+                        match &inner_args[0] {
+                            Reference::Identifier(ident) => assert_eq!(ident.name, "baz"),
+                            _ => panic!("expected Identifier"),
+                        }
+                    }
+                    _ => panic!("expected nested Call"),
+                }
+            }
+            _ => panic!("expected Call reference"),
+        }
+    }
+
+    #[test]
+    fn test_phrase_call_multiple_args() {
+        let segments = parse_ok("{foo(a, b, c)}");
+        assert_eq!(segments.len(), 1);
+
+        let interp = get_interpolation(&segments[0]);
+        match &interp.reference {
+            Reference::Call { name, args } => {
+                assert_eq!(name.name, "foo");
+                assert_eq!(args.len(), 3);
+            }
+            _ => panic!("expected Call reference"),
+        }
+    }
+
+    // =========================================================================
+    // Error cases
+    // =========================================================================
+
+    #[test]
+    fn test_error_unclosed_brace() {
+        let err = parse_err("{name");
+        assert!(err.to_string().contains("unclosed"));
+    }
+
+    #[test]
+    fn test_error_empty_interpolation() {
+        let err = parse_err("{}");
+        assert!(err.to_string().contains("empty"));
+    }
+
+    #[test]
+    fn test_error_unexpected_closing_brace() {
+        let err = parse_err("name}");
+        assert!(err.to_string().contains("unexpected"));
+    }
+
+    // =========================================================================
+    // Complex cases
+    // =========================================================================
+
+    #[test]
+    fn test_transform_and_selectors() {
+        let segments = parse_ok("{@cap noun:case}");
+        assert_eq!(segments.len(), 1);
+
+        let interp = get_interpolation(&segments[0]);
+        assert_eq!(interp.transforms.len(), 1);
+        assert_eq!(interp.transforms[0].name.name, "cap");
+        assert_eq!(interp.selectors.len(), 1);
+        assert_eq!(interp.selectors[0].name.name, "case");
+    }
+
+    #[test]
+    fn test_full_syntax() {
+        // A realistic complex template: "Draw {n} {@cap card:n}."
+        // Segments: "Draw " | {n} | " " | {@cap card:n} | "."
+        let segments = parse_ok("Draw {n} {@cap card:n}.");
+        assert_eq!(segments.len(), 5);
+        assert_eq!(get_literal(&segments[0]), "Draw ");
+        assert_eq!(get_literal(&segments[4]), ".");
+
+        let interp1 = get_interpolation(&segments[1]);
+        match &interp1.reference {
+            Reference::Identifier(ident) => assert_eq!(ident.name, "n"),
+            _ => panic!("expected Identifier"),
+        }
+
+        assert_eq!(get_literal(&segments[2]), " ");
+
+        let interp2 = get_interpolation(&segments[3]);
+        assert_eq!(interp2.transforms.len(), 1);
+        assert_eq!(interp2.transforms[0].name.name, "cap");
+        assert_eq!(interp2.selectors.len(), 1);
+        assert_eq!(interp2.selectors[0].name.name, "n");
+    }
+}
