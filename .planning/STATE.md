@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-04)
 ## Current Position
 
 Phase: 5 of 10 (Macro Code Generation)
-Plan: 2 of 4 in current phase
+Plan: 3 of 4 in current phase
 Status: In progress
-Last activity: 2026-02-05 - Completed 05-02-PLAN.md
+Last activity: 2026-02-05 - Completed 05-03-PLAN.md
 
-Progress: [###########] 37% (11/30 plans)
+Progress: [############] 40% (12/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 11
-- Average duration: 4.3 min
-- Total execution time: 0.78 hours
+- Total plans completed: 12
+- Average duration: 4.5 min
+- Total execution time: 0.90 hours
 
 **By Phase:**
 
@@ -31,10 +31,10 @@ Progress: [###########] 37% (11/30 plans)
 | 02-interpreter-engine | 2 | 8 min | 4 min |
 | 03-universal-transforms-and-icu4x | 2 | 6 min | 3 min |
 | 04-locale-management-and-error-handling | 2 | 10 min | 5 min |
-| 05-macro-code-generation | 2 | 9 min | 5 min |
+| 05-macro-code-generation | 3 | 16 min | 5 min |
 
 **Recent Trend:**
-- Last 5 plans: 4 min, 3 min, 7 min, 4 min, 5 min
+- Last 5 plans: 3 min, 7 min, 4 min, 5 min, 7 min
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -74,6 +74,9 @@ Recent decisions affecting current work:
 - Template string parsing is manual (interpolations inside LitStr, not token trees)
 - ValidationContext built upfront with phrase index, variants, and tags
 - DFS three-color algorithm for cycle detection
+- Generated code uses ::rlf::* fully qualified paths for hygiene
+- Generated functions use expect() for errors (programming errors)
+- PhraseId constants use SCREAMING_CASE
 
 ### Pending Todos
 
@@ -164,6 +167,13 @@ Phase 5 (Macro Code Generation) in progress:
   - Typo suggestions using Levenshtein distance
   - DFS cycle detection with full chain reporting
 
+- **05-03:** Code Generation (COMPLETE)
+  - Phrase function generation (parameterless and parameterized)
+  - SOURCE_PHRASES const with embedded RLF source
+  - register_source_phrases() for loading phrases
+  - phrase_ids module with SCREAMING_CASE constants
+  - Fully qualified paths for macro hygiene
+
 All 192 tests passing:
 - 33 file parser integration tests
 - 46 template parser integration tests
@@ -176,6 +186,6 @@ All 192 tests passing:
 
 ## Session Continuity
 
-Last session: 2026-02-05T02:11:42Z
-Stopped at: Completed 05-02-PLAN.md
+Last session: 2026-02-05T02:14:35Z
+Stopped at: Completed 05-03-PLAN.md
 Resume file: None
