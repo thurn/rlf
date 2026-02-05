@@ -60,7 +60,7 @@ pub fn eval_template(
                 // 3. Apply transforms (right-to-left per DESIGN.md)
                 // Pass Value directly so transforms can access tags on first call
                 let transformed =
-                    apply_transforms(&selected, transforms, transform_registry, lang)?;
+                    apply_transforms(&selected, transforms, transform_registry, ctx, lang)?;
                 output.push_str(&transformed);
             }
         }
@@ -416,6 +416,7 @@ fn apply_transforms(
     initial_value: &Value,
     transforms: &[Transform],
     transform_registry: &TransformRegistry,
+    ctx: &EvalContext<'_>,
     lang: &str,
 ) -> Result<String, EvalError> {
     if transforms.is_empty() {
@@ -433,12 +434,22 @@ fn apply_transforms(
                 name: transform.name.clone(),
             })?;
 
-        // Context is unused for universal transforms but passed for future phases
-        let context_value = transform.context.as_ref().map(|_ctx_selector| {
-            // For now, context is just parsed but not resolved
-            // This will be used in language-specific transforms
-            Value::String(String::new())
-        });
+        // Resolve context selector if present
+        let context_value = if let Some(ctx_selector) = &transform.context {
+            match ctx_selector {
+                Selector::Identifier(name) => {
+                    // Try parameter lookup first
+                    if let Some(param) = ctx.get_param(name) {
+                        Some(param.clone())
+                    } else {
+                        // Use as literal string (e.g., "acc", "nom", "dat", "gen")
+                        Some(Value::String(name.clone()))
+                    }
+                }
+            }
+        } else {
+            None
+        };
 
         // Pass full Value to transform so it can read tags (on first iteration)
         let result = transform_kind.execute(&current, context_value.as_ref(), lang)?;
