@@ -70,6 +70,14 @@ pub enum TransformKind {
     ItalianDi,
     /// @a - Italian "a" + article contraction
     ItalianA,
+    // Greek transforms (Phase 8)
+    /// @o/@i/@to - Greek definite article with case and number
+    GreekO,
+    /// @enas/@mia/@ena - Greek indefinite article with case
+    GreekEnas,
+    // Romanian transforms (Phase 8)
+    /// @def - Romanian postposed definite article (suffix)
+    RomanianDef,
 }
 
 impl TransformKind {
@@ -118,6 +126,11 @@ impl TransformKind {
             TransformKind::ItalianUn => italian_un_transform(value),
             TransformKind::ItalianDi => italian_di_transform(value, context),
             TransformKind::ItalianA => italian_a_transform(value, context),
+            // Greek transforms need Value (for tags) and context (for case/plural)
+            TransformKind::GreekO => greek_o_transform(value, context),
+            TransformKind::GreekEnas => greek_enas_transform(value, context),
+            // Romanian transforms need Value (for tags) and context (for plural)
+            TransformKind::RomanianDef => romanian_def_transform(value, context),
         }
     }
 }
@@ -371,7 +384,7 @@ enum RomanceGender {
 }
 
 /// Romance plural category (singular/plural).
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum RomancePlural {
     One,   // Singular
     Other, // Plural
@@ -869,6 +882,222 @@ fn italian_a_transform(value: &Value, context: Option<&Value>) -> Result<String,
     }
 }
 
+// =============================================================================
+// Greek Transforms (Phase 8)
+// =============================================================================
+
+/// Greek grammatical gender.
+#[derive(Clone, Copy)]
+enum GreekGender {
+    Masculine,
+    Feminine,
+    Neuter,
+}
+
+/// Greek grammatical case.
+#[derive(Clone, Copy)]
+enum GreekCase {
+    Nominative,
+    Accusative,
+    Genitive,
+    Dative, // Archaic in modern Greek, but supported per spec
+}
+
+/// Parse gender from Value's tags for Greek.
+/// Returns error if no gender tag is present.
+fn parse_greek_gender(value: &Value, transform: &str) -> Result<GreekGender, EvalError> {
+    if value.has_tag("masc") {
+        Ok(GreekGender::Masculine)
+    } else if value.has_tag("fem") {
+        Ok(GreekGender::Feminine)
+    } else if value.has_tag("neut") {
+        Ok(GreekGender::Neuter)
+    } else {
+        Err(EvalError::MissingTag {
+            transform: transform.to_string(),
+            expected: vec!["masc".to_string(), "fem".to_string(), "neut".to_string()],
+            phrase: value.to_string(),
+        })
+    }
+}
+
+/// Parse case from context value.
+/// Defaults to nominative if no context or unknown case string.
+fn parse_greek_case(context: Option<&Value>) -> GreekCase {
+    match context {
+        Some(Value::String(s)) => match s.as_str() {
+            "acc" => GreekCase::Accusative,
+            "gen" => GreekCase::Genitive,
+            "dat" => GreekCase::Dative,
+            _ => GreekCase::Nominative,
+        },
+        _ => GreekCase::Nominative,
+    }
+}
+
+/// Greek definite article lookup table - singular.
+/// Returns the correct article for gender x case combination.
+fn greek_definite_article_singular(gender: GreekGender, case: GreekCase) -> &'static str {
+    match (gender, case) {
+        // Masculine: ο/τον/του/τω
+        (GreekGender::Masculine, GreekCase::Nominative) => "ο",
+        (GreekGender::Masculine, GreekCase::Accusative) => "τον",
+        (GreekGender::Masculine, GreekCase::Genitive) => "του",
+        (GreekGender::Masculine, GreekCase::Dative) => "τω",
+        // Feminine: η/την/της/τη
+        (GreekGender::Feminine, GreekCase::Nominative) => "η",
+        (GreekGender::Feminine, GreekCase::Accusative) => "την",
+        (GreekGender::Feminine, GreekCase::Genitive) => "της",
+        (GreekGender::Feminine, GreekCase::Dative) => "τη",
+        // Neuter: το/το/του/τω
+        (GreekGender::Neuter, GreekCase::Nominative) => "το",
+        (GreekGender::Neuter, GreekCase::Accusative) => "το",
+        (GreekGender::Neuter, GreekCase::Genitive) => "του",
+        (GreekGender::Neuter, GreekCase::Dative) => "τω",
+    }
+}
+
+/// Greek definite article lookup table - plural.
+/// Returns the correct article for gender x case combination.
+fn greek_definite_article_plural(gender: GreekGender, case: GreekCase) -> &'static str {
+    match (gender, case) {
+        // Masculine: οι/τους/των/τοις
+        (GreekGender::Masculine, GreekCase::Nominative) => "οι",
+        (GreekGender::Masculine, GreekCase::Accusative) => "τους",
+        (GreekGender::Masculine, GreekCase::Genitive) => "των",
+        (GreekGender::Masculine, GreekCase::Dative) => "τοις",
+        // Feminine: οι/τις/των/ταις
+        (GreekGender::Feminine, GreekCase::Nominative) => "οι",
+        (GreekGender::Feminine, GreekCase::Accusative) => "τις",
+        (GreekGender::Feminine, GreekCase::Genitive) => "των",
+        (GreekGender::Feminine, GreekCase::Dative) => "ταις",
+        // Neuter: τα/τα/των/τοις
+        (GreekGender::Neuter, GreekCase::Nominative) => "τα",
+        (GreekGender::Neuter, GreekCase::Accusative) => "τα",
+        (GreekGender::Neuter, GreekCase::Genitive) => "των",
+        (GreekGender::Neuter, GreekCase::Dative) => "τοις",
+    }
+}
+
+/// Greek indefinite article lookup table (singular only).
+/// Returns the correct article for gender x case combination.
+fn greek_indefinite_article(gender: GreekGender, case: GreekCase) -> &'static str {
+    match (gender, case) {
+        // Masculine: ένας/έναν/ενός/ενί
+        (GreekGender::Masculine, GreekCase::Nominative) => "ένας",
+        (GreekGender::Masculine, GreekCase::Accusative) => "έναν",
+        (GreekGender::Masculine, GreekCase::Genitive) => "ενός",
+        (GreekGender::Masculine, GreekCase::Dative) => "ενί",
+        // Feminine: μία/μία/μιας/μια
+        (GreekGender::Feminine, GreekCase::Nominative) => "μία",
+        (GreekGender::Feminine, GreekCase::Accusative) => "μία",
+        (GreekGender::Feminine, GreekCase::Genitive) => "μιας",
+        (GreekGender::Feminine, GreekCase::Dative) => "μια",
+        // Neuter: ένα/ένα/ενός/ενί
+        (GreekGender::Neuter, GreekCase::Nominative) => "ένα",
+        (GreekGender::Neuter, GreekCase::Accusative) => "ένα",
+        (GreekGender::Neuter, GreekCase::Genitive) => "ενός",
+        (GreekGender::Neuter, GreekCase::Dative) => "ενί",
+    }
+}
+
+/// Greek definite article transform (@o/@i/@to).
+///
+/// Reads :masc/:fem/:neut tag from Value to determine gender.
+/// Uses context for case (defaults to nominative) and plural.
+fn greek_o_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
+    let text = value.to_string();
+    let gender = parse_greek_gender(value, "o")?;
+    let case = parse_greek_case(context);
+    let plural = parse_romance_plural(context);
+
+    let article = if plural == RomancePlural::One {
+        greek_definite_article_singular(gender, case)
+    } else {
+        greek_definite_article_plural(gender, case)
+    };
+
+    Ok(format!("{} {}", article, text))
+}
+
+/// Greek indefinite article transform (@enas/@mia/@ena).
+///
+/// Reads :masc/:fem/:neut tag from Value to determine gender.
+/// Uses context for case (defaults to nominative).
+/// Note: Greek indefinite articles exist only in singular form.
+fn greek_enas_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
+    let text = value.to_string();
+    let gender = parse_greek_gender(value, "enas")?;
+    let case = parse_greek_case(context);
+    let article = greek_indefinite_article(gender, case);
+
+    Ok(format!("{} {}", article, text))
+}
+
+// =============================================================================
+// Romanian Transforms (Phase 8)
+// =============================================================================
+
+/// Romanian grammatical gender.
+/// Note: Neuter behaves as masculine in singular, feminine in plural.
+#[derive(Clone, Copy)]
+enum RomanianGender {
+    Masculine,
+    Feminine,
+    Neuter,
+}
+
+/// Parse gender from Value's tags for Romanian.
+/// Returns error if no gender tag is present.
+fn parse_romanian_gender(value: &Value, transform: &str) -> Result<RomanianGender, EvalError> {
+    if value.has_tag("masc") {
+        Ok(RomanianGender::Masculine)
+    } else if value.has_tag("fem") {
+        Ok(RomanianGender::Feminine)
+    } else if value.has_tag("neut") {
+        Ok(RomanianGender::Neuter)
+    } else {
+        Err(EvalError::MissingTag {
+            transform: transform.to_string(),
+            expected: vec!["masc".to_string(), "fem".to_string(), "neut".to_string()],
+            phrase: value.to_string(),
+        })
+    }
+}
+
+/// Romanian definite article suffix lookup table (nominative/accusative).
+/// APPENDS suffix to word, not prepends.
+fn romanian_definite_suffix(gender: RomanianGender, plural: RomancePlural) -> &'static str {
+    match (gender, plural) {
+        // Masculine: -ul (sg), -ii (pl)
+        (RomanianGender::Masculine, RomancePlural::One) => "-ul",
+        (RomanianGender::Masculine, RomancePlural::Other) => "-ii",
+        // Feminine: -a (sg), -le (pl)
+        (RomanianGender::Feminine, RomancePlural::One) => "-a",
+        (RomanianGender::Feminine, RomancePlural::Other) => "-le",
+        // Neuter: like masculine singular, like feminine plural
+        (RomanianGender::Neuter, RomancePlural::One) => "-ul",
+        (RomanianGender::Neuter, RomancePlural::Other) => "-le",
+    }
+}
+
+/// Romanian postposed definite article transform (@def).
+///
+/// APPENDS article suffix to word (unique among Romance languages).
+/// Per CONTEXT.md: neuter singular -> masculine suffix, neuter plural -> feminine suffix.
+fn romanian_def_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
+    let text = value.to_string();
+    let gender = parse_romanian_gender(value, "def")?;
+    let plural = parse_romance_plural(context);
+    let suffix = romanian_definite_suffix(gender, plural);
+
+    // Remove the leading dash from the suffix for display
+    let suffix_text = suffix.trim_start_matches('-');
+
+    // APPEND suffix, not prepend (Romanian postposed article)
+    Ok(format!("{}{}", text, suffix_text))
+}
+
 /// Registry for transform functions.
 ///
 /// Transforms are registered per-language with universal transforms available to all.
@@ -907,6 +1136,8 @@ impl TransformRegistry {
             ("une", "fr") => "un",         // French alias: @une resolves to @un
             ("lo" | "la", "it") => "il",   // Italian aliases: @lo/@la resolve to @il
             ("uno" | "una", "it") => "un", // Italian aliases: @uno/@una resolve to @un
+            ("i" | "to", "el") => "o",     // Greek aliases: @i/@to resolve to @o
+            ("mia" | "ena", "el") => "enas", // Greek aliases: @mia/@ena resolve to @enas
             (other, _) => other,
         };
 
@@ -941,6 +1172,9 @@ impl TransformRegistry {
             ("it", "un") => Some(TransformKind::ItalianUn),
             ("it", "di") => Some(TransformKind::ItalianDi),
             ("it", "a") => Some(TransformKind::ItalianA),
+            ("el", "o") => Some(TransformKind::GreekO),
+            ("el", "enas") => Some(TransformKind::GreekEnas),
+            ("ro", "def") => Some(TransformKind::RomanianDef),
             _ => None,
         }
     }
