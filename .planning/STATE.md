@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-04)
 ## Current Position
 
 Phase: 6 of 10 (English and Germanic Transforms)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-02-05 - Completed 06-01-PLAN.md
+Last activity: 2026-02-05 - Completed 06-02-PLAN.md
 
-Progress: [##############] 47% (14/30 plans)
+Progress: [###############] 50% (15/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 14
+- Total plans completed: 15
 - Average duration: 4.5 min
-- Total execution time: 1.06 hours
+- Total execution time: 1.14 hours
 
 **By Phase:**
 
@@ -32,10 +32,10 @@ Progress: [##############] 47% (14/30 plans)
 | 03-universal-transforms-and-icu4x | 2 | 6 min | 3 min |
 | 04-locale-management-and-error-handling | 2 | 10 min | 5 min |
 | 05-macro-code-generation | 4 | 20 min | 5 min |
-| 06-english-and-germanic-transforms | 1 | 5 min | 5 min |
+| 06-english-and-germanic-transforms | 2 | 10 min | 5 min |
 
 **Recent Trend:**
-- Last 5 plans: 4 min, 5 min, 7 min, 4 min, 5 min
+- Last 5 plans: 5 min, 7 min, 4 min, 5 min, 5 min
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -83,6 +83,10 @@ Recent decisions affecting current work:
 - apply_transforms accepts Value, first transform sees original Phrase with tags
 - Selector application strips tags (variant lookup returns String)
 - @an alias resolves to @a in TransformRegistry
+- Context selector resolved to Value via param lookup or literal string
+- German gender tags: :masc, :fem, :neut
+- German case context: nom (default), acc, dat, gen as literal strings
+- @die/@das resolve to @der; @eine resolves to @ein in registry
 
 ### Pending Todos
 
@@ -196,12 +200,20 @@ Phase 6 (English and Germanic Transforms) in progress:
   - Value-based transform execution preserves tags
   - 19 new English transform tests
 
-All 208 tests passing:
+- **06-02:** German Article Transforms (COMPLETE)
+  - Context resolution in evaluator for case parameters
+  - GermanDer transform with 12 definite article forms (4 cases x 3 genders)
+  - GermanEin transform with 12 indefinite article forms
+  - @die/@das/@eine aliases
+  - 15 German tests (8 unit + 7 integration)
+  - Dutch transforms added (DutchDe, DutchEen) for 06-03
+
+All 230 tests passing:
 - 33 file parser integration tests
 - 46 template parser integration tests
 - 10 interpreter foundation tests
 - 27 interpreter evaluation tests
-- 48 interpreter transform tests (was 30, +18 English)
+- 82 interpreter transform tests (was 48, +15 German, +9 Dutch, +10 cross-language)
 - 7 interpreter error tests
 - 25 locale integration tests
 - 4 trybuild compile tests (1 pass, 3 fail)
@@ -209,6 +221,6 @@ All 208 tests passing:
 
 ## Session Continuity
 
-Last session: 2026-02-05T03:59:42Z
-Stopped at: Completed 06-01-PLAN.md
+Last session: 2026-02-05T04:08:48Z
+Stopped at: Completed 06-02-PLAN.md
 Resume file: None
