@@ -311,6 +311,15 @@ fn compute_suggestions_str(name: &str, available: &[&str]) -> Vec<String> {
 // Cycle Detection (MACRO-14)
 // ============================================================================
 
+/// DFS coloring for cycle detection.
+///
+/// Uses a three-color algorithm:
+/// - White: Node not yet visited
+/// - Gray: Node is in the current DFS path (ancestor)
+/// - Black: Node has been fully processed (all descendants visited)
+///
+/// A cycle is detected when we encounter a Gray node while traversing,
+/// meaning we've found a back edge to an ancestor in the current path.
 #[derive(Clone, Copy, PartialEq)]
 enum Color {
     White, // Not visited
@@ -320,7 +329,8 @@ enum Color {
 
 /// Detect cycles in phrase references.
 ///
-/// Returns an error with the full cycle chain if found.
+/// Uses DFS with coloring to find cycles in the phrase dependency graph.
+/// Returns an error with the full cycle chain if found (e.g., "a -> b -> c -> a").
 pub fn detect_cycles(input: &MacroInput, ctx: &ValidationContext) -> syn::Result<()> {
     // Build dependency graph: phrase name -> list of (phrase references, span)
     let mut deps: HashMap<String, Vec<(String, Span)>> = HashMap::new();
