@@ -325,8 +325,8 @@ Requirements derived from design documents. All features documented in DESIGN.md
 | ICU-01 | Phase 3 | Complete |
 | ICU-02 | Phase 3 | Complete |
 | ICU-03 | Phase 3 | Complete |
-| EN-01 | Phase 6 | Pending |
-| EN-02 | Phase 6 | Pending |
+| EN-01 | Phase 6 | Complete |
+| EN-02 | Phase 6 | Complete |
 | ES-01 | Phase 7 | Pending |
 | ES-02 | Phase 7 | Pending |
 | ES-03 | Phase 7 | Pending |
@@ -335,8 +335,8 @@ Requirements derived from design documents. All features documented in DESIGN.md
 | FR-03 | Phase 7 | Pending |
 | FR-04 | Phase 7 | Pending |
 | FR-05 | Phase 7 | Pending |
-| DE-01 | Phase 6 | Pending |
-| DE-02 | Phase 6 | Pending |
+| DE-01 | Phase 6 | Complete |
+| DE-02 | Phase 6 | Complete |
 | PT-01 | Phase 7 | Pending |
 | PT-02 | Phase 7 | Pending |
 | PT-03 | Phase 7 | Pending |
@@ -345,8 +345,8 @@ Requirements derived from design documents. All features documented in DESIGN.md
 | IT-02 | Phase 7 | Pending |
 | IT-03 | Phase 7 | Pending |
 | IT-04 | Phase 7 | Pending |
-| NL-01 | Phase 6 | Pending |
-| NL-02 | Phase 6 | Pending |
+| NL-01 | Phase 6 | Complete |
+| NL-02 | Phase 6 | Complete |
 | EL-01 | Phase 8 | Pending |
 | EL-02 | Phase 8 | Pending |
 | RO-01 | Phase 8 | Pending |
@@ -381,4 +381,4 @@ Requirements derived from design documents. All features documented in DESIGN.md
 
 ---
 *Requirements defined: 2026-02-04*
-*Last updated: 2026-02-05 after Phase 5 completion*
+*Last updated: 2026-02-05 after Phase 6 completion*

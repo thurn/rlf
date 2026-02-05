@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Universal Transforms and ICU4X** - Case transforms and CLDR plural rules integration
 - [x] **Phase 4: Locale Management and Error Handling** - Locale struct, phrase loading, and comprehensive error types
 - [x] **Phase 5: Macro Code Generation** - rlf! macro parsing, code generation, and compile-time validation
-- [ ] **Phase 6: English and Germanic Transforms** - Article transforms for English, German, and Dutch
+- [x] **Phase 6: English and Germanic Transforms** - Article transforms for English, German, and Dutch
 - [ ] **Phase 7: Romance Language Transforms** - Article and contraction transforms for Spanish, French, Portuguese, Italian
 - [ ] **Phase 8: Greek, Romanian, and Middle Eastern Transforms** - Greek articles, Romanian postposed articles, Arabic/Persian
 - [ ] **Phase 9: Asian Language Transforms** - CJK counters, Korean particles, Turkish inflection, Indonesian plural
@@ -117,9 +117,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 06-01-PLAN.md — English transforms (@a/@an, @the) with Value threading fix
-- [ ] 06-02-PLAN.md — German transforms (@der/@ein) with case declension tables
-- [ ] 06-03-PLAN.md — Dutch transforms (@de/@het, @een) and cross-language verification
+- [x] 06-01-PLAN.md — English transforms (@a/@an, @the) with Value threading fix
+- [x] 06-02-PLAN.md — German transforms (@der/@ein) with case declension tables
+- [x] 06-03-PLAN.md — Dutch transforms (@de/@het, @een) and cross-language verification
 
 ### Phase 7: Romance Language Transforms
 **Goal**: Article and contraction transforms work for Spanish, French, Portuguese, Italian
@@ -193,7 +193,7 @@ Note: Phases 6-9 (language transforms) can proceed in parallel after Phase 3 com
 | 3. Universal Transforms and ICU4X | 2/2 | Complete | 2026-02-04 |
 | 4. Locale Management and Error Handling | 2/2 | Complete | 2026-02-05 |
 | 5. Macro Code Generation | 4/4 | Complete | 2026-02-05 |
-| 6. English and Germanic Transforms | 0/3 | Not started | - |
+| 6. English and Germanic Transforms | 3/3 | Complete | 2026-02-05 |
 | 7. Romance Language Transforms | 0/2 | Not started | - |
 | 8. Greek, Romanian, and Middle Eastern Transforms | 0/1 | Not started | - |
 | 9. Asian Language Transforms | 0/2 | Not started | - |
@@ -201,4 +201,4 @@ Note: Phases 6-9 (language transforms) can proceed in parallel after Phase 3 com
 
 ---
 *Roadmap created: 2026-02-04*
-*Last updated: 2026-02-05 after Phase 6 planning*
+*Last updated: 2026-02-05 after Phase 6 completion*
