@@ -9,7 +9,7 @@ mod output;
 use std::process::exit;
 
 use clap::{Parser, Subcommand, ValueEnum};
-use commands::{run_check, run_eval, CheckArgs, EvalArgs};
+use commands::{run_check, run_coverage, run_eval, CheckArgs, CoverageArgs, EvalArgs};
 
 /// RLF localization file tools.
 #[derive(Debug, Parser)]
@@ -42,6 +42,8 @@ pub enum ColorWhen {
 pub enum Commands {
     /// Check .rlf file syntax
     Check(CheckArgs),
+    /// Report translation coverage across languages
+    Coverage(CoverageArgs),
     /// Evaluate an RLF template string
     Eval(EvalArgs),
 }
@@ -77,6 +79,7 @@ fn main() -> miette::Result<()> {
 
     let result = match cli.command {
         Commands::Check(args) => run_check(args),
+        Commands::Coverage(args) => run_coverage(args),
         Commands::Eval(args) => run_eval(args),
     };
 
