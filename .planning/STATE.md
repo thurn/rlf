@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** When you add a phrase to `strings.rlf.rs`, it immediately appears in IDE autocomplete
-**Current focus:** Phase 5 in progress - Macro Code Generation
+**Current focus:** Phase 5 complete - Macro Code Generation
 
 ## Current Position
 
 Phase: 5 of 10 (Macro Code Generation)
-Plan: 3 of 4 in current phase
-Status: In progress
-Last activity: 2026-02-05 - Completed 05-03-PLAN.md
+Plan: 4 of 4 in current phase (COMPLETE)
+Status: Phase complete
+Last activity: 2026-02-05 - Completed 05-04-PLAN.md
 
-Progress: [############] 40% (12/30 plans)
+Progress: [#############] 43% (13/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 12
+- Total plans completed: 13
 - Average duration: 4.5 min
-- Total execution time: 0.90 hours
+- Total execution time: 0.98 hours
 
 **By Phase:**
 
@@ -31,10 +31,10 @@ Progress: [############] 40% (12/30 plans)
 | 02-interpreter-engine | 2 | 8 min | 4 min |
 | 03-universal-transforms-and-icu4x | 2 | 6 min | 3 min |
 | 04-locale-management-and-error-handling | 2 | 10 min | 5 min |
-| 05-macro-code-generation | 3 | 16 min | 5 min |
+| 05-macro-code-generation | 4 | 20 min | 5 min |
 
 **Recent Trend:**
-- Last 5 plans: 3 min, 7 min, 4 min, 5 min, 7 min
+- Last 5 plans: 7 min, 4 min, 5 min, 7 min, 4 min
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -77,6 +77,7 @@ Recent decisions affecting current work:
 - Generated code uses ::rlf::* fully qualified paths for hygiene
 - Generated functions use expect() for errors (programming errors)
 - PhraseId constants use SCREAMING_CASE
+- Deterministic cycle detection via sorted key/ref iteration for stable trybuild tests
 
 ### Pending Todos
 
@@ -150,42 +151,49 @@ Phase 4 (Locale Management and Error Handling) is now complete with:
   - Fallback language support
   - 27 new locale integration tests
 
-## Phase 5 Progress
+## Phase 5 Completion Summary
 
-Phase 5 (Macro Code Generation) in progress:
-- **05-01:** TokenStream Parsing Foundation (COMPLETE)
+Phase 5 (Macro Code Generation) is now complete with:
+- **05-01:** TokenStream Parsing Foundation
   - Created rlf-macros proc-macro crate
   - syn 2.0, quote 1.0, proc-macro2 1.0 dependencies
   - MacroInput, PhraseDefinition, Template AST types with spans
   - Parse trait implementations for all AST types
   - Template string parsing with interpolation extraction
 
-- **05-02:** Compile-time Validation (COMPLETE)
+- **05-02:** Compile-time Validation
   - ValidationContext with phrase index, variants, tags
   - 7 validation check types implemented
   - Spanned errors with source location
   - Typo suggestions using Levenshtein distance
   - DFS cycle detection with full chain reporting
 
-- **05-03:** Code Generation (COMPLETE)
+- **05-03:** Code Generation
   - Phrase function generation (parameterless and parameterized)
   - SOURCE_PHRASES const with embedded RLF source
   - register_source_phrases() for loading phrases
   - phrase_ids module with SCREAMING_CASE constants
   - Fully qualified paths for macro hygiene
 
-All 192 tests passing:
+- **05-04:** Macro Integration
+  - Refined expand() helper for clean error handling
+  - rlf crate re-exports rlf! macro
+  - trybuild tests for compile-time error verification
+  - Deterministic cycle detection for stable tests
+
+All 197 tests passing:
 - 33 file parser integration tests
 - 46 template parser integration tests
 - 10 interpreter foundation tests
 - 27 interpreter evaluation tests
 - 30 interpreter transform tests
 - 7 interpreter error tests
-- 27 locale integration tests
-- 12 doctests
+- 25 locale integration tests
+- 4 trybuild compile tests (1 pass, 3 fail)
+- 15 doctests
 
 ## Session Continuity
 
-Last session: 2026-02-05T02:14:35Z
-Stopped at: Completed 05-03-PLAN.md
+Last session: 2026-02-05T02:21:47Z
+Stopped at: Completed 05-04-PLAN.md (Phase 5 complete)
 Resume file: None
