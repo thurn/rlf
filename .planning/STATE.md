@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-04)
 ## Current Position
 
 Phase: 9 of 10 (Asian Language Transforms)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-02-05 - Completed 09-01-PLAN.md
+Last activity: 2026-02-05 - Completed 09-02-PLAN.md
 
-Progress: [#####################] 70% (21/30 plans)
+Progress: [#######################] 73% (22/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 21
+- Total plans completed: 22
 - Average duration: 4.5 min
-- Total execution time: 1.63 hours
+- Total execution time: 1.77 hours
 
 **By Phase:**
 
@@ -35,10 +35,10 @@ Progress: [#####################] 70% (21/30 plans)
 | 06-english-and-germanic-transforms | 3 | 14 min | 5 min |
 | 07-romance-language-transforms | 2 | 13 min | 7 min |
 | 08-greek-romanian-and-middle-eastern-transforms | 2 | 12 min | 6 min |
-| 09-asian-language-transforms | 1 | 3 min | 3 min |
+| 09-asian-language-transforms | 2 | 11 min | 6 min |
 
 **Recent Trend:**
-- Last 5 plans: 5 min, 8 min, 6 min, 6 min, 3 min
+- Last 5 plans: 8 min, 6 min, 6 min, 3 min, 8 min
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -111,6 +111,10 @@ Recent decisions affecting current work:
 - CJK @count format: {count}{classifier}{text} with no spaces
 - Classifier lookup via tag-to-character array with find_classifier helper
 - context_to_count defaults to 1 when no context provided
+- Vietnamese @count format: {count} {classifier} {text} with spaces
+- Thai @count format: {count}{classifier}{text} no spaces (like CJK)
+- Bengali @count format: {count}{classifier} {text} classifier attached to number
+- Indonesian @plural: simple reduplication with hyphen
 
 ### Pending Todos
 
@@ -284,10 +288,17 @@ Phase 9 (Asian Language Transforms) is in progress with:
   - find_classifier helper for tag-based lookup
   - 24 new tests (7 Chinese + 6 Japanese + 6 Korean + 5 registry/edge cases)
 
-Total tests: 472 passing
+- **09-02:** SEA Count Transforms (COMPLETE)
+  - VietnameseCount transform with 5 classifiers (cai, con, nguoi, chiec, to)
+  - ThaiCount transform with 4 classifiers (bai, tua, khon, an)
+  - BengaliCount transform with 4 classifiers (ta, ti, khana, jon)
+  - IndonesianPlural transform with simple reduplication
+  - 19 new tests (4 Vietnamese + 4 Thai + 4 Bengali + 4 Indonesian + 3 registry)
+
+Total tests: 490 passing
 
 ## Session Continuity
 
-Last session: 2026-02-05T06:25:07Z
-Stopped at: Completed 09-01-PLAN.md
+Last session: 2026-02-05T06:38:00Z
+Stopped at: Completed 09-02-PLAN.md
 Resume file: None
