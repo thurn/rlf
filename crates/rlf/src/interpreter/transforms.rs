@@ -3,6 +3,7 @@
 //! Transforms are functions that modify values (e.g., @cap, @upper, @lower).
 //! This module provides the registry infrastructure and universal transform implementations.
 
+use hangeul::ends_with_jongseong;
 use icu_casemap::CaseMapper;
 use icu_locale_core::{LanguageIdentifier, langid};
 use unicode_segmentation::UnicodeSegmentation;
@@ -100,6 +101,12 @@ pub enum TransformKind {
     BengaliCount,
     /// @plural - Indonesian reduplication plural
     IndonesianPlural,
+    // Korean particle transform (Phase 9)
+    /// @particle - Korean particle selection based on final sound
+    KoreanParticle,
+    // Turkish inflection transform (Phase 9)
+    /// @inflect - Turkish suffix chain with vowel harmony
+    TurkishInflect,
 }
 
 impl TransformKind {
@@ -167,6 +174,10 @@ impl TransformKind {
             TransformKind::BengaliCount => bengali_count_transform(value, context),
             // Indonesian @plural doesn't need context
             TransformKind::IndonesianPlural => indonesian_plural_transform(value),
+            // Korean @particle needs Value (for text) and context (for particle type)
+            TransformKind::KoreanParticle => korean_particle_transform(value, context),
+            // Turkish @inflect needs Value (for tags) and context (for suffix chain)
+            TransformKind::TurkishInflect => turkish_inflect_transform(value, context),
         }
     }
 }
@@ -1437,6 +1448,161 @@ fn indonesian_plural_transform(value: &Value) -> Result<String, EvalError> {
     Ok(format!("{}-{}", text, text))
 }
 
+// =============================================================================
+// Korean Particle Transform (Phase 9)
+// =============================================================================
+
+/// Korean particle type for @particle transform.
+#[derive(Clone, Copy)]
+enum KoreanParticleType {
+    /// Subject particle: 가 (vowel-final) / 이 (consonant-final)
+    Subject,
+    /// Object particle: 를 (vowel-final) / 을 (consonant-final)
+    Object,
+    /// Topic particle: 는 (vowel-final) / 은 (consonant-final)
+    Topic,
+}
+
+/// Korean @particle transform.
+///
+/// Selects the appropriate particle form based on whether the preceding word
+/// ends in a vowel or consonant (jongseong/batchim).
+///
+/// Particle types from context:
+/// - "subj" -> Subject (가/이)
+/// - "obj" -> Object (를/을)
+/// - "topic" -> Topic (는/은)
+/// - Default to Subject if no context
+///
+/// Returns ONLY the particle (not prepended to text).
+fn korean_particle_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
+    let text = value.to_string();
+
+    let particle_type = match context {
+        Some(Value::String(s)) => match s.as_str() {
+            "subj" => KoreanParticleType::Subject,
+            "obj" => KoreanParticleType::Object,
+            "topic" => KoreanParticleType::Topic,
+            _ => KoreanParticleType::Subject,
+        },
+        _ => KoreanParticleType::Subject,
+    };
+
+    // Check if text ends in consonant (has jongseong/batchim)
+    // For non-Hangul text or errors, treat as vowel-ending (returns false)
+    let consonant_ending = ends_with_jongseong(&text).unwrap_or(false);
+
+    let particle = match (particle_type, consonant_ending) {
+        (KoreanParticleType::Subject, false) => "가",
+        (KoreanParticleType::Subject, true) => "이",
+        (KoreanParticleType::Object, false) => "를",
+        (KoreanParticleType::Object, true) => "을",
+        (KoreanParticleType::Topic, false) => "는",
+        (KoreanParticleType::Topic, true) => "은",
+    };
+
+    Ok(particle.to_string())
+}
+
+// =============================================================================
+// Turkish Inflect Transform (Phase 9)
+// =============================================================================
+
+/// Turkish vowel harmony type.
+#[derive(Clone, Copy)]
+enum TurkishHarmony {
+    /// Front vowels: e, i, o, u
+    Front,
+    /// Back vowels: a, i, o, u
+    Back,
+}
+
+/// Turkish suffix types for @inflect transform.
+#[derive(Clone, Copy)]
+enum TurkishSuffix {
+    /// Plural: -ler/-lar (2-way)
+    Plural,
+    /// Dative: -e/-a (2-way)
+    Dative,
+    /// Locative: -de/-da (2-way, ignoring voicing)
+    Locative,
+    /// Ablative: -den/-dan (2-way, ignoring voicing)
+    Ablative,
+}
+
+/// Parse suffix chain from context value.
+///
+/// Parses dot-separated suffix names: "pl.dat" -> [Plural, Dative]
+fn parse_turkish_suffix_chain(context: Option<&Value>) -> Vec<TurkishSuffix> {
+    let Some(Value::String(s)) = context else {
+        return Vec::new();
+    };
+
+    s.split('.')
+        .filter_map(|part| match part {
+            "pl" => Some(TurkishSuffix::Plural),
+            "dat" => Some(TurkishSuffix::Dative),
+            "loc" => Some(TurkishSuffix::Locative),
+            "abl" => Some(TurkishSuffix::Ablative),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Get the 2-way harmony suffix text.
+fn turkish_suffix_2way(suffix: TurkishSuffix, harmony: TurkishHarmony) -> &'static str {
+    match (suffix, harmony) {
+        (TurkishSuffix::Plural, TurkishHarmony::Front) => "ler",
+        (TurkishSuffix::Plural, TurkishHarmony::Back) => "lar",
+        (TurkishSuffix::Dative, TurkishHarmony::Front) => "e",
+        (TurkishSuffix::Dative, TurkishHarmony::Back) => "a",
+        (TurkishSuffix::Locative, TurkishHarmony::Front) => "de",
+        (TurkishSuffix::Locative, TurkishHarmony::Back) => "da",
+        (TurkishSuffix::Ablative, TurkishHarmony::Front) => "den",
+        (TurkishSuffix::Ablative, TurkishHarmony::Back) => "dan",
+    }
+}
+
+/// Turkish @inflect transform.
+///
+/// Applies suffix chain with vowel harmony based on :front/:back tag.
+///
+/// Context specifies suffix chain as dot-separated names:
+/// - "pl" -> Plural (-ler/-lar)
+/// - "dat" -> Dative (-e/-a)
+/// - "loc" -> Locative (-de/-da)
+/// - "abl" -> Ablative (-den/-dan)
+///
+/// Example: "pl.dat" on :front "ev" -> "evlere"
+fn turkish_inflect_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
+    let text = value.to_string();
+
+    // Get initial harmony from tag
+    let harmony = if value.has_tag("front") {
+        TurkishHarmony::Front
+    } else if value.has_tag("back") {
+        TurkishHarmony::Back
+    } else {
+        return Err(EvalError::MissingTag {
+            transform: "inflect".to_string(),
+            expected: vec!["front".to_string(), "back".to_string()],
+            phrase: text,
+        });
+    };
+
+    // Parse suffix chain from context
+    let suffixes = parse_turkish_suffix_chain(context);
+
+    // Apply each suffix left-to-right, harmony persists through chain
+    let mut result = text;
+    for suffix in suffixes {
+        let suffix_text = turkish_suffix_2way(suffix, harmony);
+        result.push_str(suffix_text);
+    }
+
+    Ok(result)
+}
+
 /// Registry for transform functions.
 ///
 /// Transforms are registered per-language with universal transforms available to all.
@@ -1523,6 +1689,8 @@ impl TransformRegistry {
             ("th", "count") => Some(TransformKind::ThaiCount),
             ("bn", "count") => Some(TransformKind::BengaliCount),
             ("id", "plural") => Some(TransformKind::IndonesianPlural),
+            ("ko", "particle") => Some(TransformKind::KoreanParticle),
+            ("tr", "inflect") => Some(TransformKind::TurkishInflect),
             _ => None,
         }
     }
