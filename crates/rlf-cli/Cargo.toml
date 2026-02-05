@@ -1,0 +1,22 @@
+[package]
+name = "rlf-cli"
+version = "0.1.0"
+edition = "2021"
+description = "CLI tools for RLF localization files"
+
+[[bin]]
+name = "rlf"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive", "color", "env"] }
+miette = { version = "7", features = ["fancy"] }
+owo-colors = { version = "4", features = ["supports-colors"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+exitcode = "1"
+thiserror = "2"
+rlf = { path = "../rlf" }
+
+[lints]
+workspace = true
