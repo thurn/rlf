@@ -4289,3 +4289,301 @@ fn sea_count_default_to_one() {
     let result = transform.execute(&value, None, "vi").unwrap();
     assert_eq!(result, "1 cai ban");
 }
+
+// =============================================================================
+// Korean @particle Transform Tests (Phase 9)
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Korean @particle - Vowel-final words
+// -----------------------------------------------------------------------------
+
+#[test]
+fn korean_particle_subj_vowel() {
+    // "사과" (apple, ends in 과 which has no jongseong) + :subj -> "가"
+    let phrase = Phrase::builder().text("사과".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::KoreanParticle;
+    let context = Value::String("subj".to_string());
+    let result = transform.execute(&value, Some(&context), "ko").unwrap();
+    assert_eq!(result, "가");
+}
+
+#[test]
+fn korean_particle_obj_vowel() {
+    // "사과" + :obj -> "를"
+    let phrase = Phrase::builder().text("사과".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::KoreanParticle;
+    let context = Value::String("obj".to_string());
+    let result = transform.execute(&value, Some(&context), "ko").unwrap();
+    assert_eq!(result, "를");
+}
+
+#[test]
+fn korean_particle_topic_vowel() {
+    // "사과" + :topic -> "는"
+    let phrase = Phrase::builder().text("사과".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::KoreanParticle;
+    let context = Value::String("topic".to_string());
+    let result = transform.execute(&value, Some(&context), "ko").unwrap();
+    assert_eq!(result, "는");
+}
+
+// -----------------------------------------------------------------------------
+// Korean @particle - Consonant-final words
+// -----------------------------------------------------------------------------
+
+#[test]
+fn korean_particle_subj_consonant() {
+    // "책" (book, ends in 책 which has jongseong ㄱ) + :subj -> "이"
+    let phrase = Phrase::builder().text("책".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::KoreanParticle;
+    let context = Value::String("subj".to_string());
+    let result = transform.execute(&value, Some(&context), "ko").unwrap();
+    assert_eq!(result, "이");
+}
+
+#[test]
+fn korean_particle_obj_consonant() {
+    // "책" + :obj -> "을"
+    let phrase = Phrase::builder().text("책".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::KoreanParticle;
+    let context = Value::String("obj".to_string());
+    let result = transform.execute(&value, Some(&context), "ko").unwrap();
+    assert_eq!(result, "을");
+}
+
+#[test]
+fn korean_particle_topic_consonant() {
+    // "책" + :topic -> "은"
+    let phrase = Phrase::builder().text("책".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::KoreanParticle;
+    let context = Value::String("topic".to_string());
+    let result = transform.execute(&value, Some(&context), "ko").unwrap();
+    assert_eq!(result, "은");
+}
+
+// -----------------------------------------------------------------------------
+// Korean @particle - Edge cases
+// -----------------------------------------------------------------------------
+
+#[test]
+fn korean_particle_english_text() {
+    // "card" (non-Hangul) + :subj -> "가" (treated as vowel-ending)
+    let phrase = Phrase::builder().text("card".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::KoreanParticle;
+    let context = Value::String("subj".to_string());
+    let result = transform.execute(&value, Some(&context), "ko").unwrap();
+    assert_eq!(result, "가");
+}
+
+#[test]
+fn korean_particle_default() {
+    // No context -> defaults to Subject particle
+    // "책" (consonant-final) -> "이"
+    let phrase = Phrase::builder().text("책".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::KoreanParticle;
+    let result = transform.execute(&value, None, "ko").unwrap();
+    assert_eq!(result, "이");
+}
+
+// -----------------------------------------------------------------------------
+// Korean @particle Registry Test
+// -----------------------------------------------------------------------------
+
+#[test]
+fn korean_particle_registered() {
+    let registry = TransformRegistry::new();
+    assert!(registry.get("particle", "ko").is_some());
+    assert_eq!(
+        registry.get("particle", "ko"),
+        Some(TransformKind::KoreanParticle)
+    );
+}
+
+// =============================================================================
+// Turkish @inflect Transform Tests (Phase 9)
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Turkish @inflect - Basic suffixes
+// -----------------------------------------------------------------------------
+
+#[test]
+fn turkish_inflect_plural_front() {
+    // :front "ev" (house) + :pl -> "evler"
+    let phrase = Phrase::builder()
+        .text("ev".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("pl".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "evler");
+}
+
+#[test]
+fn turkish_inflect_plural_back() {
+    // :back "at" (horse) + :pl -> "atlar"
+    let phrase = Phrase::builder()
+        .text("at".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("pl".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "atlar");
+}
+
+#[test]
+fn turkish_inflect_dative_front() {
+    // :front "ev" + :dat -> "eve"
+    let phrase = Phrase::builder()
+        .text("ev".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("dat".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "eve");
+}
+
+#[test]
+fn turkish_inflect_dative_back() {
+    // :back "at" + :dat -> "ata"
+    let phrase = Phrase::builder()
+        .text("at".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("dat".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "ata");
+}
+
+// -----------------------------------------------------------------------------
+// Turkish @inflect - Suffix chains
+// -----------------------------------------------------------------------------
+
+#[test]
+fn turkish_inflect_pl_dat() {
+    // :front "ev" + :pl.dat -> "evlere"
+    let phrase = Phrase::builder()
+        .text("ev".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("pl.dat".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "evlere");
+}
+
+#[test]
+fn turkish_inflect_abl_front() {
+    // :front "ev" + :abl -> "evden"
+    let phrase = Phrase::builder()
+        .text("ev".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("abl".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "evden");
+}
+
+#[test]
+fn turkish_inflect_abl_back() {
+    // :back "at" + :abl -> "atdan"
+    let phrase = Phrase::builder()
+        .text("at".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("abl".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "atdan");
+}
+
+#[test]
+fn turkish_inflect_loc_front() {
+    // :front "ev" + :loc -> "evde"
+    let phrase = Phrase::builder()
+        .text("ev".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("loc".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "evde");
+}
+
+#[test]
+fn turkish_inflect_loc_back() {
+    // :back "at" + :loc -> "atda"
+    let phrase = Phrase::builder()
+        .text("at".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("loc".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "atda");
+}
+
+// -----------------------------------------------------------------------------
+// Turkish @inflect - Error cases
+// -----------------------------------------------------------------------------
+
+#[test]
+fn turkish_inflect_missing_harmony() {
+    // Phrase without :front/:back returns MissingTag error
+    let phrase = Phrase::builder().text("ev".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("pl".to_string());
+    let result = transform.execute(&value, Some(&context), "tr");
+    assert!(matches!(result, Err(EvalError::MissingTag { .. })));
+}
+
+#[test]
+fn turkish_inflect_no_context() {
+    // No context -> no suffixes applied, returns original word
+    let phrase = Phrase::builder()
+        .text("ev".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let result = transform.execute(&value, None, "tr").unwrap();
+    assert_eq!(result, "ev");
+}
+
+// -----------------------------------------------------------------------------
+// Turkish @inflect Registry Test
+// -----------------------------------------------------------------------------
+
+#[test]
+fn turkish_inflect_registered() {
+    let registry = TransformRegistry::new();
+    assert!(registry.get("inflect", "tr").is_some());
+    assert_eq!(
+        registry.get("inflect", "tr"),
+        Some(TransformKind::TurkishInflect)
+    );
+}
