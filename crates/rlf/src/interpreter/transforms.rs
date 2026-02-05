@@ -84,6 +84,13 @@ pub enum TransformKind {
     // Persian transforms (Phase 8)
     /// @ezafe - Persian ezafe connector (-e/-ye)
     PersianEzafe,
+    // CJK transforms (Phase 9)
+    /// @count - Chinese count with classifier
+    ChineseCount,
+    /// @count - Japanese count with counter
+    JapaneseCount,
+    /// @count - Korean count with counter
+    KoreanCount,
 }
 
 impl TransformKind {
@@ -141,6 +148,10 @@ impl TransformKind {
             TransformKind::ArabicAl => arabic_al_transform(value),
             // Persian transforms need Value (for tags)
             TransformKind::PersianEzafe => persian_ezafe_transform(value),
+            // CJK transforms need Value (for tags) and context (for count)
+            TransformKind::ChineseCount => chinese_count_transform(value, context),
+            TransformKind::JapaneseCount => japanese_count_transform(value, context),
+            TransformKind::KoreanCount => korean_count_transform(value, context),
         }
     }
 }
@@ -1189,6 +1200,122 @@ fn persian_ezafe_transform(value: &Value) -> Result<String, EvalError> {
     }
 }
 
+// =============================================================================
+// CJK Transforms (Phase 9)
+// =============================================================================
+
+/// Chinese measure word classifiers.
+/// Tag name -> classifier character.
+const CHINESE_CLASSIFIERS: &[(&str, &str)] = &[
+    ("zhang", "张"), // Flat objects (cards, paper)
+    ("ge", "个"),    // General classifier
+    ("ming", "名"),  // People (formal)
+    ("wei", "位"),   // People (respectful)
+    ("tiao", "条"),  // Long thin objects
+    ("ben", "本"),   // Books, volumes
+    ("zhi", "只"),   // Animals, hands
+];
+
+/// Japanese counters.
+/// Tag name -> counter character.
+const JAPANESE_COUNTERS: &[(&str, &str)] = &[
+    ("mai", "枚"),   // Flat objects
+    ("nin", "人"),   // People
+    ("hiki", "匹"),  // Small animals
+    ("hon", "本"),   // Long objects
+    ("ko", "個"),    // General small objects
+    ("satsu", "冊"), // Books
+];
+
+/// Korean counters.
+/// Tag name -> counter character.
+const KOREAN_COUNTERS: &[(&str, &str)] = &[
+    ("jang", "장"),   // Flat objects
+    ("myeong", "명"), // People (formal)
+    ("mari", "마리"), // Animals
+    ("gae", "개"),    // General objects
+    ("gwon", "권"),   // Books
+];
+
+/// Extract count value from context.
+fn context_to_count(context: Option<&Value>) -> i64 {
+    match context {
+        Some(Value::Number(n)) => *n,
+        Some(Value::String(s)) => s.parse().unwrap_or(1),
+        _ => 1,
+    }
+}
+
+/// Find classifier/counter from a lookup table based on value tags.
+fn find_classifier<'a>(
+    value: &Value,
+    classifiers: &'a [(&str, &str)],
+) -> Option<&'a str> {
+    for (tag, classifier) in classifiers {
+        if value.has_tag(tag) {
+            return Some(classifier);
+        }
+    }
+    None
+}
+
+/// Chinese @count transform.
+///
+/// Produces "{count}{classifier}{noun}" format.
+/// Requires classifier tag (zhang, ge, ming, wei, tiao, ben, zhi).
+fn chinese_count_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
+    let text = value.to_string();
+    let count = context_to_count(context);
+
+    let classifier = find_classifier(value, CHINESE_CLASSIFIERS).ok_or_else(|| {
+        EvalError::MissingTag {
+            transform: "count".to_string(),
+            expected: CHINESE_CLASSIFIERS.iter().map(|(t, _)| t.to_string()).collect(),
+            phrase: text.clone(),
+        }
+    })?;
+
+    Ok(format!("{}{}{}", count, classifier, text))
+}
+
+/// Japanese @count transform.
+///
+/// Produces "{count}{counter}{noun}" format.
+/// Requires counter tag (mai, nin, hiki, hon, ko, satsu).
+fn japanese_count_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
+    let text = value.to_string();
+    let count = context_to_count(context);
+
+    let counter = find_classifier(value, JAPANESE_COUNTERS).ok_or_else(|| {
+        EvalError::MissingTag {
+            transform: "count".to_string(),
+            expected: JAPANESE_COUNTERS.iter().map(|(t, _)| t.to_string()).collect(),
+            phrase: text.clone(),
+        }
+    })?;
+
+    Ok(format!("{}{}{}", count, counter, text))
+}
+
+/// Korean @count transform.
+///
+/// Produces "{count}{counter}{noun}" format.
+/// Requires counter tag (jang, myeong, mari, gae, gwon).
+fn korean_count_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
+    let text = value.to_string();
+    let count = context_to_count(context);
+
+    let counter = find_classifier(value, KOREAN_COUNTERS).ok_or_else(|| {
+        EvalError::MissingTag {
+            transform: "count".to_string(),
+            expected: KOREAN_COUNTERS.iter().map(|(t, _)| t.to_string()).collect(),
+            phrase: text.clone(),
+        }
+    })?;
+
+    Ok(format!("{}{}{}", count, counter, text))
+}
+
 /// Registry for transform functions.
 ///
 /// Transforms are registered per-language with universal transforms available to all.
@@ -1268,6 +1395,9 @@ impl TransformRegistry {
             ("ro", "def") => Some(TransformKind::RomanianDef),
             ("ar", "al") => Some(TransformKind::ArabicAl),
             ("fa", "ezafe") => Some(TransformKind::PersianEzafe),
+            ("zh", "count") => Some(TransformKind::ChineseCount),
+            ("ja", "count") => Some(TransformKind::JapaneseCount),
+            ("ko", "count") => Some(TransformKind::KoreanCount),
             _ => None,
         }
     }
