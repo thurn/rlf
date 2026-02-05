@@ -3675,3 +3675,351 @@ fn persian_transform_not_available_for_other_languages() {
         Some(TransformKind::PersianEzafe)
     );
 }
+
+// =============================================================================
+// CJK Count Transforms (Phase 9)
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Chinese @count Transform Tests
+// -----------------------------------------------------------------------------
+
+#[test]
+fn chinese_count_zhang() {
+    // :zhang "牌" with context 3 -> "3张牌"
+    let phrase = Phrase::builder()
+        .text("牌".to_string())
+        .tags(vec![Tag::new("zhang")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ChineseCount;
+    let context = Value::Number(3);
+    let result = transform.execute(&value, Some(&context), "zh").unwrap();
+    assert_eq!(result, "3张牌");
+}
+
+#[test]
+fn chinese_count_ge() {
+    // :ge "角色" with context 2 -> "2个角色"
+    let phrase = Phrase::builder()
+        .text("角色".to_string())
+        .tags(vec![Tag::new("ge")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ChineseCount;
+    let context = Value::Number(2);
+    let result = transform.execute(&value, Some(&context), "zh").unwrap();
+    assert_eq!(result, "2个角色");
+}
+
+#[test]
+fn chinese_count_ming() {
+    // :ming "玩家" with context 1 -> "1名玩家"
+    let phrase = Phrase::builder()
+        .text("玩家".to_string())
+        .tags(vec![Tag::new("ming")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ChineseCount;
+    let context = Value::Number(1);
+    let result = transform.execute(&value, Some(&context), "zh").unwrap();
+    assert_eq!(result, "1名玩家");
+}
+
+#[test]
+fn chinese_count_wei() {
+    // :wei "客人" with context 5 -> "5位客人"
+    let phrase = Phrase::builder()
+        .text("客人".to_string())
+        .tags(vec![Tag::new("wei")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ChineseCount;
+    let context = Value::Number(5);
+    let result = transform.execute(&value, Some(&context), "zh").unwrap();
+    assert_eq!(result, "5位客人");
+}
+
+#[test]
+fn chinese_count_ben() {
+    // :ben "书" with context 4 -> "4本书"
+    let phrase = Phrase::builder()
+        .text("书".to_string())
+        .tags(vec![Tag::new("ben")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ChineseCount;
+    let context = Value::Number(4);
+    let result = transform.execute(&value, Some(&context), "zh").unwrap();
+    assert_eq!(result, "4本书");
+}
+
+#[test]
+fn chinese_count_missing_tag() {
+    // Phrase without classifier tag returns MissingTag error
+    let phrase = Phrase::builder().text("东西".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ChineseCount;
+    let context = Value::Number(3);
+    let result = transform.execute(&value, Some(&context), "zh");
+    assert!(matches!(result, Err(EvalError::MissingTag { .. })));
+}
+
+#[test]
+fn chinese_count_default_to_one() {
+    // Without context, default to count=1
+    let phrase = Phrase::builder()
+        .text("牌".to_string())
+        .tags(vec![Tag::new("zhang")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ChineseCount;
+    let result = transform.execute(&value, None, "zh").unwrap();
+    assert_eq!(result, "1张牌");
+}
+
+// -----------------------------------------------------------------------------
+// Japanese @count Transform Tests
+// -----------------------------------------------------------------------------
+
+#[test]
+fn japanese_count_mai() {
+    // :mai "カード" with context 3 -> "3枚カード"
+    let phrase = Phrase::builder()
+        .text("カード".to_string())
+        .tags(vec![Tag::new("mai")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::JapaneseCount;
+    let context = Value::Number(3);
+    let result = transform.execute(&value, Some(&context), "ja").unwrap();
+    assert_eq!(result, "3枚カード");
+}
+
+#[test]
+fn japanese_count_nin() {
+    // :nin "キャラクター" with context 2 -> "2人キャラクター"
+    let phrase = Phrase::builder()
+        .text("キャラクター".to_string())
+        .tags(vec![Tag::new("nin")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::JapaneseCount;
+    let context = Value::Number(2);
+    let result = transform.execute(&value, Some(&context), "ja").unwrap();
+    assert_eq!(result, "2人キャラクター");
+}
+
+#[test]
+fn japanese_count_hiki() {
+    // :hiki "猫" with context 3 -> "3匹猫"
+    let phrase = Phrase::builder()
+        .text("猫".to_string())
+        .tags(vec![Tag::new("hiki")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::JapaneseCount;
+    let context = Value::Number(3);
+    let result = transform.execute(&value, Some(&context), "ja").unwrap();
+    assert_eq!(result, "3匹猫");
+}
+
+#[test]
+fn japanese_count_hon() {
+    // :hon "ペン" with context 2 -> "2本ペン"
+    let phrase = Phrase::builder()
+        .text("ペン".to_string())
+        .tags(vec![Tag::new("hon")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::JapaneseCount;
+    let context = Value::Number(2);
+    let result = transform.execute(&value, Some(&context), "ja").unwrap();
+    assert_eq!(result, "2本ペン");
+}
+
+#[test]
+fn japanese_count_satsu() {
+    // :satsu "本" with context 5 -> "5冊本"
+    let phrase = Phrase::builder()
+        .text("本".to_string())
+        .tags(vec![Tag::new("satsu")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::JapaneseCount;
+    let context = Value::Number(5);
+    let result = transform.execute(&value, Some(&context), "ja").unwrap();
+    assert_eq!(result, "5冊本");
+}
+
+#[test]
+fn japanese_count_missing_tag() {
+    // Phrase without counter tag returns MissingTag error
+    let phrase = Phrase::builder().text("物".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::JapaneseCount;
+    let context = Value::Number(3);
+    let result = transform.execute(&value, Some(&context), "ja");
+    assert!(matches!(result, Err(EvalError::MissingTag { .. })));
+}
+
+// -----------------------------------------------------------------------------
+// Korean @count Transform Tests
+// -----------------------------------------------------------------------------
+
+#[test]
+fn korean_count_jang() {
+    // :jang "카드" with context 3 -> "3장카드"
+    let phrase = Phrase::builder()
+        .text("카드".to_string())
+        .tags(vec![Tag::new("jang")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::KoreanCount;
+    let context = Value::Number(3);
+    let result = transform.execute(&value, Some(&context), "ko").unwrap();
+    assert_eq!(result, "3장카드");
+}
+
+#[test]
+fn korean_count_myeong() {
+    // :myeong "캐릭터" with context 2 -> "2명캐릭터"
+    let phrase = Phrase::builder()
+        .text("캐릭터".to_string())
+        .tags(vec![Tag::new("myeong")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::KoreanCount;
+    let context = Value::Number(2);
+    let result = transform.execute(&value, Some(&context), "ko").unwrap();
+    assert_eq!(result, "2명캐릭터");
+}
+
+#[test]
+fn korean_count_mari() {
+    // :mari "고양이" with context 3 -> "3마리고양이"
+    let phrase = Phrase::builder()
+        .text("고양이".to_string())
+        .tags(vec![Tag::new("mari")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::KoreanCount;
+    let context = Value::Number(3);
+    let result = transform.execute(&value, Some(&context), "ko").unwrap();
+    assert_eq!(result, "3마리고양이");
+}
+
+#[test]
+fn korean_count_gae() {
+    // :gae "사과" with context 5 -> "5개사과"
+    let phrase = Phrase::builder()
+        .text("사과".to_string())
+        .tags(vec![Tag::new("gae")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::KoreanCount;
+    let context = Value::Number(5);
+    let result = transform.execute(&value, Some(&context), "ko").unwrap();
+    assert_eq!(result, "5개사과");
+}
+
+#[test]
+fn korean_count_gwon() {
+    // :gwon "책" with context 4 -> "4권책"
+    let phrase = Phrase::builder()
+        .text("책".to_string())
+        .tags(vec![Tag::new("gwon")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::KoreanCount;
+    let context = Value::Number(4);
+    let result = transform.execute(&value, Some(&context), "ko").unwrap();
+    assert_eq!(result, "4권책");
+}
+
+#[test]
+fn korean_count_missing_tag() {
+    // Phrase without counter tag returns MissingTag error
+    let phrase = Phrase::builder().text("것".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::KoreanCount;
+    let context = Value::Number(3);
+    let result = transform.execute(&value, Some(&context), "ko");
+    assert!(matches!(result, Err(EvalError::MissingTag { .. })));
+}
+
+// -----------------------------------------------------------------------------
+// CJK Transform Registry Tests
+// -----------------------------------------------------------------------------
+
+#[test]
+fn cjk_count_transform_registry_lookup() {
+    let registry = TransformRegistry::new();
+    assert_eq!(
+        registry.get("count", "zh"),
+        Some(TransformKind::ChineseCount)
+    );
+    assert_eq!(
+        registry.get("count", "ja"),
+        Some(TransformKind::JapaneseCount)
+    );
+    assert_eq!(
+        registry.get("count", "ko"),
+        Some(TransformKind::KoreanCount)
+    );
+}
+
+#[test]
+fn cjk_count_not_available_for_other_languages() {
+    let registry = TransformRegistry::new();
+    // CJK count transforms should not be available for non-CJK languages
+    assert_eq!(registry.get("count", "en"), None);
+    assert_eq!(registry.get("count", "de"), None);
+    assert_eq!(registry.get("count", "es"), None);
+}
+
+// -----------------------------------------------------------------------------
+// CJK Count String Context Tests
+// -----------------------------------------------------------------------------
+
+#[test]
+fn chinese_count_string_context() {
+    // String context should be parsed as number
+    let phrase = Phrase::builder()
+        .text("牌".to_string())
+        .tags(vec![Tag::new("zhang")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ChineseCount;
+    let context = Value::String("5".to_string());
+    let result = transform.execute(&value, Some(&context), "zh").unwrap();
+    assert_eq!(result, "5张牌");
+}
+
+#[test]
+fn japanese_count_string_context() {
+    // String context should be parsed as number
+    let phrase = Phrase::builder()
+        .text("カード".to_string())
+        .tags(vec![Tag::new("mai")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::JapaneseCount;
+    let context = Value::String("7".to_string());
+    let result = transform.execute(&value, Some(&context), "ja").unwrap();
+    assert_eq!(result, "7枚カード");
+}
+
+#[test]
+fn korean_count_string_context() {
+    // String context should be parsed as number
+    let phrase = Phrase::builder()
+        .text("카드".to_string())
+        .tags(vec![Tag::new("jang")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::KoreanCount;
+    let context = Value::String("10".to_string());
+    let result = transform.execute(&value, Some(&context), "ko").unwrap();
+    assert_eq!(result, "10장카드");
+}

@@ -1247,10 +1247,7 @@ fn context_to_count(context: Option<&Value>) -> i64 {
 }
 
 /// Find classifier/counter from a lookup table based on value tags.
-fn find_classifier<'a>(
-    value: &Value,
-    classifiers: &'a [(&str, &str)],
-) -> Option<&'a str> {
+fn find_classifier<'a>(value: &Value, classifiers: &'a [(&str, &str)]) -> Option<&'a str> {
     for (tag, classifier) in classifiers {
         if value.has_tag(tag) {
             return Some(classifier);
@@ -1267,13 +1264,15 @@ fn chinese_count_transform(value: &Value, context: Option<&Value>) -> Result<Str
     let text = value.to_string();
     let count = context_to_count(context);
 
-    let classifier = find_classifier(value, CHINESE_CLASSIFIERS).ok_or_else(|| {
-        EvalError::MissingTag {
+    let classifier =
+        find_classifier(value, CHINESE_CLASSIFIERS).ok_or_else(|| EvalError::MissingTag {
             transform: "count".to_string(),
-            expected: CHINESE_CLASSIFIERS.iter().map(|(t, _)| t.to_string()).collect(),
+            expected: CHINESE_CLASSIFIERS
+                .iter()
+                .map(|(t, _)| t.to_string())
+                .collect(),
             phrase: text.clone(),
-        }
-    })?;
+        })?;
 
     Ok(format!("{}{}{}", count, classifier, text))
 }
@@ -1286,13 +1285,15 @@ fn japanese_count_transform(value: &Value, context: Option<&Value>) -> Result<St
     let text = value.to_string();
     let count = context_to_count(context);
 
-    let counter = find_classifier(value, JAPANESE_COUNTERS).ok_or_else(|| {
-        EvalError::MissingTag {
+    let counter =
+        find_classifier(value, JAPANESE_COUNTERS).ok_or_else(|| EvalError::MissingTag {
             transform: "count".to_string(),
-            expected: JAPANESE_COUNTERS.iter().map(|(t, _)| t.to_string()).collect(),
+            expected: JAPANESE_COUNTERS
+                .iter()
+                .map(|(t, _)| t.to_string())
+                .collect(),
             phrase: text.clone(),
-        }
-    })?;
+        })?;
 
     Ok(format!("{}{}{}", count, counter, text))
 }
@@ -1305,12 +1306,10 @@ fn korean_count_transform(value: &Value, context: Option<&Value>) -> Result<Stri
     let text = value.to_string();
     let count = context_to_count(context);
 
-    let counter = find_classifier(value, KOREAN_COUNTERS).ok_or_else(|| {
-        EvalError::MissingTag {
-            transform: "count".to_string(),
-            expected: KOREAN_COUNTERS.iter().map(|(t, _)| t.to_string()).collect(),
-            phrase: text.clone(),
-        }
+    let counter = find_classifier(value, KOREAN_COUNTERS).ok_or_else(|| EvalError::MissingTag {
+        transform: "count".to_string(),
+        expected: KOREAN_COUNTERS.iter().map(|(t, _)| t.to_string()).collect(),
+        phrase: text.clone(),
     })?;
 
     Ok(format!("{}{}{}", count, counter, text))
