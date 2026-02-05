@@ -347,11 +347,11 @@ Requirements derived from design documents. All features documented in DESIGN.md
 | IT-04 | Phase 7 | Complete |
 | NL-01 | Phase 6 | Complete |
 | NL-02 | Phase 6 | Complete |
-| EL-01 | Phase 8 | Pending |
-| EL-02 | Phase 8 | Pending |
-| RO-01 | Phase 8 | Pending |
-| AR-01 | Phase 8 | Pending |
-| FA-01 | Phase 8 | Pending |
+| EL-01 | Phase 8 | Complete |
+| EL-02 | Phase 8 | Complete |
+| RO-01 | Phase 8 | Complete |
+| AR-01 | Phase 8 | Complete |
+| FA-01 | Phase 8 | Complete |
 | CJK-01 | Phase 9 | Pending |
 | CJK-02 | Phase 9 | Pending |
 | CJK-03 | Phase 9 | Pending |
@@ -381,4 +381,4 @@ Requirements derived from design documents. All features documented in DESIGN.md
 
 ---
 *Requirements defined: 2026-02-04*
-*Last updated: 2026-02-05 after Phase 6 completion*
+*Last updated: 2026-02-04 after Phase 8 completion*

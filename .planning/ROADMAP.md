@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 5: Macro Code Generation** - rlf! macro parsing, code generation, and compile-time validation
 - [x] **Phase 6: English and Germanic Transforms** - Article transforms for English, German, and Dutch
 - [x] **Phase 7: Romance Language Transforms** - Article and contraction transforms for Spanish, French, Portuguese, Italian
-- [ ] **Phase 8: Greek, Romanian, and Middle Eastern Transforms** - Greek articles, Romanian postposed articles, Arabic/Persian
+- [x] **Phase 8: Greek, Romanian, and Middle Eastern Transforms** - Greek articles, Romanian postposed articles, Arabic/Persian
 - [ ] **Phase 9: Asian Language Transforms** - CJK counters, Korean particles, Turkish inflection, Indonesian plural
 - [ ] **Phase 10: CLI Tools** - rlf check, rlf eval, rlf coverage commands
 
@@ -148,8 +148,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 08-01-PLAN.md — Greek and Romanian article transforms (@o, @enas, @def with gender/case declension)
-- [ ] 08-02-PLAN.md — Arabic and Persian transforms (@al sun/moon assimilation, @ezafe connector)
+- [x] 08-01-PLAN.md — Greek and Romanian article transforms (@o, @enas, @def with gender/case declension)
+- [x] 08-02-PLAN.md — Arabic and Persian transforms (@al sun/moon assimilation, @ezafe connector)
 
 ### Phase 9: Asian Language Transforms
 **Goal**: Counter/classifier systems and special transforms for Asian languages
@@ -196,10 +196,10 @@ Note: Phases 6-9 (language transforms) can proceed in parallel after Phase 3 com
 | 5. Macro Code Generation | 4/4 | Complete | 2026-02-05 |
 | 6. English and Germanic Transforms | 3/3 | Complete | 2026-02-05 |
 | 7. Romance Language Transforms | 2/2 | Complete | 2026-02-04 |
-| 8. Greek, Romanian, and Middle Eastern Transforms | 0/2 | Not started | - |
+| 8. Greek, Romanian, and Middle Eastern Transforms | 2/2 | Complete | 2026-02-04 |
 | 9. Asian Language Transforms | 0/2 | Not started | - |
 | 10. CLI Tools | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-04*
-*Last updated: 2026-02-04 after Phase 8 planning*
+*Last updated: 2026-02-04 after Phase 8 completion*
