@@ -1272,6 +1272,132 @@ fn unknown_transform_returns_none() {
     assert!(registry.get("foo", "nl").is_none());
 }
 
+// =============================================================================
+// Spanish Transform Tests (Phase 7)
+// =============================================================================
+
+#[test]
+fn spanish_el_masculine_singular() {
+    let phrase = Phrase::builder()
+        .text("enemigo".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::SpanishEl;
+    let result = transform.execute(&value, None, "es").unwrap();
+    assert_eq!(result, "el enemigo");
+}
+
+#[test]
+fn spanish_el_feminine_singular() {
+    let phrase = Phrase::builder()
+        .text("carta".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::SpanishEl;
+    let result = transform.execute(&value, None, "es").unwrap();
+    assert_eq!(result, "la carta");
+}
+
+#[test]
+fn spanish_el_masculine_plural() {
+    let phrase = Phrase::builder()
+        .text("enemigos".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("other".to_string());
+    let transform = TransformKind::SpanishEl;
+    let result = transform.execute(&value, Some(&context), "es").unwrap();
+    assert_eq!(result, "los enemigos");
+}
+
+#[test]
+fn spanish_el_feminine_plural() {
+    let phrase = Phrase::builder()
+        .text("cartas".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("other".to_string());
+    let transform = TransformKind::SpanishEl;
+    let result = transform.execute(&value, Some(&context), "es").unwrap();
+    assert_eq!(result, "las cartas");
+}
+
+#[test]
+fn spanish_un_masculine_singular() {
+    let phrase = Phrase::builder()
+        .text("enemigo".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::SpanishUn;
+    let result = transform.execute(&value, None, "es").unwrap();
+    assert_eq!(result, "un enemigo");
+}
+
+#[test]
+fn spanish_un_feminine_singular() {
+    let phrase = Phrase::builder()
+        .text("carta".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::SpanishUn;
+    let result = transform.execute(&value, None, "es").unwrap();
+    assert_eq!(result, "una carta");
+}
+
+#[test]
+fn spanish_un_masculine_plural() {
+    let phrase = Phrase::builder()
+        .text("enemigos".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("other".to_string());
+    let transform = TransformKind::SpanishUn;
+    let result = transform.execute(&value, Some(&context), "es").unwrap();
+    assert_eq!(result, "unos enemigos");
+}
+
+#[test]
+fn spanish_el_missing_gender() {
+    let phrase = Phrase::builder().text("cosa".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::SpanishEl;
+    let result = transform.execute(&value, None, "es");
+    assert!(matches!(result, Err(EvalError::MissingTag { .. })));
+}
+
+#[test]
+fn spanish_transform_aliases() {
+    let registry = TransformRegistry::new();
+    assert_eq!(registry.get("la", "es"), Some(TransformKind::SpanishEl));
+    assert_eq!(registry.get("una", "es"), Some(TransformKind::SpanishUn));
+}
+
+#[test]
+fn spanish_el_numeric_context() {
+    // Numeric context uses plural rules: 1=one, else=other
+    let phrase = Phrase::builder()
+        .text("carta".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::SpanishEl;
+
+    let ctx_one = Value::Number(1);
+    let result_one = transform.execute(&value, Some(&ctx_one), "es").unwrap();
+    assert_eq!(result_one, "la carta");
+
+    let ctx_three = Value::Number(3);
+    let result_three = transform.execute(&value, Some(&ctx_three), "es").unwrap();
+    assert_eq!(result_three, "las carta");
+}
+
 #[test]
 fn all_phase6_transforms_work() {
     // English

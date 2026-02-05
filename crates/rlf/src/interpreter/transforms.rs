@@ -36,6 +36,11 @@ pub enum TransformKind {
     DutchDe,
     /// @een - Dutch indefinite article "een"
     DutchEen,
+    // Spanish transforms (Phase 7)
+    /// @el/@la - Spanish definite article with plural context
+    SpanishEl,
+    /// @un/@una - Spanish indefinite article with plural context
+    SpanishUn,
 }
 
 impl TransformKind {
@@ -65,6 +70,9 @@ impl TransformKind {
             // Dutch transforms need full Value to read tags
             TransformKind::DutchDe => dutch_de_transform(value),
             TransformKind::DutchEen => dutch_een_transform(value),
+            // Spanish transforms need Value (for tags) and context (for plural)
+            TransformKind::SpanishEl => spanish_el_transform(value, context),
+            TransformKind::SpanishUn => spanish_un_transform(value, context),
         }
     }
 }
@@ -306,6 +314,104 @@ fn dutch_een_transform(value: &Value) -> Result<String, EvalError> {
     Ok(format!("een {value}"))
 }
 
+// =============================================================================
+// Romance Language Transforms (Phase 7)
+// =============================================================================
+
+/// Romance grammatical gender (shared by Spanish, French, Portuguese, Italian).
+#[derive(Clone, Copy)]
+enum RomanceGender {
+    Masculine,
+    Feminine,
+}
+
+/// Romance plural category (singular/plural).
+#[derive(Clone, Copy)]
+enum RomancePlural {
+    One,   // Singular
+    Other, // Plural
+}
+
+/// Parse gender from Value's tags for Romance languages.
+/// Returns error if neither :masc nor :fem tag is present.
+fn parse_romance_gender(value: &Value, transform: &str) -> Result<RomanceGender, EvalError> {
+    if value.has_tag("masc") {
+        Ok(RomanceGender::Masculine)
+    } else if value.has_tag("fem") {
+        Ok(RomanceGender::Feminine)
+    } else {
+        Err(EvalError::MissingTag {
+            transform: transform.to_string(),
+            expected: vec!["masc".to_string(), "fem".to_string()],
+            phrase: value.to_string(),
+        })
+    }
+}
+
+/// Parse plural category from context value.
+/// Supports both string context (:one/:other) and numeric context.
+/// Defaults to singular (One) if no context provided.
+fn parse_romance_plural(context: Option<&Value>) -> RomancePlural {
+    match context {
+        Some(Value::String(s)) => match s.as_str() {
+            "other" => RomancePlural::Other,
+            _ => RomancePlural::One,
+        },
+        Some(Value::Number(n)) => {
+            if *n == 1 {
+                RomancePlural::One
+            } else {
+                RomancePlural::Other
+            }
+        }
+        _ => RomancePlural::One,
+    }
+}
+
+// =============================================================================
+// Spanish Transforms (Phase 7)
+// =============================================================================
+
+/// Spanish definite article lookup table.
+/// Gender x Plural -> article (el/la/los/las)
+fn spanish_definite_article(gender: RomanceGender, plural: RomancePlural) -> &'static str {
+    match (gender, plural) {
+        (RomanceGender::Masculine, RomancePlural::One) => "el",
+        (RomanceGender::Masculine, RomancePlural::Other) => "los",
+        (RomanceGender::Feminine, RomancePlural::One) => "la",
+        (RomanceGender::Feminine, RomancePlural::Other) => "las",
+    }
+}
+
+/// Spanish indefinite article lookup table.
+/// Gender x Plural -> article (un/una/unos/unas)
+fn spanish_indefinite_article(gender: RomanceGender, plural: RomancePlural) -> &'static str {
+    match (gender, plural) {
+        (RomanceGender::Masculine, RomancePlural::One) => "un",
+        (RomanceGender::Masculine, RomancePlural::Other) => "unos",
+        (RomanceGender::Feminine, RomancePlural::One) => "una",
+        (RomanceGender::Feminine, RomancePlural::Other) => "unas",
+    }
+}
+
+/// Spanish definite article transform (@el/@la).
+fn spanish_el_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
+    let text = value.to_string();
+    let gender = parse_romance_gender(value, "el")?;
+    let plural = parse_romance_plural(context);
+    let article = spanish_definite_article(gender, plural);
+    Ok(format!("{} {}", article, text))
+}
+
+/// Spanish indefinite article transform (@un/@una).
+fn spanish_un_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
+    let text = value.to_string();
+    let gender = parse_romance_gender(value, "un")?;
+    let plural = parse_romance_plural(context);
+    let article = spanish_indefinite_article(gender, plural);
+    Ok(format!("{} {}", article, text))
+}
+
 /// Registry for transform functions.
 ///
 /// Transforms are registered per-language with universal transforms available to all.
@@ -329,13 +435,15 @@ impl TransformRegistry {
     /// 2. Universal transforms (@cap, @upper, @lower)
     /// 3. Language-specific transforms (@a, @the for English; @der, @ein for German)
     pub fn get(&self, name: &str, lang: &str) -> Option<TransformKind> {
-        // Resolve aliases first
-        let canonical = match name {
-            "an" => "a",            // English alias: @an resolves to @a
-            "die" | "das" => "der", // German aliases: @die/@das resolve to @der
-            "eine" => "ein",        // German alias: @eine resolves to @ein
-            "het" => "de",          // Dutch alias: @het resolves to @de
-            other => other,
+        // Resolve aliases first (some are language-specific)
+        let canonical = match (name, lang) {
+            ("an", _) => "a",            // English alias: @an resolves to @a
+            ("die" | "das", _) => "der", // German aliases: @die/@das resolve to @der
+            ("eine", _) => "ein",        // German alias: @eine resolves to @ein
+            ("het", _) => "de",          // Dutch alias: @het resolves to @de
+            ("la", "es") => "el",        // Spanish alias: @la resolves to @el
+            ("una", _) => "un",          // Spanish alias: @una resolves to @un
+            (other, _) => other,
         };
 
         // Universal transforms are always available
@@ -354,6 +462,8 @@ impl TransformRegistry {
             ("de", "ein") => Some(TransformKind::GermanEin),
             ("nl", "de") => Some(TransformKind::DutchDe),
             ("nl", "een") => Some(TransformKind::DutchEen),
+            ("es", "el") => Some(TransformKind::SpanishEl),
+            ("es", "un") => Some(TransformKind::SpanishUn),
             _ => None,
         }
     }
