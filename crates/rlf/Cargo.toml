@@ -13,6 +13,7 @@ icu_plurals = "2"
 icu_locale_core = "2"
 icu_casemap = "2"
 unicode-segmentation = "1.12"
+strsim = "0.11"
 
 [dev-dependencies]
 insta = "1.42"

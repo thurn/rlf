@@ -12,7 +12,7 @@ mod registry;
 mod transforms;
 
 pub use context::EvalContext;
-pub use error::EvalError;
+pub use error::{EvalError, LoadError};
 pub use evaluator::{eval_phrase_def, eval_template};
 pub use plural::plural_category;
 pub use registry::PhraseRegistry;

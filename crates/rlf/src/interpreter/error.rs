@@ -1,6 +1,33 @@
 //! Error types for the RLF interpreter.
 
+use std::path::PathBuf;
+
 use thiserror::Error;
+
+/// Errors that occur during translation loading.
+#[derive(Debug, Error)]
+pub enum LoadError {
+    /// File I/O error when reading translation file.
+    #[error("failed to read '{path}': {source}")]
+    Io {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    /// Parse error with file location context.
+    #[error("{path}:{line}:{column}: {message}")]
+    Parse {
+        path: PathBuf,
+        line: usize,
+        column: usize,
+        message: String,
+    },
+
+    /// Attempted to reload translations that were loaded from a string.
+    #[error("cannot reload '{language}': was loaded from string, not file")]
+    NoPathForReload { language: String },
+}
 
 /// An error that occurred during phrase evaluation.
 #[derive(Debug, Error)]

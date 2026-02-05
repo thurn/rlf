@@ -378,6 +378,7 @@ dependencies = [
  "icu_plurals",
  "insta",
  "serde",
+ "strsim",
  "thiserror",
  "unicode-segmentation",
  "winnow",
