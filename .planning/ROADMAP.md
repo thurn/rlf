@@ -82,11 +82,11 @@ Plans:
   3. LoadError provides file, line, column for parse failures
   4. EvalError variants clearly indicate what failed (phrase not found, missing variant, etc.)
   5. Missing translations return error, not silent fallback
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
+- [ ] 04-01-PLAN.md — Error types (LoadError, enhanced MissingVariant with suggestions, strsim)
+- [ ] 04-02-PLAN.md — Locale struct (builder, loading, reload, fallback, integration tests)
 
 ### Phase 5: Macro Code Generation
 **Goal**: rlf! macro generates typed Rust functions with compile-time validation
@@ -198,4 +198,4 @@ Note: Phases 6-9 (language transforms) can proceed in parallel after Phase 3 com
 
 ---
 *Roadmap created: 2026-02-04*
-*Last updated: 2026-02-04 after Phase 3 execution*
+*Last updated: 2026-02-04 after Phase 4 planning*
