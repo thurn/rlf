@@ -488,14 +488,14 @@ mod tests {
     fn get_literal(segment: &Segment) -> &str {
         match segment {
             Segment::Literal(s) => s,
-            _ => panic!("expected Literal segment"),
+            Segment::Interpolation(_) => panic!("expected Literal segment"),
         }
     }
 
     fn get_interpolation(segment: &Segment) -> &Interpolation {
         match segment {
             Segment::Interpolation(i) => i,
-            _ => panic!("expected Interpolation segment"),
+            Segment::Literal(_) => panic!("expected Interpolation segment"),
         }
     }
 
@@ -557,7 +557,7 @@ mod tests {
         assert!(interp.selectors.is_empty());
         match &interp.reference {
             Reference::Identifier(ident) => assert_eq!(ident.name, "name"),
-            _ => panic!("expected Identifier reference"),
+            Reference::Call { .. } => panic!("expected Identifier reference"),
         }
     }
 
@@ -576,7 +576,7 @@ mod tests {
         let interp = get_interpolation(&segments[1]);
         match &interp.reference {
             Reference::Identifier(ident) => assert_eq!(ident.name, "name"),
-            _ => panic!("expected Identifier reference"),
+            Reference::Call { .. } => panic!("expected Identifier reference"),
         }
         assert_eq!(get_literal(&segments[2]), "!");
     }
@@ -594,7 +594,7 @@ mod tests {
         let interp1 = get_interpolation(&segments[0]);
         match &interp1.reference {
             Reference::Identifier(ident) => assert_eq!(ident.name, "a"),
-            _ => panic!("expected Identifier"),
+            Reference::Call { .. } => panic!("expected Identifier"),
         }
 
         assert_eq!(get_literal(&segments[1]), " and ");
@@ -602,7 +602,7 @@ mod tests {
         let interp2 = get_interpolation(&segments[2]);
         match &interp2.reference {
             Reference::Identifier(ident) => assert_eq!(ident.name, "b"),
-            _ => panic!("expected Identifier"),
+            Reference::Call { .. } => panic!("expected Identifier"),
         }
     }
 
@@ -648,7 +648,10 @@ mod tests {
         assert_eq!(interp.transforms.len(), 1);
         assert_eq!(interp.transforms[0].name.name, "der");
 
-        let ctx = interp.transforms[0].context.as_ref().expect("should have context");
+        let ctx = interp.transforms[0]
+            .context
+            .as_ref()
+            .expect("should have context");
         assert_eq!(ctx.name.name, "acc");
     }
 
@@ -693,10 +696,10 @@ mod tests {
                 assert_eq!(args.len(), 1);
                 match &args[0] {
                     Reference::Identifier(ident) => assert_eq!(ident.name, "bar"),
-                    _ => panic!("expected Identifier arg"),
+                    Reference::Call { .. } => panic!("expected Identifier arg"),
                 }
             }
-            _ => panic!("expected Call reference"),
+            Reference::Identifier(_) => panic!("expected Call reference"),
         }
     }
 
@@ -711,18 +714,21 @@ mod tests {
                 assert_eq!(name.name, "foo");
                 assert_eq!(args.len(), 1);
                 match &args[0] {
-                    Reference::Call { name: inner, args: inner_args } => {
+                    Reference::Call {
+                        name: inner,
+                        args: inner_args,
+                    } => {
                         assert_eq!(inner.name, "bar");
                         assert_eq!(inner_args.len(), 1);
                         match &inner_args[0] {
                             Reference::Identifier(ident) => assert_eq!(ident.name, "baz"),
-                            _ => panic!("expected Identifier"),
+                            Reference::Call { .. } => panic!("expected Identifier"),
                         }
                     }
-                    _ => panic!("expected nested Call"),
+                    Reference::Identifier(_) => panic!("expected nested Call"),
                 }
             }
-            _ => panic!("expected Call reference"),
+            Reference::Identifier(_) => panic!("expected Call reference"),
         }
     }
 
@@ -737,7 +743,7 @@ mod tests {
                 assert_eq!(name.name, "foo");
                 assert_eq!(args.len(), 3);
             }
-            _ => panic!("expected Call reference"),
+            Reference::Identifier(_) => panic!("expected Call reference"),
         }
     }
 
@@ -791,7 +797,7 @@ mod tests {
         let interp1 = get_interpolation(&segments[1]);
         match &interp1.reference {
             Reference::Identifier(ident) => assert_eq!(ident.name, "n"),
-            _ => panic!("expected Identifier"),
+            Reference::Call { .. } => panic!("expected Identifier"),
         }
 
         assert_eq!(get_literal(&segments[2]), " ");

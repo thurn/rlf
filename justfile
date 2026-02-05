@@ -5,9 +5,10 @@ set positional-arguments
 review: check-format no-inline-tests check clippy test
 
 # Check that no #[test] attributes exist in src/
+# Exception: rlf-macros (proc-macro crates can't have external integration tests)
 no-inline-tests:
     #!/usr/bin/env bash
-    if grep -r '#\[test\]' crates/*/src/ 2>/dev/null; then
+    if grep -r '#\[test\]' crates/*/src/ 2>/dev/null | grep -v 'rlf-macros'; then
         echo "Error: #[test] found in src/ directories"
         exit 1
     else

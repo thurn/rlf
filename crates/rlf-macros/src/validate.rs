@@ -30,7 +30,8 @@ pub struct ValidationContext {
     pub phrases: HashSet<String>,
     /// Phrase name -> defined variant keys (for literal selector validation).
     pub phrase_variants: HashMap<String, HashSet<String>>,
-    /// Phrase name -> defined tags.
+    /// Phrase name -> defined tags (infrastructure for future tag-based validation).
+    #[cfg_attr(not(test), expect(dead_code))]
     pub phrase_tags: HashMap<String, HashSet<String>>,
 }
 
@@ -502,7 +503,10 @@ mod tests {
         let ctx = ValidationContext::from_input(&input);
         assert!(ctx.phrases.contains("card"));
 
-        let variants = ctx.phrase_variants.get("card").expect("should have variants");
+        let variants = ctx
+            .phrase_variants
+            .get("card")
+            .expect("should have variants");
         assert!(variants.contains("one"));
         assert!(variants.contains("other"));
     }
@@ -519,7 +523,10 @@ mod tests {
         });
         let ctx = ValidationContext::from_input(&input);
 
-        let variants = ctx.phrase_variants.get("noun").expect("should have variants");
+        let variants = ctx
+            .phrase_variants
+            .get("noun")
+            .expect("should have variants");
         // Both full keys and first components should be present
         assert!(variants.contains("nom.one"));
         assert!(variants.contains("nom.other"));
@@ -545,14 +552,17 @@ mod tests {
 
     #[test]
     fn test_suggestions_exact_match_excluded() {
-        let available = vec!["card".to_string()];
+        let available = ["card".to_string()];
         let suggestions = compute_suggestions("card", available.iter());
-        assert!(suggestions.is_empty(), "exact matches should not be suggested");
+        assert!(
+            suggestions.is_empty(),
+            "exact matches should not be suggested"
+        );
     }
 
     #[test]
     fn test_suggestions_one_char_off_short() {
-        let available = vec!["cat".to_string(), "dog".to_string()];
+        let available = ["cat".to_string(), "dog".to_string()];
         let suggestions = compute_suggestions("car", available.iter());
         // "car" vs "cat" = distance 1, name len 3 <= 3, so should suggest
         assert!(suggestions.contains(&"cat".to_string()));
@@ -560,7 +570,7 @@ mod tests {
 
     #[test]
     fn test_suggestions_two_chars_off_long() {
-        let available = vec!["hello".to_string(), "world".to_string()];
+        let available = ["hello".to_string(), "world".to_string()];
         let suggestions = compute_suggestions("hallo", available.iter());
         // "hallo" vs "hello" = distance 1, should suggest
         assert!(suggestions.contains(&"hello".to_string()));
@@ -568,7 +578,7 @@ mod tests {
 
     #[test]
     fn test_suggestions_three_chars_off_rejected() {
-        let available = vec!["hello".to_string()];
+        let available = ["hello".to_string()];
         let suggestions = compute_suggestions("xxxxx", available.iter());
         // distance > 2, should not suggest
         assert!(suggestions.is_empty());
@@ -576,11 +586,7 @@ mod tests {
 
     #[test]
     fn test_suggestions_sorted_by_distance() {
-        let available = vec![
-            "card".to_string(),
-            "cart".to_string(),
-            "cars".to_string(),
-        ];
+        let available = ["card".to_string(), "cart".to_string(), "cars".to_string()];
         let suggestions = compute_suggestions("carx", available.iter());
         // All have distance 1, should be sorted alphabetically (secondary)
         assert!(!suggestions.is_empty());
@@ -588,7 +594,7 @@ mod tests {
 
     #[test]
     fn test_suggestions_limited_to_three() {
-        let available = vec![
+        let available = [
             "aa".to_string(),
             "ab".to_string(),
             "ac".to_string(),
