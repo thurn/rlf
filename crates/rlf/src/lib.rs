@@ -7,3 +7,6 @@ pub use interpreter::{
     compute_suggestions,
 };
 pub use types::{Phrase, PhraseId, Tag, Value, VariantKey};
+
+// Re-export the rlf! macro
+pub use rlf_macros::rlf;

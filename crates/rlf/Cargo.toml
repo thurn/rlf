@@ -14,6 +14,7 @@ icu_locale_core = "2"
 icu_casemap = "2"
 unicode-segmentation = "1.12"
 strsim = "0.11"
+rlf-macros = { path = "../rlf-macros" }
 
 [dev-dependencies]
 insta = "1.42"
