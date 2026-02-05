@@ -98,12 +98,13 @@ Plans:
   3. Undefined phrase/parameter references cause compile error with helpful message
   4. Cyclic references detected at compile time
   5. IDE autocomplete works immediately after adding phrase to rlf! block
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 05-01: TBD
-- [ ] 05-02: TBD
-- [ ] 05-03: TBD
+- [ ] 05-01-PLAN.md — rlf-macros crate setup and TokenStream parsing
+- [ ] 05-02-PLAN.md — Compile-time validation (references, selectors, transforms, cycles)
+- [ ] 05-03-PLAN.md — Code generation (functions, SOURCE_PHRASES, phrase_ids module)
+- [ ] 05-04-PLAN.md — Integration and trybuild tests
 
 ### Phase 6: English and Germanic Transforms
 **Goal**: Article transforms work for English, German, and Dutch
@@ -189,7 +190,7 @@ Note: Phases 6-9 (language transforms) can proceed in parallel after Phase 3 com
 | 2. Interpreter Engine | 2/2 | Complete | 2026-02-04 |
 | 3. Universal Transforms and ICU4X | 2/2 | Complete | 2026-02-04 |
 | 4. Locale Management and Error Handling | 2/2 | Complete | 2026-02-05 |
-| 5. Macro Code Generation | 0/3 | Not started | - |
+| 5. Macro Code Generation | 0/4 | Not started | - |
 | 6. English and Germanic Transforms | 0/1 | Not started | - |
 | 7. Romance Language Transforms | 0/2 | Not started | - |
 | 8. Greek, Romanian, and Middle Eastern Transforms | 0/1 | Not started | - |
@@ -198,4 +199,4 @@ Note: Phases 6-9 (language transforms) can proceed in parallel after Phase 3 com
 
 ---
 *Roadmap created: 2026-02-04*
-*Last updated: 2026-02-05 after Phase 4 completion*
+*Last updated: 2026-02-05 after Phase 5 planning*
