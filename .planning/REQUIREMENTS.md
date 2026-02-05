@@ -179,24 +179,24 @@ Requirements derived from design documents. All features documented in DESIGN.md
 
 ### CJK Count Transforms
 
-- [ ] **CJK-01**: Chinese `@count` - Number + measure word from tags
-- [ ] **CJK-02**: Japanese `@count` - Number + counter from tags
-- [ ] **CJK-03**: Korean `@count` - Number + counter (Korean or Sino-Korean)
-- [ ] **CJK-04**: Vietnamese `@count` - Number + classifier
-- [ ] **CJK-05**: Thai `@count` - Number + classifier
-- [ ] **CJK-06**: Bengali `@count` - Number + classifier
+- [x] **CJK-01**: Chinese `@count` - Number + measure word from tags
+- [x] **CJK-02**: Japanese `@count` - Number + counter from tags
+- [x] **CJK-03**: Korean `@count` - Number + counter (Korean or Sino-Korean)
+- [x] **CJK-04**: Vietnamese `@count` - Number + classifier
+- [x] **CJK-05**: Thai `@count` - Number + classifier
+- [x] **CJK-06**: Bengali `@count` - Number + classifier
 
 ### Korean Transforms
 
-- [ ] **KO-01**: `@particle` - Context-sensitive particle based on final sound
+- [x] **KO-01**: `@particle` - Context-sensitive particle based on final sound
 
 ### Turkish Transforms
 
-- [ ] **TR-01**: `@inflect` - Agglutinative suffix chains with vowel harmony
+- [x] **TR-01**: `@inflect` - Agglutinative suffix chains with vowel harmony
 
 ### Indonesian Transforms
 
-- [ ] **ID-01**: `@plural` - Reduplication for plural
+- [x] **ID-01**: `@plural` - Reduplication for plural
 
 ### CLI: rlf check
 
@@ -352,15 +352,15 @@ Requirements derived from design documents. All features documented in DESIGN.md
 | RO-01 | Phase 8 | Complete |
 | AR-01 | Phase 8 | Complete |
 | FA-01 | Phase 8 | Complete |
-| CJK-01 | Phase 9 | Pending |
-| CJK-02 | Phase 9 | Pending |
-| CJK-03 | Phase 9 | Pending |
-| CJK-04 | Phase 9 | Pending |
-| CJK-05 | Phase 9 | Pending |
-| CJK-06 | Phase 9 | Pending |
-| KO-01 | Phase 9 | Pending |
-| TR-01 | Phase 9 | Pending |
-| ID-01 | Phase 9 | Pending |
+| CJK-01 | Phase 9 | Complete |
+| CJK-02 | Phase 9 | Complete |
+| CJK-03 | Phase 9 | Complete |
+| CJK-04 | Phase 9 | Complete |
+| CJK-05 | Phase 9 | Complete |
+| CJK-06 | Phase 9 | Complete |
+| KO-01 | Phase 9 | Complete |
+| TR-01 | Phase 9 | Complete |
+| ID-01 | Phase 9 | Complete |
 | CLI-01 | Phase 10 | Pending |
 | CLI-02 | Phase 10 | Pending |
 | CLI-03 | Phase 10 | Pending |
@@ -381,4 +381,4 @@ Requirements derived from design documents. All features documented in DESIGN.md
 
 ---
 *Requirements defined: 2026-02-04*
-*Last updated: 2026-02-04 after Phase 8 completion*
+*Last updated: 2026-02-05 after Phase 9 completion*
