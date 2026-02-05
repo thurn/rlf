@@ -1,0 +1,6 @@
+error: unknown transform '@foo'
+       note: available transforms: cap, upper, lower
+ --> tests/fail/unknown_transform.rs:5:11
+  |
+5 |     bad = "{@foo card}";
+  |           ^^^^^^^^^^^^^

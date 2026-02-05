@@ -345,7 +345,11 @@ pub fn detect_cycles(input: &MacroInput, ctx: &ValidationContext) -> syn::Result
     let mut colors: HashMap<String, Color> =
         deps.keys().map(|k| (k.clone(), Color::White)).collect();
 
-    for name in deps.keys() {
+    // Sort keys for deterministic iteration order (stable trybuild tests)
+    let mut sorted_keys: Vec<_> = deps.keys().cloned().collect();
+    sorted_keys.sort();
+
+    for name in &sorted_keys {
         if colors.get(name) == Some(&Color::White) {
             let mut path: Vec<String> = Vec::new();
             if let Some((cycle, span)) = dfs_find_cycle(name, &deps, &mut colors, &mut path) {
@@ -372,17 +376,21 @@ fn dfs_find_cycle(
     path.push(name.to_string());
 
     if let Some(refs) = deps.get(name) {
-        for (ref_name, span) in refs {
-            match colors.get(ref_name) {
+        // Sort refs for deterministic iteration order (stable trybuild tests)
+        let mut sorted_refs = refs.clone();
+        sorted_refs.sort_by(|(a, _), (b, _)| a.cmp(b));
+
+        for (ref_name, span) in sorted_refs {
+            match colors.get(&ref_name) {
                 Some(Color::Gray) => {
                     // Found cycle - extract from path starting at the cycle point
-                    let cycle_start = path.iter().position(|n| n == ref_name).unwrap_or(0);
+                    let cycle_start = path.iter().position(|n| n == &ref_name).unwrap_or(0);
                     let mut cycle: Vec<String> = path[cycle_start..].to_vec();
                     cycle.push(ref_name.clone());
-                    return Some((cycle, *span));
+                    return Some((cycle, span));
                 }
                 Some(Color::White) | None => {
-                    if let Some(result) = dfs_find_cycle(ref_name, deps, colors, path) {
+                    if let Some(result) = dfs_find_cycle(&ref_name, deps, colors, path) {
                         return Some(result);
                     }
                 }
