@@ -21,6 +21,11 @@ pub enum TransformKind {
     Upper,
     /// @lower - All lowercase
     Lower,
+    // English transforms (Phase 6)
+    /// @a/@an - English indefinite article from :a/:an tags
+    EnglishA,
+    /// @the - English definite article "the"
+    EnglishThe,
 }
 
 impl TransformKind {
@@ -41,6 +46,9 @@ impl TransformKind {
             TransformKind::Cap => cap_transform(&text, &locale),
             TransformKind::Upper => upper_transform(&text, &locale),
             TransformKind::Lower => lower_transform(&text, &locale),
+            // English transforms need full Value to read tags
+            TransformKind::EnglishA => english_a_transform(value),
+            TransformKind::EnglishThe => english_the_transform(value),
         }
     }
 }
@@ -89,6 +97,38 @@ fn lower_transform(text: &str, locale: &LanguageIdentifier) -> Result<String, Ev
     Ok(cm.lowercase_to_string(text, locale).into_owned())
 }
 
+// =============================================================================
+// English Transforms (Phase 6)
+// =============================================================================
+
+/// English indefinite article transform (@a/@an).
+///
+/// Reads :a or :an tag from the Value to determine which article to prepend.
+/// Returns MissingTag error if neither tag is present.
+fn english_a_transform(value: &Value) -> Result<String, EvalError> {
+    let text = value.to_string();
+
+    if value.has_tag("a") {
+        return Ok(format!("a {}", text));
+    }
+    if value.has_tag("an") {
+        return Ok(format!("an {}", text));
+    }
+
+    Err(EvalError::MissingTag {
+        transform: "a".to_string(),
+        expected: vec!["a".to_string(), "an".to_string()],
+        phrase: text,
+    })
+}
+
+/// English definite article transform (@the).
+///
+/// Unconditionally prepends "the " to the value's text.
+fn english_the_transform(value: &Value) -> Result<String, EvalError> {
+    Ok(format!("the {}", value.to_string()))
+}
+
 /// Registry for transform functions.
 ///
 /// Transforms are registered per-language with universal transforms available to all.
@@ -108,15 +148,29 @@ impl TransformRegistry {
     /// Get a transform by name for a language.
     ///
     /// Resolution order:
-    /// 1. Language-specific transforms (future phases)
+    /// 1. Resolve aliases (e.g., @an -> @a)
     /// 2. Universal transforms (@cap, @upper, @lower)
-    pub fn get(&self, name: &str, _lang: &str) -> Option<TransformKind> {
+    /// 3. Language-specific transforms (@a, @the for English)
+    pub fn get(&self, name: &str, lang: &str) -> Option<TransformKind> {
+        // Resolve aliases first
+        let canonical = match name {
+            "an" => "a", // English alias: @an resolves to @a
+            other => other,
+        };
+
         // Universal transforms are always available
-        match name {
-            "cap" => Some(TransformKind::Cap),
-            "upper" => Some(TransformKind::Upper),
-            "lower" => Some(TransformKind::Lower),
-            _ => None, // Language-specific transforms added in Phases 6-9
+        match canonical {
+            "cap" => return Some(TransformKind::Cap),
+            "upper" => return Some(TransformKind::Upper),
+            "lower" => return Some(TransformKind::Lower),
+            _ => {}
+        }
+
+        // Language-specific transforms
+        match (lang, canonical) {
+            ("en", "a") => Some(TransformKind::EnglishA),
+            ("en", "the") => Some(TransformKind::EnglishThe),
+            _ => None,
         }
     }
 

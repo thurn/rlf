@@ -1,7 +1,7 @@
 //! Integration tests for transform execution in the interpreter.
 
-use rlf::interpreter::EvalError;
-use rlf::{PhraseRegistry, Value};
+use rlf::interpreter::{EvalError, TransformKind, TransformRegistry};
+use rlf::{Phrase, PhraseRegistry, Tag, Value};
 use std::collections::HashMap;
 
 // =============================================================================
@@ -466,4 +466,107 @@ fn test_upper_azerbaijani_dotted_i() {
         .unwrap();
     // Azerbaijani uppercase of "istanbul" should have dotted capital I: "İSTANBUL"
     assert_eq!(result.to_string(), "\u{0130}STANBUL");
+}
+
+// =============================================================================
+// English Article Transforms (@a/@an, @the)
+// =============================================================================
+
+#[test]
+fn english_a_with_a_tag() {
+    // Phrase with :a tag produces "a card"
+    let phrase = Phrase::builder()
+        .text("card".to_string())
+        .tags(vec![Tag::new("a")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::EnglishA;
+    let result = transform.execute(&value, None, "en").unwrap();
+    assert_eq!(result, "a card");
+}
+
+#[test]
+fn english_a_with_an_tag() {
+    // Phrase with :an tag produces "an event"
+    let phrase = Phrase::builder()
+        .text("event".to_string())
+        .tags(vec![Tag::new("an")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::EnglishA;
+    let result = transform.execute(&value, None, "en").unwrap();
+    assert_eq!(result, "an event");
+}
+
+#[test]
+fn english_a_missing_tag_error() {
+    // Phrase without :a or :an tag produces error
+    let phrase = Phrase::builder().text("thing".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::EnglishA;
+    let result = transform.execute(&value, None, "en");
+    assert!(matches!(result, Err(EvalError::MissingTag { .. })));
+}
+
+#[test]
+fn english_a_string_value_error() {
+    // String values (no tags) produce error
+    let value = Value::String("card".to_string());
+    let transform = TransformKind::EnglishA;
+    let result = transform.execute(&value, None, "en");
+    assert!(matches!(result, Err(EvalError::MissingTag { .. })));
+}
+
+#[test]
+fn english_the_transform() {
+    // @the always produces "the X"
+    let value = Value::String("card".to_string());
+    let transform = TransformKind::EnglishThe;
+    let result = transform.execute(&value, None, "en").unwrap();
+    assert_eq!(result, "the card");
+}
+
+#[test]
+fn english_the_with_phrase() {
+    // @the works with Phrase values too
+    let phrase = Phrase::builder()
+        .text("card".to_string())
+        .tags(vec![Tag::new("a")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::EnglishThe;
+    let result = transform.execute(&value, None, "en").unwrap();
+    assert_eq!(result, "the card");
+}
+
+#[test]
+fn english_transform_alias_an() {
+    // @an resolves to EnglishA
+    let registry = TransformRegistry::new();
+    let transform = registry.get("an", "en");
+    assert_eq!(transform, Some(TransformKind::EnglishA));
+}
+
+#[test]
+fn english_transform_a_lookup() {
+    // @a resolves to EnglishA
+    let registry = TransformRegistry::new();
+    let transform = registry.get("a", "en");
+    assert_eq!(transform, Some(TransformKind::EnglishA));
+}
+
+#[test]
+fn english_transform_the_lookup() {
+    // @the resolves to EnglishThe
+    let registry = TransformRegistry::new();
+    let transform = registry.get("the", "en");
+    assert_eq!(transform, Some(TransformKind::EnglishThe));
+}
+
+#[test]
+fn english_transform_not_available_for_other_languages() {
+    // English transforms should not be available for other languages
+    let registry = TransformRegistry::new();
+    assert_eq!(registry.get("a", "de"), None);
+    assert_eq!(registry.get("the", "de"), None);
 }
