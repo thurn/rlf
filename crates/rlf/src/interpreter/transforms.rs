@@ -78,6 +78,12 @@ pub enum TransformKind {
     // Romanian transforms (Phase 8)
     /// @def - Romanian postposed definite article (suffix)
     RomanianDef,
+    // Arabic transforms (Phase 8)
+    /// @al - Arabic definite article with sun/moon letter assimilation
+    ArabicAl,
+    // Persian transforms (Phase 8)
+    /// @ezafe - Persian ezafe connector (-e/-ye)
+    PersianEzafe,
 }
 
 impl TransformKind {
@@ -131,6 +137,10 @@ impl TransformKind {
             TransformKind::GreekEnas => greek_enas_transform(value, context),
             // Romanian transforms need Value (for tags) and context (for plural)
             TransformKind::RomanianDef => romanian_def_transform(value, context),
+            // Arabic transforms need Value (for tags)
+            TransformKind::ArabicAl => arabic_al_transform(value),
+            // Persian transforms need Value (for tags)
+            TransformKind::PersianEzafe => persian_ezafe_transform(value),
         }
     }
 }
@@ -1098,6 +1108,87 @@ fn romanian_def_transform(value: &Value, context: Option<&Value>) -> Result<Stri
     Ok(format!("{}{}", text, suffix_text))
 }
 
+// =============================================================================
+// Arabic Transforms (Phase 8)
+// =============================================================================
+
+/// Arabic shadda (consonant doubling mark).
+/// Unicode: U+0651 (ARABIC SHADDA)
+const SHADDA: char = '\u{0651}';
+
+/// Arabic definite article transform (@al).
+///
+/// Handles sun/moon letter assimilation via :sun/:moon tags.
+/// - Sun letters: assimilation occurs, first consonant doubles (shadda added)
+/// - Moon letters: no assimilation, plain "ال" prefix
+///
+/// Per CONTEXT.md: uses :sun/:moon tags, no automatic detection.
+fn arabic_al_transform(value: &Value) -> Result<String, EvalError> {
+    let text = value.to_string();
+
+    if value.has_tag("sun") {
+        // Sun letter: assimilation occurs
+        // Get first character and add shadda after it to indicate doubling
+        // Output: "ال" + first_char + shadda + rest_of_text
+        if let Some(first_char) = text.chars().next() {
+            let rest: String = text.chars().skip(1).collect();
+            // Per RESEARCH.md pitfall: shadda goes AFTER the consonant, not before
+            return Ok(format!("ال{}{}{}", first_char, SHADDA, rest));
+        }
+        // Fallback if empty text
+        return Ok(format!("ال{}", text));
+    }
+
+    if value.has_tag("moon") {
+        // Moon letter: no assimilation, plain prefix
+        return Ok(format!("ال{}", text));
+    }
+
+    Err(EvalError::MissingTag {
+        transform: "al".to_string(),
+        expected: vec!["sun".to_string(), "moon".to_string()],
+        phrase: text,
+    })
+}
+
+// =============================================================================
+// Persian Transforms (Phase 8)
+// =============================================================================
+
+/// Persian kasra (short 'e' vowel mark).
+/// Unicode: U+0650 (ARABIC KASRA)
+const KASRA: char = '\u{0650}';
+
+/// Persian zero-width non-joiner.
+/// Unicode: U+200C (ZERO WIDTH NON-JOINER)
+/// Used to prevent letter joining before ezafe connector.
+const ZWNJ: &str = "\u{200C}";
+
+/// Persian ye character for ezafe.
+/// Unicode: U+06CC (ARABIC LETTER FARSI YEH)
+const PERSIAN_YE: char = '\u{06CC}';
+
+/// Persian ezafe connector transform (@ezafe).
+///
+/// Connects nouns to modifiers with -e or -ye based on word ending.
+/// - Words ending in vowel (:vowel tag): use -ye connector with ZWNJ
+/// - Words ending in consonant (no :vowel tag): use -e (kasra)
+///
+/// Per CONTEXT.md: no gender system in Persian.
+fn persian_ezafe_transform(value: &Value) -> Result<String, EvalError> {
+    let text = value.to_string();
+
+    if value.has_tag("vowel") {
+        // Word ends in vowel: use -ye connector
+        // Per RESEARCH.md: include ZWNJ before ye for proper rendering
+        Ok(format!("{}{}{}", text, ZWNJ, PERSIAN_YE))
+    } else {
+        // Word ends in consonant: use -e (kasra)
+        // Kasra is placed after the final letter
+        Ok(format!("{}{}", text, KASRA))
+    }
+}
+
 /// Registry for transform functions.
 ///
 /// Transforms are registered per-language with universal transforms available to all.
@@ -1175,6 +1266,8 @@ impl TransformRegistry {
             ("el", "o") => Some(TransformKind::GreekO),
             ("el", "enas") => Some(TransformKind::GreekEnas),
             ("ro", "def") => Some(TransformKind::RomanianDef),
+            ("ar", "al") => Some(TransformKind::ArabicAl),
+            ("fa", "ezafe") => Some(TransformKind::PersianEzafe),
             _ => None,
         }
     }
