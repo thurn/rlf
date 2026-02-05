@@ -41,6 +41,15 @@ pub enum TransformKind {
     SpanishEl,
     /// @un/@una - Spanish indefinite article with plural context
     SpanishUn,
+    // Portuguese transforms (Phase 7)
+    /// @o/@a - Portuguese definite article with plural context
+    PortugueseO,
+    /// @um/@uma - Portuguese indefinite article
+    PortugueseUm,
+    /// @de - Portuguese "de" + article contraction
+    PortugueseDe,
+    /// @em - Portuguese "em" + article contraction
+    PortugueseEm,
 }
 
 impl TransformKind {
@@ -73,6 +82,11 @@ impl TransformKind {
             // Spanish transforms need Value (for tags) and context (for plural)
             TransformKind::SpanishEl => spanish_el_transform(value, context),
             TransformKind::SpanishUn => spanish_un_transform(value, context),
+            // Portuguese transforms need Value (for tags) and context (for plural)
+            TransformKind::PortugueseO => portuguese_o_transform(value, context),
+            TransformKind::PortugueseUm => portuguese_um_transform(value),
+            TransformKind::PortugueseDe => portuguese_de_transform(value, context),
+            TransformKind::PortugueseEm => portuguese_em_transform(value, context),
         }
     }
 }
@@ -412,6 +426,87 @@ fn spanish_un_transform(value: &Value, context: Option<&Value>) -> Result<String
     Ok(format!("{} {}", article, text))
 }
 
+// =============================================================================
+// Portuguese Transforms (Phase 7)
+// =============================================================================
+
+/// Portuguese definite article lookup table.
+/// Gender x Plural -> article (o/a/os/as)
+fn portuguese_definite_article(gender: RomanceGender, plural: RomancePlural) -> &'static str {
+    match (gender, plural) {
+        (RomanceGender::Masculine, RomancePlural::One) => "o",
+        (RomanceGender::Masculine, RomancePlural::Other) => "os",
+        (RomanceGender::Feminine, RomancePlural::One) => "a",
+        (RomanceGender::Feminine, RomancePlural::Other) => "as",
+    }
+}
+
+/// Portuguese indefinite article lookup table.
+/// Gender only (no plural for indefinite in Portuguese).
+fn portuguese_indefinite_article(gender: RomanceGender) -> &'static str {
+    match gender {
+        RomanceGender::Masculine => "um",
+        RomanceGender::Feminine => "uma",
+    }
+}
+
+/// Portuguese "de" + article contraction lookup table.
+/// de + o = do, de + a = da, de + os = dos, de + as = das
+fn portuguese_de_contraction(gender: RomanceGender, plural: RomancePlural) -> &'static str {
+    match (gender, plural) {
+        (RomanceGender::Masculine, RomancePlural::One) => "do",
+        (RomanceGender::Masculine, RomancePlural::Other) => "dos",
+        (RomanceGender::Feminine, RomancePlural::One) => "da",
+        (RomanceGender::Feminine, RomancePlural::Other) => "das",
+    }
+}
+
+/// Portuguese "em" + article contraction lookup table.
+/// em + o = no, em + a = na, em + os = nos, em + as = nas
+fn portuguese_em_contraction(gender: RomanceGender, plural: RomancePlural) -> &'static str {
+    match (gender, plural) {
+        (RomanceGender::Masculine, RomancePlural::One) => "no",
+        (RomanceGender::Masculine, RomancePlural::Other) => "nos",
+        (RomanceGender::Feminine, RomancePlural::One) => "na",
+        (RomanceGender::Feminine, RomancePlural::Other) => "nas",
+    }
+}
+
+/// Portuguese definite article transform (@o/@a).
+fn portuguese_o_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
+    let text = value.to_string();
+    let gender = parse_romance_gender(value, "o")?;
+    let plural = parse_romance_plural(context);
+    let article = portuguese_definite_article(gender, plural);
+    Ok(format!("{} {}", article, text))
+}
+
+/// Portuguese indefinite article transform (@um/@uma).
+fn portuguese_um_transform(value: &Value) -> Result<String, EvalError> {
+    let text = value.to_string();
+    let gender = parse_romance_gender(value, "um")?;
+    let article = portuguese_indefinite_article(gender);
+    Ok(format!("{} {}", article, text))
+}
+
+/// Portuguese "de" + article contraction transform (@de).
+fn portuguese_de_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
+    let text = value.to_string();
+    let gender = parse_romance_gender(value, "de")?;
+    let plural = parse_romance_plural(context);
+    let contracted = portuguese_de_contraction(gender, plural);
+    Ok(format!("{} {}", contracted, text))
+}
+
+/// Portuguese "em" + article contraction transform (@em).
+fn portuguese_em_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
+    let text = value.to_string();
+    let gender = parse_romance_gender(value, "em")?;
+    let plural = parse_romance_plural(context);
+    let contracted = portuguese_em_contraction(gender, plural);
+    Ok(format!("{} {}", contracted, text))
+}
+
 /// Registry for transform functions.
 ///
 /// Transforms are registered per-language with universal transforms available to all.
@@ -443,6 +538,8 @@ impl TransformRegistry {
             ("het", _) => "de",          // Dutch alias: @het resolves to @de
             ("la", "es") => "el",        // Spanish alias: @la resolves to @el
             ("una", _) => "un",          // Spanish alias: @una resolves to @un
+            ("a", "pt") => "o",          // Portuguese alias: @a resolves to @o
+            ("uma", _) => "um",          // Portuguese alias: @uma resolves to @um
             (other, _) => other,
         };
 
@@ -464,6 +561,10 @@ impl TransformRegistry {
             ("nl", "een") => Some(TransformKind::DutchEen),
             ("es", "el") => Some(TransformKind::SpanishEl),
             ("es", "un") => Some(TransformKind::SpanishUn),
+            ("pt", "o") => Some(TransformKind::PortugueseO),
+            ("pt", "um") => Some(TransformKind::PortugueseUm),
+            ("pt", "de") => Some(TransformKind::PortugueseDe),
+            ("pt", "em") => Some(TransformKind::PortugueseEm),
             _ => None,
         }
     }

@@ -1398,6 +1398,148 @@ fn spanish_el_numeric_context() {
     assert_eq!(result_three, "las carta");
 }
 
+// =============================================================================
+// Portuguese Transform Tests (Phase 7)
+// =============================================================================
+
+#[test]
+fn portuguese_o_masculine_singular() {
+    let phrase = Phrase::builder()
+        .text("inimigo".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::PortugueseO;
+    let result = transform.execute(&value, None, "pt").unwrap();
+    assert_eq!(result, "o inimigo");
+}
+
+#[test]
+fn portuguese_o_feminine_singular() {
+    let phrase = Phrase::builder()
+        .text("carta".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::PortugueseO;
+    let result = transform.execute(&value, None, "pt").unwrap();
+    assert_eq!(result, "a carta");
+}
+
+#[test]
+fn portuguese_o_masculine_plural() {
+    let phrase = Phrase::builder()
+        .text("inimigos".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("other".to_string());
+    let transform = TransformKind::PortugueseO;
+    let result = transform.execute(&value, Some(&context), "pt").unwrap();
+    assert_eq!(result, "os inimigos");
+}
+
+#[test]
+fn portuguese_um_masculine() {
+    let phrase = Phrase::builder()
+        .text("inimigo".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::PortugueseUm;
+    let result = transform.execute(&value, None, "pt").unwrap();
+    assert_eq!(result, "um inimigo");
+}
+
+#[test]
+fn portuguese_um_feminine() {
+    let phrase = Phrase::builder()
+        .text("carta".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::PortugueseUm;
+    let result = transform.execute(&value, None, "pt").unwrap();
+    assert_eq!(result, "uma carta");
+}
+
+#[test]
+fn portuguese_de_contraction_masculine() {
+    let phrase = Phrase::builder()
+        .text("vazio".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::PortugueseDe;
+    let result = transform.execute(&value, None, "pt").unwrap();
+    assert_eq!(result, "do vazio"); // de + o = do
+}
+
+#[test]
+fn portuguese_de_contraction_feminine() {
+    let phrase = Phrase::builder()
+        .text("carta".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::PortugueseDe;
+    let result = transform.execute(&value, None, "pt").unwrap();
+    assert_eq!(result, "da carta"); // de + a = da
+}
+
+#[test]
+fn portuguese_de_contraction_plural() {
+    let phrase = Phrase::builder()
+        .text("cartas".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("other".to_string());
+    let transform = TransformKind::PortugueseDe;
+    let result = transform.execute(&value, Some(&context), "pt").unwrap();
+    assert_eq!(result, "das cartas"); // de + as = das
+}
+
+#[test]
+fn portuguese_em_contraction_masculine() {
+    let phrase = Phrase::builder()
+        .text("vazio".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::PortugueseEm;
+    let result = transform.execute(&value, None, "pt").unwrap();
+    assert_eq!(result, "no vazio"); // em + o = no
+}
+
+#[test]
+fn portuguese_em_contraction_feminine() {
+    let phrase = Phrase::builder()
+        .text("mao".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::PortugueseEm;
+    let result = transform.execute(&value, None, "pt").unwrap();
+    assert_eq!(result, "na mao"); // em + a = na
+}
+
+#[test]
+fn portuguese_transform_aliases() {
+    let registry = TransformRegistry::new();
+    assert_eq!(registry.get("a", "pt"), Some(TransformKind::PortugueseO));
+    assert_eq!(registry.get("uma", "pt"), Some(TransformKind::PortugueseUm));
+}
+
+#[test]
+fn portuguese_o_missing_gender() {
+    let phrase = Phrase::builder().text("coisa".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::PortugueseO;
+    let result = transform.execute(&value, None, "pt");
+    assert!(matches!(result, Err(EvalError::MissingTag { .. })));
+}
+
 #[test]
 fn all_phase6_transforms_work() {
     // English
