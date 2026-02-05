@@ -145,10 +145,11 @@ Plans:
   2. Romanian @def produces postposed definite article
   3. Arabic @al handles sun/moon letter assimilation
   4. Persian @ezafe produces connector based on :vowel tag
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 08-01: TBD
+- [ ] 08-01-PLAN.md — Greek and Romanian article transforms (@o, @enas, @def with gender/case declension)
+- [ ] 08-02-PLAN.md — Arabic and Persian transforms (@al sun/moon assimilation, @ezafe connector)
 
 ### Phase 9: Asian Language Transforms
 **Goal**: Counter/classifier systems and special transforms for Asian languages
@@ -195,10 +196,10 @@ Note: Phases 6-9 (language transforms) can proceed in parallel after Phase 3 com
 | 5. Macro Code Generation | 4/4 | Complete | 2026-02-05 |
 | 6. English and Germanic Transforms | 3/3 | Complete | 2026-02-05 |
 | 7. Romance Language Transforms | 2/2 | Complete | 2026-02-04 |
-| 8. Greek, Romanian, and Middle Eastern Transforms | 0/1 | Not started | - |
+| 8. Greek, Romanian, and Middle Eastern Transforms | 0/2 | Not started | - |
 | 9. Asian Language Transforms | 0/2 | Not started | - |
 | 10. CLI Tools | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-04*
-*Last updated: 2026-02-04 after Phase 7 execution*
+*Last updated: 2026-02-04 after Phase 8 planning*
