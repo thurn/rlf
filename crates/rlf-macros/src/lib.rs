@@ -1,4 +1,5 @@
 use proc_macro::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
 
 mod codegen;
 mod input;
@@ -36,11 +37,16 @@ mod validate;
 pub fn rlf(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as input::MacroInput);
 
-    // Validation (Plan 02)
-    if let Err(e) = validate::validate(&input) {
-        return e.to_compile_error().into();
+    match expand(input) {
+        Ok(tokens) => tokens.into(),
+        Err(e) => e.into_compile_error().into(),
     }
+}
 
-    // Code generation (Plan 03)
-    codegen::codegen(&input).into()
+fn expand(input: input::MacroInput) -> syn::Result<TokenStream2> {
+    // Step 1: Validate
+    validate::validate(&input)?;
+
+    // Step 2: Generate code
+    Ok(codegen::codegen(&input))
 }
