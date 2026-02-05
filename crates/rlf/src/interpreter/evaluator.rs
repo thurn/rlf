@@ -237,8 +237,11 @@ fn eval_with_from_modifier(
         // Evaluate for default text first
         let default_text = eval_template(template, ctx, registry, transform_registry, lang)?;
 
-        // Evaluate for each variant
-        for (key, variant_text) in &source_variants {
+        // Evaluate for each variant (sorted keys for deterministic order)
+        let mut sorted_keys: Vec<_> = source_variants.keys().collect();
+        sorted_keys.sort();
+        for key in sorted_keys {
+            let variant_text = &source_variants[key];
             // Create a context with the variant text substituted for the from_param
             let simple_params: HashMap<String, Value> =
                 [(from_param.to_string(), Value::String(variant_text.clone()))]
@@ -332,7 +335,7 @@ fn resolve_selector(
                     }
                     Value::Phrase(phrase) => {
                         // Use first tag as key
-                        phrase.first_tag().map(|t| t.to_string()).ok_or_else(|| {
+                        phrase.first_tag().map(ToString::to_string).ok_or_else(|| {
                             EvalError::MissingTag {
                                 transform: "selector".to_string(),
                                 expected: vec!["any".to_string()],
@@ -386,7 +389,8 @@ fn variant_lookup(phrase: &Phrase, key: &str) -> Result<String, EvalError> {
     }
 
     // No match found - return error with available variants
-    let available: Vec<String> = phrase.variants.keys().map(|k| k.to_string()).collect();
+    let mut available: Vec<String> = phrase.variants.keys().map(ToString::to_string).collect();
+    available.sort();
     let suggestions = compute_suggestions(key, &available);
     Err(EvalError::MissingVariant {
         phrase: phrase.text.clone(),

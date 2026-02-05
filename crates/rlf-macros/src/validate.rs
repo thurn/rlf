@@ -31,7 +31,7 @@ pub struct ValidationContext {
     /// Phrase name -> defined variant keys (for literal selector validation).
     pub phrase_variants: HashMap<String, HashSet<String>>,
     /// Phrase name -> defined tags.
-    #[allow(dead_code)] // Infrastructure for Phase 6+ tag validation
+    #[expect(dead_code)] // Infrastructure for Phase 6+ tag validation
     pub phrase_tags: HashMap<String, HashSet<String>>,
 }
 

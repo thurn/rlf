@@ -1,10 +1,13 @@
+use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::ops::Deref;
+
 use serde::{Deserialize, Serialize};
 
 /// A key identifying a specific variant of a phrase.
 ///
 /// Variant keys can be simple (e.g., "one", "other") or multi-dimensional
 /// using dot notation (e.g., "nom.one", "acc.few").
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct VariantKey(String);
 
 impl VariantKey {
@@ -19,7 +22,7 @@ impl VariantKey {
     }
 }
 
-impl std::ops::Deref for VariantKey {
+impl Deref for VariantKey {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
@@ -39,8 +42,8 @@ impl From<String> for VariantKey {
     }
 }
 
-impl std::fmt::Display for VariantKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Display for VariantKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "{}", self.0)
     }
 }

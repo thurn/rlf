@@ -2,6 +2,8 @@
 //!
 //! Implements syn::parse::Parse for all AST types defined in input.rs.
 
+use std::mem;
+
 use crate::input::{
     Interpolation, MacroInput, PhraseBody, PhraseDefinition, Reference, Segment, Selector,
     SpannedIdent, Template, TransformRef, VariantEntry,
@@ -9,6 +11,7 @@ use crate::input::{
 use proc_macro2::Span;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
+use syn::token::{Brace, Paren};
 use syn::{Ident, LitStr, Token};
 
 impl Parse for MacroInput {
@@ -25,7 +28,7 @@ impl Parse for PhraseDefinition {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         // Parse optional tags (: followed by ident, but not :from)
         let mut tags = Vec::new();
-        while input.peek(Token![:]) && !input.peek2(syn::token::Brace) {
+        while input.peek(Token![:]) && !input.peek2(Brace) {
             // Lookahead to check if it's :from
             let colon_span = input.parse::<Token![:]>()?.span;
             let ident: Ident = input.parse()?;
@@ -40,7 +43,7 @@ impl Parse for PhraseDefinition {
                 let from_param = Some(SpannedIdent::new(&param));
 
                 // Continue parsing remaining tags
-                while input.peek(Token![:]) && !input.peek2(syn::token::Brace) {
+                while input.peek(Token![:]) && !input.peek2(Brace) {
                     input.parse::<Token![:]>()?;
                     let tag_ident: Ident = input.parse()?;
                     tags.push(SpannedIdent::new(&tag_ident));
@@ -51,7 +54,7 @@ impl Parse for PhraseDefinition {
                 let name = SpannedIdent::new(&name_ident);
 
                 // Parse optional parameters
-                let parameters = if input.peek(syn::token::Paren) {
+                let parameters = if input.peek(Paren) {
                     let content;
                     syn::parenthesized!(content in input);
                     let params: Punctuated<Ident, Token![,]> =
@@ -88,7 +91,7 @@ impl Parse for PhraseDefinition {
         let name = SpannedIdent::new(&name_ident);
 
         // Parse optional parameters
-        let parameters = if input.peek(syn::token::Paren) {
+        let parameters = if input.peek(Paren) {
             let content;
             syn::parenthesized!(content in input);
             let params: Punctuated<Ident, Token![,]> = Punctuated::parse_terminated(&content)?;
@@ -119,7 +122,7 @@ impl Parse for PhraseDefinition {
 impl Parse for PhraseBody {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         // If starts with { it's a variant block, otherwise simple template
-        if input.peek(syn::token::Brace) {
+        if input.peek(Brace) {
             let content;
             syn::braced!(content in input);
 
@@ -220,14 +223,14 @@ pub(crate) fn parse_template_string(s: &str, span: Span) -> syn::Result<Vec<Segm
                 } else {
                     // Start of interpolation
                     if !current_literal.is_empty() {
-                        segments.push(Segment::Literal(std::mem::take(&mut current_literal)));
+                        segments.push(Segment::Literal(mem::take(&mut current_literal)));
                     }
 
                     // Collect until closing brace
                     let mut interp_content = String::new();
                     let mut depth = 1;
                     // Using while-let instead of for because we break out early
-                    #[allow(clippy::while_let_on_iterator)]
+                    #[expect(clippy::while_let_on_iterator)]
                     while let Some(c) = chars.next() {
                         if c == '{' {
                             depth += 1;

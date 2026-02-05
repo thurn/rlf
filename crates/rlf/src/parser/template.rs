@@ -10,6 +10,7 @@
 use super::ast::*;
 use super::error::ParseError;
 use winnow::combinator::{alt, delimited, opt, preceded, repeat, separated, terminated};
+use winnow::error::{ContextError, ErrMode};
 use winnow::prelude::*;
 use winnow::token::{any, none_of, take_while};
 
@@ -79,7 +80,7 @@ fn merge_literals(segments: Vec<Segment>) -> Vec<Segment> {
                     result.push(Segment::Literal(text));
                 }
             }
-            other => result.push(other),
+            other @ Segment::Interpolation { .. } => result.push(other),
         }
     }
 
@@ -170,9 +171,7 @@ fn reference(input: &mut &str) -> ModalResult<ParsedReference> {
     let first_char = any.parse_next(input)?;
 
     if !is_ident_start(first_char) {
-        return Err(winnow::error::ErrMode::Backtrack(
-            winnow::error::ContextError::new(),
-        ));
+        return Err(ErrMode::Backtrack(ContextError::new()));
     }
 
     let rest: &str = take_while(0.., is_ident_cont).parse_next(input)?;

@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use crate::interpreter::transforms::TransformRegistry;
-use crate::interpreter::{EvalContext, EvalError, eval_phrase_def};
+use crate::interpreter::{EvalContext, EvalError, eval_phrase_def, eval_template};
 use crate::parser::ast::PhraseDefinition;
 use crate::parser::{ParseError, parse_file, parse_template};
 use crate::types::{Phrase, PhraseId, Value};
@@ -135,13 +135,7 @@ impl PhraseRegistry {
         })?;
         let transform_registry = TransformRegistry::new();
         let mut ctx = EvalContext::new(&params);
-        let text = crate::interpreter::eval_template(
-            &template,
-            &mut ctx,
-            self,
-            &transform_registry,
-            lang,
-        )?;
+        let text = eval_template(&template, &mut ctx, self, &transform_registry, lang)?;
         Ok(Phrase::builder().text(text).build())
     }
 

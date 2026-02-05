@@ -1,5 +1,6 @@
 //! Error types for the RLF interpreter.
 
+use std::io;
 use std::path::PathBuf;
 
 use strsim::levenshtein;
@@ -44,7 +45,7 @@ pub enum LoadError {
     Io {
         path: PathBuf,
         #[source]
-        source: std::io::Error,
+        source: io::Error,
     },
 
     /// Parse error with file location context.

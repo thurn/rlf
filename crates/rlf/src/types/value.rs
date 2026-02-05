@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter, Result as FmtResult};
+
 use super::Phrase;
 
 /// A runtime value that can be passed as a parameter to RLF phrases.
@@ -85,8 +87,8 @@ impl Value {
     }
 }
 
-impl std::fmt::Display for Value {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Display for Value {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
             Value::Number(n) => write!(f, "{n}"),
             Value::Float(n) => write!(f, "{n}"),

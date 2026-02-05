@@ -1,5 +1,7 @@
-use bon::Builder;
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter, Result as FmtResult};
+
+use bon::Builder;
 
 use super::{Tag, VariantKey};
 
@@ -115,8 +117,8 @@ impl Phrase {
     }
 }
 
-impl std::fmt::Display for Phrase {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Display for Phrase {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "{}", self.text)
     }
 }

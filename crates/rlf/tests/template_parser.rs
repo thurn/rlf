@@ -48,7 +48,7 @@ fn test_simple_parameter() {
             assert_eq!(*reference, Reference::Identifier("name".into()));
             assert!(selectors.is_empty());
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -62,7 +62,7 @@ fn test_multiple_parameters() {
         Segment::Interpolation { reference, .. } => {
             assert_eq!(*reference, Reference::Identifier("amount".into()));
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 
     // Verify second interpolation
@@ -70,7 +70,7 @@ fn test_multiple_parameters() {
         Segment::Interpolation { reference, .. } => {
             assert_eq!(*reference, Reference::Identifier("target".into()));
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -86,7 +86,7 @@ fn test_selection_literal() {
         Segment::Interpolation { selectors, .. } => {
             assert_eq!(selectors, &[Selector::Identifier("other".into())]);
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -99,7 +99,7 @@ fn test_selection_parameter() {
             // At parse time, we don't distinguish parameters from literals
             assert_eq!(selectors, &[Selector::Identifier("n".into())]);
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -113,7 +113,7 @@ fn test_chained_selection() {
             assert_eq!(selectors[0], Selector::Identifier("acc".into()));
             assert_eq!(selectors[1], Selector::Identifier("n".into()));
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -127,7 +127,7 @@ fn test_triple_chained_selection() {
             assert_eq!(selectors[1], Selector::Identifier("gender".into()));
             assert_eq!(selectors[2], Selector::Identifier("n".into()));
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -150,7 +150,7 @@ fn test_transform_cap() {
             assert!(transforms[0].context.is_none());
             assert_eq!(*reference, Reference::Identifier("name".into()));
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -161,7 +161,7 @@ fn test_transform_upper() {
         Segment::Interpolation { transforms, .. } => {
             assert_eq!(transforms[0].name, "upper");
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -172,7 +172,7 @@ fn test_transform_lower() {
         Segment::Interpolation { transforms, .. } => {
             assert_eq!(transforms[0].name, "lower");
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -188,7 +188,7 @@ fn test_transform_with_context() {
                 Some(Selector::Identifier("acc".into()))
             );
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -202,7 +202,7 @@ fn test_chained_transforms() {
             assert_eq!(transforms[0].name, "cap");
             assert_eq!(transforms[1].name, "a");
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -216,7 +216,7 @@ fn test_triple_chained_transforms() {
             assert_eq!(transforms[1].name, "upper");
             assert_eq!(transforms[2].name, "a");
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -238,7 +238,7 @@ fn test_transform_with_context_and_selector() {
             );
             assert_eq!(selectors, &[Selector::Identifier("one".into())]);
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -256,9 +256,9 @@ fn test_phrase_call_single_arg() {
                 assert_eq!(args.len(), 1);
                 assert_eq!(args[0], Reference::Identifier("s".into()));
             }
-            _ => panic!("expected phrase call"),
+            Reference::Identifier(_) => panic!("expected phrase call"),
         },
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -274,9 +274,9 @@ fn test_phrase_call_multiple_args() {
                 assert_eq!(args[1], Reference::Identifier("y".into()));
                 assert_eq!(args[2], Reference::Identifier("z".into()));
             }
-            _ => panic!("expected phrase call"),
+            Reference::Identifier(_) => panic!("expected phrase call"),
         },
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -296,10 +296,10 @@ fn test_phrase_call_with_transform() {
                     assert_eq!(name, "subtype");
                     assert_eq!(args.len(), 1);
                 }
-                _ => panic!("expected phrase call"),
+                Reference::Identifier(_) => panic!("expected phrase call"),
             }
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -317,11 +317,11 @@ fn test_phrase_call_with_selector() {
                     assert_eq!(name, "subtype");
                     assert_eq!(args.len(), 1);
                 }
-                _ => panic!("expected phrase call"),
+                Reference::Identifier(_) => panic!("expected phrase call"),
             }
             assert_eq!(selectors, &[Selector::Identifier("other".into())]);
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -375,7 +375,7 @@ fn test_escape_in_interpolation_context() {
         Segment::Interpolation { reference, .. } => {
             assert_eq!(*reference, Reference::Identifier("actual".into()));
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
     assert_eq!(t.segments[2], Segment::Literal(" after".into()));
 }
@@ -399,7 +399,7 @@ fn test_auto_capitalization() {
             assert!(transforms[0].context.is_none());
             assert_eq!(*reference, Reference::Identifier("card".into()));
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -418,7 +418,7 @@ fn test_auto_capitalization_preserves_rest() {
             // Only the first letter is lowercased
             assert_eq!(*reference, Reference::Identifier("cardName".into()));
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -437,7 +437,7 @@ fn test_auto_capitalization_with_selectors() {
             assert_eq!(*reference, Reference::Identifier("card".into()));
             assert_eq!(selectors.len(), 1);
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -456,7 +456,7 @@ fn test_auto_capitalization_with_existing_transforms() {
             assert_eq!(transforms[1].name, "a"); // original transform
             assert_eq!(*reference, Reference::Identifier("card".into()));
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -468,7 +468,7 @@ fn test_lowercase_no_auto_cap() {
         Segment::Interpolation { transforms, .. } => {
             assert!(transforms.is_empty());
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -488,7 +488,7 @@ fn test_draw_cards_template() {
         Segment::Interpolation { reference, .. } => {
             assert_eq!(*reference, Reference::Identifier("n".into()));
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 
     assert_eq!(t.segments[2], Segment::Literal(" ".into()));
@@ -502,7 +502,7 @@ fn test_draw_cards_template() {
             assert_eq!(*reference, Reference::Identifier("card".into()));
             assert_eq!(selectors, &[Selector::Identifier("n".into())]);
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 
     assert_eq!(t.segments[4], Segment::Literal(".".into()));
@@ -518,7 +518,7 @@ fn test_russian_template() {
             assert_eq!(selectors[0], Selector::Identifier("acc".into()));
             assert_eq!(selectors[1], Selector::Identifier("n".into()));
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -543,7 +543,7 @@ fn test_german_definite_article() {
             );
             assert_eq!(*reference, Reference::Identifier("karte".into()));
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 
     assert_eq!(t.segments[2], Segment::Literal(".".into()));
@@ -567,10 +567,10 @@ fn test_dissolve_subtype() {
                     assert_eq!(name, "subtype");
                     assert_eq!(args.len(), 1);
                 }
-                _ => panic!("expected phrase call"),
+                Reference::Identifier(_) => panic!("expected phrase call"),
             }
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -591,11 +591,11 @@ fn test_dissolve_all() {
                     assert_eq!(name, "subtype");
                     assert_eq!(args.len(), 1);
                 }
-                _ => panic!("expected phrase call"),
+                Reference::Identifier(_) => panic!("expected phrase call"),
             }
             assert_eq!(selectors, &[Selector::Identifier("other".into())]);
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -610,7 +610,7 @@ fn test_adjacent_interpolations() {
     for i in 0..3 {
         match &t.segments[i] {
             Segment::Interpolation { .. } => {}
-            _ => panic!("expected interpolation at index {}", i),
+            Segment::Literal(_) => panic!("expected interpolation at index {}", i),
         }
     }
 }
@@ -622,7 +622,7 @@ fn test_whitespace_in_interpolation() {
         Segment::Interpolation { reference, .. } => {
             assert_eq!(*reference, Reference::Identifier("name".into()));
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -639,7 +639,7 @@ fn test_whitespace_around_transform() {
             assert_eq!(transforms[0].name, "cap");
             assert_eq!(*reference, Reference::Identifier("name".into()));
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -650,7 +650,7 @@ fn test_underscore_in_identifier() {
         Segment::Interpolation { reference, .. } => {
             assert_eq!(*reference, Reference::Identifier("some_name".into()));
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 
@@ -661,7 +661,7 @@ fn test_numbers_in_identifier() {
         Segment::Interpolation { reference, .. } => {
             assert_eq!(*reference, Reference::Identifier("card2".into()));
         }
-        _ => panic!("expected interpolation"),
+        Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
 

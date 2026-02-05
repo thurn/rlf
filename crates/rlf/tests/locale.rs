@@ -3,6 +3,7 @@
 use rlf::{EvalError, LoadError, Locale, Value};
 use std::collections::HashMap;
 use std::io::{Seek, Write};
+use std::ptr;
 use tempfile::NamedTempFile;
 
 // =========================================================================
@@ -377,7 +378,7 @@ fn transforms_accessible_from_locale() {
     // Should have default transforms available
     let transforms = locale.transforms();
     // TransformRegistry exists and is accessible
-    assert!(std::ptr::eq(transforms, locale.transforms()));
+    assert!(ptr::eq(transforms, locale.transforms()));
 }
 
 // =========================================================================

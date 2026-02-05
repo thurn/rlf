@@ -1,6 +1,7 @@
 //! Tests for error types and error message formatting.
 
 use rlf::{EvalError, LoadError, compute_suggestions};
+use std::io::{self, ErrorKind};
 use std::path::PathBuf;
 
 #[test]
@@ -40,7 +41,7 @@ fn compute_suggestions_limits_to_three() {
 fn load_error_io_displays_path() {
     let err = LoadError::Io {
         path: PathBuf::from("/path/to/file.rlf"),
-        source: std::io::Error::new(std::io::ErrorKind::NotFound, "file not found"),
+        source: io::Error::new(ErrorKind::NotFound, "file not found"),
     };
     let msg = err.to_string();
     assert!(msg.contains("/path/to/file.rlf"));

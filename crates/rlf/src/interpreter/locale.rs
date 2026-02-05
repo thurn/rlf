@@ -4,6 +4,7 @@
 //! loading translations, and accessing phrases.
 
 use std::collections::HashMap;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use bon::Builder;
@@ -11,7 +12,7 @@ use bon::Builder;
 use crate::interpreter::error::LoadError;
 use crate::interpreter::registry::PhraseRegistry;
 use crate::interpreter::transforms::TransformRegistry;
-use crate::interpreter::{EvalContext, EvalError, eval_phrase_def};
+use crate::interpreter::{EvalContext, EvalError, eval_phrase_def, eval_template};
 use crate::parser::{ParseError, parse_file, parse_template};
 use crate::types::{Phrase, Value};
 
@@ -76,7 +77,6 @@ impl Default for Locale {
 
 impl Locale {
     /// Create a new Locale with default settings (English, no fallback).
-    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self::default()
     }
@@ -163,7 +163,7 @@ impl Locale {
         let path = path.as_ref();
 
         // Read file content
-        let content = std::fs::read_to_string(path).map_err(|e| LoadError::Io {
+        let content = fs::read_to_string(path).map_err(|e| LoadError::Io {
             path: path.to_path_buf(),
             source: e,
         })?;
@@ -248,7 +248,7 @@ impl Locale {
         // Parse the content
         let definitions = parse_file(content).map_err(|e| {
             let default_path = PathBuf::from(format!("<{language}>"));
-            let path_buf = path.map(|p| p.to_path_buf()).unwrap_or(default_path);
+            let path_buf = path.map(Path::to_path_buf).unwrap_or(default_path);
 
             match e {
                 ParseError::Syntax {
@@ -285,7 +285,7 @@ impl Locale {
             registry.insert(def).map_err(|e| {
                 let default_path = PathBuf::from(format!("<{language}>"));
                 LoadError::Parse {
-                    path: path.map(|p| p.to_path_buf()).unwrap_or(default_path),
+                    path: path.map(Path::to_path_buf).unwrap_or(default_path),
                     line: 0,
                     column: 0,
                     message: format!("{e}"),
@@ -434,7 +434,7 @@ impl Locale {
             name: format!("parse error: {e}"),
         })?;
         let mut ctx = EvalContext::new(&params);
-        let text = crate::interpreter::eval_template(
+        let text = eval_template(
             &template,
             &mut ctx,
             registry,

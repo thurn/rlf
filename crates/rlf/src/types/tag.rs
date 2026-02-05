@@ -1,3 +1,6 @@
+use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::ops::Deref;
+
 use serde::{Deserialize, Serialize};
 
 /// A metadata tag attached to a phrase.
@@ -19,7 +22,7 @@ impl Tag {
     }
 }
 
-impl std::ops::Deref for Tag {
+impl Deref for Tag {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
@@ -39,8 +42,8 @@ impl From<String> for Tag {
     }
 }
 
-impl std::fmt::Display for Tag {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Display for Tag {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "{}", self.0)
     }
 }

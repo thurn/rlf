@@ -1,5 +1,9 @@
+use std::fmt::{Display, Formatter, Result as FmtResult};
+
 use const_fnv1a_hash::fnv1a_hash_str_64;
 use serde::{Deserialize, Serialize};
+
+use crate::interpreter::{EvalError, PhraseRegistry};
 
 /// A compact, serializable identifier for an RLF phrase.
 ///
@@ -56,8 +60,8 @@ impl PhraseId {
     }
 }
 
-impl std::fmt::Display for PhraseId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Display for PhraseId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "PhraseId({:016x})", self.0)
     }
 }
@@ -90,9 +94,9 @@ impl PhraseId {
     /// ```
     pub fn resolve_with_registry(
         &self,
-        registry: &crate::interpreter::PhraseRegistry,
+        registry: &PhraseRegistry,
         lang: &str,
-    ) -> Result<crate::Phrase, crate::interpreter::EvalError> {
+    ) -> Result<crate::Phrase, EvalError> {
         registry.get_phrase_by_id(self.0, lang)
     }
 
@@ -121,10 +125,10 @@ impl PhraseId {
     /// ```
     pub fn call_with_registry(
         &self,
-        registry: &crate::interpreter::PhraseRegistry,
+        registry: &PhraseRegistry,
         lang: &str,
         args: &[crate::Value],
-    ) -> Result<crate::Phrase, crate::interpreter::EvalError> {
+    ) -> Result<crate::Phrase, EvalError> {
         registry.call_phrase_by_id(self.0, lang, args)
     }
 }

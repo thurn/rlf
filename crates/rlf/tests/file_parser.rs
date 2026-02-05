@@ -15,7 +15,7 @@ fn test_simple_phrase() {
         PhraseBody::Simple(t) => {
             assert_eq!(t.segments.len(), 1);
         }
-        _ => panic!("expected simple body"),
+        PhraseBody::Variants(_) => panic!("expected simple body"),
     }
 }
 
@@ -71,7 +71,7 @@ fn test_simple_variants() {
         PhraseBody::Variants(entries) => {
             assert_eq!(entries.len(), 2);
         }
-        _ => panic!("expected variants"),
+        PhraseBody::Simple(_) => panic!("expected variants"),
     }
 }
 
@@ -93,7 +93,7 @@ fn test_multidimensional_variants() {
             assert_eq!(entries.len(), 4);
             assert_eq!(entries[0].keys, vec!["nom.one"]);
         }
-        _ => panic!("expected variants"),
+        PhraseBody::Simple(_) => panic!("expected variants"),
     }
 }
 
@@ -113,7 +113,7 @@ fn test_multikey_variants() {
             assert_eq!(entries.len(), 2);
             assert_eq!(entries[0].keys, vec!["nom", "acc"]);
         }
-        _ => panic!("expected variants"),
+        PhraseBody::Simple(_) => panic!("expected variants"),
     }
 }
 
@@ -190,7 +190,7 @@ fn test_variants_with_tags() {
     assert_eq!(phrases[0].tags, vec![Tag::new("fem")]);
     match &phrases[0].body {
         PhraseBody::Variants(_) => {}
-        _ => panic!("expected variants"),
+        PhraseBody::Simple(_) => panic!("expected variants"),
     }
 }
 
@@ -246,7 +246,7 @@ fn test_wildcard_fallback_key() {
             // "nom" should be parsed as a single-segment key
             assert!(entries.iter().any(|e| e.keys == vec!["nom"]));
         }
-        _ => panic!("expected variants"),
+        PhraseBody::Simple(_) => panic!("expected variants"),
     }
 }
 
@@ -260,7 +260,7 @@ fn test_template_with_interpolations() {
             // First segment is literal
             assert!(matches!(&t.segments[0], Segment::Literal(_)));
         }
-        _ => panic!("expected simple body"),
+        PhraseBody::Variants(_) => panic!("expected simple body"),
     }
 }
 
@@ -274,9 +274,9 @@ fn test_template_with_transforms() {
                 assert_eq!(transforms[0].name, "cap");
                 assert_eq!(transforms[1].name, "a");
             }
-            _ => panic!("expected interpolation"),
+            Segment::Literal(_) => panic!("expected interpolation"),
         },
-        _ => panic!("expected simple body"),
+        PhraseBody::Variants(_) => panic!("expected simple body"),
     }
 }
 
@@ -292,7 +292,7 @@ fn test_phrase_call_in_template() {
                 .find(|s| matches!(s, Segment::Interpolation { .. }));
             assert!(interp.is_some());
         }
-        _ => panic!("expected simple body"),
+        PhraseBody::Variants(_) => panic!("expected simple body"),
     }
 }
 
@@ -308,7 +308,7 @@ fn test_escape_sequences_in_template() {
                 panic!("expected literal segment");
             }
         }
-        _ => panic!("expected simple body"),
+        PhraseBody::Variants(_) => panic!("expected simple body"),
     }
 }
 
@@ -350,7 +350,7 @@ fn test_german_case_variants() {
         PhraseBody::Variants(entries) => {
             assert_eq!(entries.len(), 6);
         }
-        _ => panic!("expected variants"),
+        PhraseBody::Simple(_) => panic!("expected variants"),
     }
 }
 
@@ -410,7 +410,7 @@ fn test_single_variant() {
         PhraseBody::Variants(entries) => {
             assert_eq!(entries.len(), 1);
         }
-        _ => panic!("expected variants"),
+        PhraseBody::Simple(_) => panic!("expected variants"),
     }
 }
 
