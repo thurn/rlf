@@ -411,6 +411,7 @@ dependencies = [
  "icu_locale_core",
  "icu_plurals",
  "insta",
+ "rlf-macros",
  "serde",
  "strsim",
  "tempfile",
@@ -425,6 +426,7 @@ version = "0.1.0"
 dependencies = [
  "proc-macro2",
  "quote",
+ "rlf",
  "strsim",
  "syn",
  "trybuild",
