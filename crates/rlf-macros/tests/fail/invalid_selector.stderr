@@ -1,0 +1,6 @@
+error: phrase 'card' has no variant 'nonexistent'
+       note: available variants: one, other
+ --> tests/fail/invalid_selector.rs:5:11
+  |
+5 |     bad = "{card:nonexistent}";
+  |           ^^^^^^^^^^^^^^^^^^^^

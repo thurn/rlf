@@ -1,0 +1,6 @@
+error: parameter 'card' shadows phrase 'card'
+       help: use a different parameter name
+ --> tests/fail/shadowing.rs:5:9
+  |
+5 |     bad(card) = "uses {card}";
+  |         ^^^^

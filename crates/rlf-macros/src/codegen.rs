@@ -125,18 +125,12 @@ fn generate_source_phrases(input: &MacroInput) -> TokenStream {
 /// Reconstruct RLF source from MacroInput.
 ///
 /// This recreates the phrase definitions in RLF syntax for the interpreter.
+/// The file format expects: `name(params)? = tags? from? body ;`
 fn reconstruct_source(input: &MacroInput) -> String {
     let mut lines = Vec::new();
 
     for phrase in &input.phrases {
         let mut line = String::new();
-
-        // Tags
-        for tag in &phrase.tags {
-            line.push(':');
-            line.push_str(&tag.name);
-            line.push(' ');
-        }
 
         // Name
         line.push_str(&phrase.name.name);
@@ -150,6 +144,13 @@ fn reconstruct_source(input: &MacroInput) -> String {
         }
 
         line.push_str(" = ");
+
+        // Tags (after = sign, before body)
+        for tag in &phrase.tags {
+            line.push(':');
+            line.push_str(&tag.name);
+            line.push(' ');
+        }
 
         // Body
         match &phrase.body {
@@ -318,4 +319,191 @@ fn generate_phrase_id_constant(phrase: &PhraseDefinition) -> TokenStream {
 /// - "drawCards" -> "DRAWCARDS"
 fn to_screaming_case(s: &str) -> String {
     s.to_uppercase()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use syn::parse_quote;
+
+    /// Helper to parse a rlf! macro input from tokens.
+    fn parse_input(tokens: proc_macro2::TokenStream) -> MacroInput {
+        syn::parse2(tokens).expect("should parse")
+    }
+
+    // =========================================================================
+    // to_screaming_case tests
+    // =========================================================================
+
+    #[test]
+    fn test_screaming_case_lowercase() {
+        assert_eq!(to_screaming_case("hello"), "HELLO");
+    }
+
+    #[test]
+    fn test_screaming_case_snake() {
+        assert_eq!(to_screaming_case("fire_elemental"), "FIRE_ELEMENTAL");
+    }
+
+    #[test]
+    fn test_screaming_case_already_upper() {
+        assert_eq!(to_screaming_case("HELLO"), "HELLO");
+    }
+
+    #[test]
+    fn test_screaming_case_mixed() {
+        assert_eq!(to_screaming_case("drawCards"), "DRAWCARDS");
+    }
+
+    #[test]
+    fn test_screaming_case_with_numbers() {
+        assert_eq!(to_screaming_case("item1"), "ITEM1");
+    }
+
+    // =========================================================================
+    // reconstruct_template tests
+    // =========================================================================
+
+    #[test]
+    fn test_reconstruct_literal_escapes_braces() {
+        let input = parse_input(parse_quote! {
+            test = "{{literal}}";
+        });
+        let source = reconstruct_source(&input);
+        // The reconstruction should escape braces
+        assert!(source.contains("{{"));
+        assert!(source.contains("}}"));
+    }
+
+    #[test]
+    fn test_reconstruct_literal_escapes_quotes() {
+        let input = parse_input(parse_quote! {
+            test = "say \"hello\"";
+        });
+        let source = reconstruct_source(&input);
+        assert!(source.contains("\\\""));
+    }
+
+    #[test]
+    fn test_reconstruct_interpolation() {
+        let input = parse_input(parse_quote! {
+            greet(name) = "Hello, {name}!";
+        });
+        let source = reconstruct_source(&input);
+        assert!(source.contains("{name}"));
+    }
+
+    #[test]
+    fn test_reconstruct_transform() {
+        let input = parse_input(parse_quote! {
+            hello = "hello";
+            greeting = "{@cap hello}";
+        });
+        let source = reconstruct_source(&input);
+        assert!(source.contains("@cap"));
+    }
+
+    #[test]
+    fn test_reconstruct_selectors() {
+        let input = parse_input(parse_quote! {
+            card = { one: "card", other: "cards" };
+            draw(n) = "Draw {card:n}.";
+        });
+        let source = reconstruct_source(&input);
+        assert!(source.contains("{card:n}"));
+    }
+
+    // =========================================================================
+    // reconstruct_source tests
+    // =========================================================================
+
+    #[test]
+    fn test_reconstruct_simple_phrase() {
+        let input = parse_input(parse_quote! {
+            hello = "world";
+        });
+        let source = reconstruct_source(&input);
+        assert!(source.contains("hello = \"world\""));
+    }
+
+    #[test]
+    fn test_reconstruct_phrase_with_params() {
+        let input = parse_input(parse_quote! {
+            greet(name, title) = "Hello, {title} {name}!";
+        });
+        let source = reconstruct_source(&input);
+        assert!(source.contains("greet(name, title)"));
+    }
+
+    #[test]
+    fn test_reconstruct_phrase_with_variants() {
+        let input = parse_input(parse_quote! {
+            card = { one: "card", other: "cards" };
+        });
+        let source = reconstruct_source(&input);
+        assert!(source.contains("card = {"));
+        assert!(source.contains("one: \"card\""));
+        assert!(source.contains("other: \"cards\""));
+    }
+
+    #[test]
+    fn test_reconstruct_phrase_with_tags() {
+        let input = parse_input(parse_quote! {
+            :masc item = "item";
+        });
+        let source = reconstruct_source(&input);
+        // Tags should come after = sign in the file format
+        assert!(source.contains("item = :masc \"item\""));
+    }
+
+    #[test]
+    fn test_reconstruct_multiple_phrases() {
+        let input = parse_input(parse_quote! {
+            a = "first";
+            b = "second";
+            c = "third";
+        });
+        let source = reconstruct_source(&input);
+        assert!(source.contains("a = \"first\""));
+        assert!(source.contains("b = \"second\""));
+        assert!(source.contains("c = \"third\""));
+    }
+
+    // =========================================================================
+    // codegen integration tests
+    // =========================================================================
+
+    #[test]
+    fn test_codegen_produces_tokens() {
+        let input = parse_input(parse_quote! {
+            hello = "Hello, world!";
+        });
+        let tokens = codegen(&input);
+        let output = tokens.to_string();
+
+        // Should produce function
+        assert!(output.contains("fn hello"));
+        // Should produce SOURCE_PHRASES
+        assert!(output.contains("SOURCE_PHRASES"));
+        // Should produce register_source_phrases
+        assert!(output.contains("register_source_phrases"));
+        // Should produce phrase_ids module
+        assert!(output.contains("mod phrase_ids"));
+        // Should produce HELLO constant
+        assert!(output.contains("HELLO"));
+    }
+
+    #[test]
+    fn test_codegen_parameterized_phrase() {
+        let input = parse_input(parse_quote! {
+            greet(name) = "Hello, {name}!";
+        });
+        let tokens = codegen(&input);
+        let output = tokens.to_string();
+
+        // Function should have parameter
+        assert!(output.contains("fn greet"));
+        assert!(output.contains("name"));
+        assert!(output.contains("impl Into"));
+    }
 }

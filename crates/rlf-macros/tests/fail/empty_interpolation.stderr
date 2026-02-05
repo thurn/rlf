@@ -1,0 +1,5 @@
+error: empty interpolation
+ --> tests/fail/empty_interpolation.rs:4:11
+  |
+4 |     bad = "{}";
+  |           ^^^^

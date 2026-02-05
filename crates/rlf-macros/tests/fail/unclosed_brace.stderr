@@ -1,0 +1,5 @@
+error: unclosed interpolation brace
+ --> tests/fail/unclosed_brace.rs:4:11
+  |
+4 |     bad = "{name";
+  |           ^^^^^^^

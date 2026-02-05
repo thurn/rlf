@@ -1,0 +1,5 @@
+error: cyclic reference: a -> b -> c -> d -> a
+ --> tests/fail/nested_cycle.rs:8:9
+  |
+8 |     d = "see {a}";
+  |         ^^^^^^^^^
