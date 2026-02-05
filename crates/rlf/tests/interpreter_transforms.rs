@@ -1997,3 +1997,312 @@ fn french_le_article_preserves_lowercase() {
     assert_eq!(result, "le Livre");
     assert!(result.starts_with("le"), "Article must be lowercase");
 }
+
+// =============================================================================
+// Italian Transform Tests (Phase 7)
+// =============================================================================
+
+#[test]
+fn italian_il_masculine_normal() {
+    let phrase = Phrase::builder()
+        .text("libro".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ItalianIl;
+    let result = transform.execute(&value, None, "it").unwrap();
+    assert_eq!(result, "il libro");
+}
+
+#[test]
+fn italian_il_masculine_vowel() {
+    let phrase = Phrase::builder()
+        .text("amico".to_string())
+        .tags(vec![Tag::new("masc"), Tag::new("vowel")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ItalianIl;
+    let result = transform.execute(&value, None, "it").unwrap();
+    assert_eq!(result, "l'amico"); // Elision
+}
+
+#[test]
+fn italian_il_masculine_s_impura() {
+    let phrase = Phrase::builder()
+        .text("studente".to_string())
+        .tags(vec![Tag::new("masc"), Tag::new("s_imp")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ItalianIl;
+    let result = transform.execute(&value, None, "it").unwrap();
+    assert_eq!(result, "lo studente");
+}
+
+#[test]
+fn italian_il_feminine_normal() {
+    let phrase = Phrase::builder()
+        .text("carta".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ItalianIl;
+    let result = transform.execute(&value, None, "it").unwrap();
+    assert_eq!(result, "la carta");
+}
+
+#[test]
+fn italian_il_feminine_vowel() {
+    let phrase = Phrase::builder()
+        .text("amica".to_string())
+        .tags(vec![Tag::new("fem"), Tag::new("vowel")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ItalianIl;
+    let result = transform.execute(&value, None, "it").unwrap();
+    assert_eq!(result, "l'amica"); // Elision
+}
+
+#[test]
+fn italian_il_plural_normal() {
+    let phrase = Phrase::builder()
+        .text("libri".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("other".to_string());
+    let transform = TransformKind::ItalianIl;
+    let result = transform.execute(&value, Some(&context), "it").unwrap();
+    assert_eq!(result, "i libri");
+}
+
+#[test]
+fn italian_il_plural_vowel() {
+    let phrase = Phrase::builder()
+        .text("amici".to_string())
+        .tags(vec![Tag::new("masc"), Tag::new("vowel")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("other".to_string());
+    let transform = TransformKind::ItalianIl;
+    let result = transform.execute(&value, Some(&context), "it").unwrap();
+    assert_eq!(result, "gli amici");
+}
+
+#[test]
+fn italian_il_plural_s_impura() {
+    let phrase = Phrase::builder()
+        .text("studenti".to_string())
+        .tags(vec![Tag::new("masc"), Tag::new("s_imp")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("other".to_string());
+    let transform = TransformKind::ItalianIl;
+    let result = transform.execute(&value, Some(&context), "it").unwrap();
+    assert_eq!(result, "gli studenti");
+}
+
+#[test]
+fn italian_un_masculine_normal() {
+    let phrase = Phrase::builder()
+        .text("libro".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ItalianUn;
+    let result = transform.execute(&value, None, "it").unwrap();
+    assert_eq!(result, "un libro");
+}
+
+#[test]
+fn italian_un_masculine_s_impura() {
+    let phrase = Phrase::builder()
+        .text("studente".to_string())
+        .tags(vec![Tag::new("masc"), Tag::new("s_imp")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ItalianUn;
+    let result = transform.execute(&value, None, "it").unwrap();
+    assert_eq!(result, "uno studente");
+}
+
+#[test]
+fn italian_un_feminine_normal() {
+    let phrase = Phrase::builder()
+        .text("carta".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ItalianUn;
+    let result = transform.execute(&value, None, "it").unwrap();
+    assert_eq!(result, "una carta");
+}
+
+#[test]
+fn italian_un_feminine_vowel() {
+    let phrase = Phrase::builder()
+        .text("amica".to_string())
+        .tags(vec![Tag::new("fem"), Tag::new("vowel")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ItalianUn;
+    let result = transform.execute(&value, None, "it").unwrap();
+    assert_eq!(result, "un'amica"); // Feminine elision with apostrophe
+}
+
+#[test]
+fn italian_di_contraction_normal() {
+    let phrase = Phrase::builder()
+        .text("libro".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ItalianDi;
+    let result = transform.execute(&value, None, "it").unwrap();
+    assert_eq!(result, "del libro");
+}
+
+#[test]
+fn italian_di_contraction_vowel() {
+    let phrase = Phrase::builder()
+        .text("amico".to_string())
+        .tags(vec![Tag::new("masc"), Tag::new("vowel")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ItalianDi;
+    let result = transform.execute(&value, None, "it").unwrap();
+    assert_eq!(result, "dell'amico");
+}
+
+#[test]
+fn italian_di_contraction_s_impura() {
+    let phrase = Phrase::builder()
+        .text("studente".to_string())
+        .tags(vec![Tag::new("masc"), Tag::new("s_imp")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ItalianDi;
+    let result = transform.execute(&value, None, "it").unwrap();
+    assert_eq!(result, "dello studente");
+}
+
+#[test]
+fn italian_a_contraction_normal() {
+    let phrase = Phrase::builder()
+        .text("libro".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ItalianA;
+    let result = transform.execute(&value, None, "it").unwrap();
+    assert_eq!(result, "al libro");
+}
+
+#[test]
+fn italian_a_contraction_vowel() {
+    let phrase = Phrase::builder()
+        .text("amico".to_string())
+        .tags(vec![Tag::new("masc"), Tag::new("vowel")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ItalianA;
+    let result = transform.execute(&value, None, "it").unwrap();
+    assert_eq!(result, "all'amico");
+}
+
+#[test]
+fn italian_il_missing_gender() {
+    let phrase = Phrase::builder().text("cosa".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ItalianIl;
+    let result = transform.execute(&value, None, "it");
+    assert!(matches!(result, Err(EvalError::MissingTag { .. })));
+}
+
+#[test]
+fn italian_transform_aliases() {
+    let registry = TransformRegistry::new();
+    assert_eq!(registry.get("lo", "it"), Some(TransformKind::ItalianIl));
+    assert_eq!(registry.get("la", "it"), Some(TransformKind::ItalianIl));
+    assert_eq!(registry.get("uno", "it"), Some(TransformKind::ItalianUn));
+    assert_eq!(registry.get("una", "it"), Some(TransformKind::ItalianUn));
+}
+
+// =============================================================================
+// Italian Contraction Lowercase Tests (Phase 7)
+// Per locked decision: "Capitalization handled via separate @cap transform
+// (contractions always lowercase)"
+// =============================================================================
+
+#[test]
+fn italian_di_contraction_preserves_lowercase() {
+    // Contraction output is always lowercase regardless of input text case
+    let phrase = Phrase::builder()
+        .text("Libro".to_string()) // Input starts with capital
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ItalianDi;
+    let result = transform.execute(&value, None, "it").unwrap();
+    // Contraction "del" must be lowercase, input text preserved as-is
+    assert_eq!(result, "del Libro");
+    assert!(result.starts_with("del"), "Contraction must be lowercase");
+}
+
+#[test]
+fn italian_a_contraction_preserves_lowercase() {
+    let phrase = Phrase::builder()
+        .text("Libro".to_string()) // Input starts with capital
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ItalianA;
+    let result = transform.execute(&value, None, "it").unwrap();
+    // Contraction "al" must be lowercase
+    assert_eq!(result, "al Libro");
+    assert!(result.starts_with("al"), "Contraction must be lowercase");
+}
+
+#[test]
+fn italian_di_elision_preserves_lowercase() {
+    let phrase = Phrase::builder()
+        .text("Amico".to_string()) // Input starts with capital
+        .tags(vec![Tag::new("masc"), Tag::new("vowel")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ItalianDi;
+    let result = transform.execute(&value, None, "it").unwrap();
+    // Elided contraction "dell'" must be lowercase
+    assert_eq!(result, "dell'Amico");
+    assert!(
+        result.starts_with("dell'"),
+        "Elided contraction must be lowercase"
+    );
+}
+
+#[test]
+fn italian_il_article_preserves_lowercase() {
+    let phrase = Phrase::builder()
+        .text("Libro".to_string()) // Input starts with capital
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ItalianIl;
+    let result = transform.execute(&value, None, "it").unwrap();
+    // Article "il" must be lowercase
+    assert_eq!(result, "il Libro");
+    assert!(result.starts_with("il"), "Article must be lowercase");
+}
+
+#[test]
+fn italian_dello_contraction_preserves_lowercase() {
+    let phrase = Phrase::builder()
+        .text("Studente".to_string()) // Input starts with capital
+        .tags(vec![Tag::new("masc"), Tag::new("s_imp")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ItalianDi;
+    let result = transform.execute(&value, None, "it").unwrap();
+    // Contraction "dello" must be lowercase
+    assert_eq!(result, "dello Studente");
+    assert!(result.starts_with("dello"), "Contraction must be lowercase");
+}

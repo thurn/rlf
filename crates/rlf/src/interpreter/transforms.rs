@@ -61,6 +61,15 @@ pub enum TransformKind {
     FrenchAu,
     /// @liaison - French prevocalic form selection
     FrenchLiaison,
+    // Italian transforms (Phase 7)
+    /// @il/@lo/@la - Italian definite article with sound rules
+    ItalianIl,
+    /// @un/@uno/@una - Italian indefinite article with sound rules
+    ItalianUn,
+    /// @di - Italian "di" + article contraction
+    ItalianDi,
+    /// @a - Italian "a" + article contraction
+    ItalianA,
 }
 
 impl TransformKind {
@@ -104,6 +113,11 @@ impl TransformKind {
             TransformKind::FrenchDe => french_de_transform(value, context),
             TransformKind::FrenchAu => french_au_transform(value, context),
             TransformKind::FrenchLiaison => french_liaison_transform(value, context),
+            // Italian transforms need Value (for tags) and context (for plural)
+            TransformKind::ItalianIl => italian_il_transform(value, context),
+            TransformKind::ItalianUn => italian_un_transform(value),
+            TransformKind::ItalianDi => italian_di_transform(value, context),
+            TransformKind::ItalianA => italian_a_transform(value, context),
         }
     }
 }
@@ -689,6 +703,181 @@ fn french_liaison_transform(value: &Value, context: Option<&Value>) -> Result<St
     }
 }
 
+// =============================================================================
+// Italian Transforms (Phase 7)
+// =============================================================================
+
+/// Italian sound category for article selection.
+#[derive(Clone, Copy)]
+enum ItalianSound {
+    /// Standard consonant (il, un, del, al)
+    Normal,
+    /// Starts with vowel (l', un, dell', all')
+    Vowel,
+    /// Starts with s+consonant, z, gn, ps, x (lo, uno, dello, allo)
+    SImpura,
+}
+
+/// Parse Italian sound category from tags.
+fn parse_italian_sound(value: &Value) -> ItalianSound {
+    if value.has_tag("vowel") {
+        ItalianSound::Vowel
+    } else if value.has_tag("s_imp") {
+        ItalianSound::SImpura
+    } else {
+        ItalianSound::Normal
+    }
+}
+
+/// Italian definite article lookup table.
+/// Gender x Sound x Plural -> article
+/// Always returns lowercase - capitalization handled by @cap transform.
+fn italian_definite_article(
+    gender: RomanceGender,
+    sound: ItalianSound,
+    plural: RomancePlural,
+) -> &'static str {
+    match (gender, sound, plural) {
+        // Masculine singular
+        (RomanceGender::Masculine, ItalianSound::Normal, RomancePlural::One) => "il",
+        (RomanceGender::Masculine, ItalianSound::Vowel, RomancePlural::One) => "l'",
+        (RomanceGender::Masculine, ItalianSound::SImpura, RomancePlural::One) => "lo",
+        // Masculine plural
+        (RomanceGender::Masculine, ItalianSound::Normal, RomancePlural::Other) => "i",
+        (RomanceGender::Masculine, ItalianSound::Vowel, RomancePlural::Other) => "gli",
+        (RomanceGender::Masculine, ItalianSound::SImpura, RomancePlural::Other) => "gli",
+        // Feminine singular
+        (RomanceGender::Feminine, ItalianSound::Vowel, RomancePlural::One) => "l'",
+        (RomanceGender::Feminine, _, RomancePlural::One) => "la",
+        // Feminine plural
+        (RomanceGender::Feminine, _, RomancePlural::Other) => "le",
+    }
+}
+
+/// Italian indefinite article lookup table.
+/// Gender x Sound -> article
+/// Always returns lowercase - capitalization handled by @cap transform.
+fn italian_indefinite_article(gender: RomanceGender, sound: ItalianSound) -> &'static str {
+    match (gender, sound) {
+        // Masculine
+        (RomanceGender::Masculine, ItalianSound::Normal) => "un",
+        (RomanceGender::Masculine, ItalianSound::Vowel) => "un",
+        (RomanceGender::Masculine, ItalianSound::SImpura) => "uno",
+        // Feminine
+        (RomanceGender::Feminine, ItalianSound::Vowel) => "un'",
+        (RomanceGender::Feminine, _) => "una",
+    }
+}
+
+/// Italian "di" + article contraction lookup table.
+/// Always returns lowercase - capitalization handled by @cap transform.
+fn italian_di_contraction(
+    gender: RomanceGender,
+    sound: ItalianSound,
+    plural: RomancePlural,
+) -> &'static str {
+    match (gender, sound, plural) {
+        // Masculine singular
+        (RomanceGender::Masculine, ItalianSound::Normal, RomancePlural::One) => "del",
+        (RomanceGender::Masculine, ItalianSound::Vowel, RomancePlural::One) => "dell'",
+        (RomanceGender::Masculine, ItalianSound::SImpura, RomancePlural::One) => "dello",
+        // Masculine plural
+        (RomanceGender::Masculine, ItalianSound::Normal, RomancePlural::Other) => "dei",
+        (RomanceGender::Masculine, ItalianSound::Vowel, RomancePlural::Other) => "degli",
+        (RomanceGender::Masculine, ItalianSound::SImpura, RomancePlural::Other) => "degli",
+        // Feminine singular
+        (RomanceGender::Feminine, ItalianSound::Vowel, RomancePlural::One) => "dell'",
+        (RomanceGender::Feminine, _, RomancePlural::One) => "della",
+        // Feminine plural
+        (RomanceGender::Feminine, _, RomancePlural::Other) => "delle",
+    }
+}
+
+/// Italian "a" + article contraction lookup table.
+/// Always returns lowercase - capitalization handled by @cap transform.
+fn italian_a_contraction(
+    gender: RomanceGender,
+    sound: ItalianSound,
+    plural: RomancePlural,
+) -> &'static str {
+    match (gender, sound, plural) {
+        // Masculine singular
+        (RomanceGender::Masculine, ItalianSound::Normal, RomancePlural::One) => "al",
+        (RomanceGender::Masculine, ItalianSound::Vowel, RomancePlural::One) => "all'",
+        (RomanceGender::Masculine, ItalianSound::SImpura, RomancePlural::One) => "allo",
+        // Masculine plural
+        (RomanceGender::Masculine, ItalianSound::Normal, RomancePlural::Other) => "ai",
+        (RomanceGender::Masculine, ItalianSound::Vowel, RomancePlural::Other) => "agli",
+        (RomanceGender::Masculine, ItalianSound::SImpura, RomancePlural::Other) => "agli",
+        // Feminine singular
+        (RomanceGender::Feminine, ItalianSound::Vowel, RomancePlural::One) => "all'",
+        (RomanceGender::Feminine, _, RomancePlural::One) => "alla",
+        // Feminine plural
+        (RomanceGender::Feminine, _, RomancePlural::Other) => "alle",
+    }
+}
+
+/// Italian definite article transform (@il/@lo/@la).
+fn italian_il_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
+    let text = value.to_string();
+    let gender = parse_romance_gender(value, "il")?;
+    let sound = parse_italian_sound(value);
+    let plural = parse_romance_plural(context);
+    let article = italian_definite_article(gender, sound, plural);
+
+    // Apostrophe articles attach directly
+    if article.ends_with('\'') {
+        Ok(format!("{}{}", article, text))
+    } else {
+        Ok(format!("{} {}", article, text))
+    }
+}
+
+/// Italian indefinite article transform (@un/@uno/@una).
+fn italian_un_transform(value: &Value) -> Result<String, EvalError> {
+    let text = value.to_string();
+    let gender = parse_romance_gender(value, "un")?;
+    let sound = parse_italian_sound(value);
+    let article = italian_indefinite_article(gender, sound);
+
+    // Apostrophe articles attach directly (un'amica)
+    if article.ends_with('\'') {
+        Ok(format!("{}{}", article, text))
+    } else {
+        Ok(format!("{} {}", article, text))
+    }
+}
+
+/// Italian "di" + article contraction transform (@di).
+fn italian_di_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
+    let text = value.to_string();
+    let gender = parse_romance_gender(value, "di")?;
+    let sound = parse_italian_sound(value);
+    let plural = parse_romance_plural(context);
+    let contracted = italian_di_contraction(gender, sound, plural);
+
+    if contracted.ends_with('\'') {
+        Ok(format!("{}{}", contracted, text))
+    } else {
+        Ok(format!("{} {}", contracted, text))
+    }
+}
+
+/// Italian "a" + article contraction transform (@a).
+fn italian_a_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
+    let text = value.to_string();
+    let gender = parse_romance_gender(value, "a")?;
+    let sound = parse_italian_sound(value);
+    let plural = parse_romance_plural(context);
+    let contracted = italian_a_contraction(gender, sound, plural);
+
+    if contracted.ends_with('\'') {
+        Ok(format!("{}{}", contracted, text))
+    } else {
+        Ok(format!("{} {}", contracted, text))
+    }
+}
+
 /// Registry for transform functions.
 ///
 /// Transforms are registered per-language with universal transforms available to all.
@@ -724,6 +913,8 @@ impl TransformRegistry {
             ("uma", _) => "um",          // Portuguese alias: @uma resolves to @um
             ("la", "fr") => "le",        // French alias: @la resolves to @le
             ("une", "fr") => "un",       // French alias: @une resolves to @un
+            ("lo" | "la", "it") => "il", // Italian aliases: @lo/@la resolve to @il
+            ("uno" | "una", "it") => "un", // Italian aliases: @uno/@una resolve to @un
             (other, _) => other,
         };
 
@@ -754,6 +945,10 @@ impl TransformRegistry {
             ("fr", "de") => Some(TransformKind::FrenchDe),
             ("fr", "au") => Some(TransformKind::FrenchAu),
             ("fr", "liaison") => Some(TransformKind::FrenchLiaison),
+            ("it", "il") => Some(TransformKind::ItalianIl),
+            ("it", "un") => Some(TransformKind::ItalianUn),
+            ("it", "di") => Some(TransformKind::ItalianDi),
+            ("it", "a") => Some(TransformKind::ItalianA),
             _ => None,
         }
     }
