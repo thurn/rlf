@@ -58,8 +58,9 @@ pub fn eval_template(
                 // 2. Apply selectors to get variant/final value (returns Value to preserve tags)
                 let selected = apply_selectors(&value, selectors, ctx, lang)?;
                 // 3. Apply transforms (right-to-left per DESIGN.md)
+                // Pass Value directly so transforms can access tags on first call
                 let transformed =
-                    apply_transforms(&selected.to_string(), transforms, transform_registry, lang)?;
+                    apply_transforms(&selected, transforms, transform_registry, lang)?;
                 output.push_str(&transformed);
             }
         }
@@ -406,12 +407,13 @@ fn variant_lookup(phrase: &Phrase, key: &str) -> Result<String, EvalError> {
     })
 }
 
-/// Apply transforms to a string value, executing right-to-left.
+/// Apply transforms to a Value, executing right-to-left.
 ///
 /// Per DESIGN.md: `{@cap @a card}` executes @a first, then @cap.
-/// Transforms receive the current value and return transformed string.
+/// The first transform receives the original Value (possibly a Phrase with tags).
+/// After each transform executes, the result is wrapped as Value::String for subsequent transforms.
 fn apply_transforms(
-    initial_value: &str,
+    initial_value: &Value,
     transforms: &[Transform],
     transform_registry: &TransformRegistry,
     lang: &str,
@@ -420,8 +422,8 @@ fn apply_transforms(
         return Ok(initial_value.to_string());
     }
 
-    // Start with the initial value as a string
-    let mut current = Value::String(initial_value.to_string());
+    // Start with the initial Value (preserves Phrase type with tags for first transform)
+    let mut current = initial_value.clone();
 
     // Process right-to-left (reverse iteration)
     for transform in transforms.iter().rev() {
@@ -438,7 +440,9 @@ fn apply_transforms(
             Value::String(String::new())
         });
 
+        // Pass full Value to transform so it can read tags (on first iteration)
         let result = transform_kind.execute(&current, context_value.as_ref(), lang)?;
+        // After transform, result is String - wrap for next iteration
         current = Value::String(result);
     }
 
