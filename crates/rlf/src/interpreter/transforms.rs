@@ -684,10 +684,10 @@ fn french_liaison_transform(value: &Value, context: Option<&Value>) -> Result<St
     let variant_key = if has_vowel { "vowel" } else { "standard" };
 
     // Try to get the variant from the value
-    if let Value::Phrase(phrase) = value {
-        if let Some(variant_text) = phrase.variants.get(&VariantKey::new(variant_key)) {
-            return Ok(variant_text.clone());
-        }
+    if let Value::Phrase(phrase) = value
+        && let Some(variant_text) = phrase.variants.get(&VariantKey::new(variant_key))
+    {
+        return Ok(variant_text.clone());
     }
 
     // Fallback: just use the text as-is (default variant)
@@ -895,17 +895,17 @@ impl TransformRegistry {
         // Resolve aliases first (some are language-specific)
         // Order matters: more specific patterns (with lang) before wildcards
         let canonical = match (name, lang) {
-            ("an", _) => "a",            // English alias: @an resolves to @a
-            ("die" | "das", _) => "der", // German aliases: @die/@das resolve to @der
-            ("eine", _) => "ein",        // German alias: @eine resolves to @ein
-            ("het", _) => "de",          // Dutch alias: @het resolves to @de
-            ("la", "es") => "el",        // Spanish alias: @la resolves to @el
-            ("una", "es") => "un",       // Spanish alias: @una resolves to @un
-            ("a", "pt") => "o",          // Portuguese alias: @a resolves to @o
-            ("uma", _) => "um",          // Portuguese alias: @uma resolves to @um
-            ("la", "fr") => "le",        // French alias: @la resolves to @le
-            ("une", "fr") => "un",       // French alias: @une resolves to @un
-            ("lo" | "la", "it") => "il", // Italian aliases: @lo/@la resolve to @il
+            ("an", _) => "a",              // English alias: @an resolves to @a
+            ("die" | "das", _) => "der",   // German aliases: @die/@das resolve to @der
+            ("eine", _) => "ein",          // German alias: @eine resolves to @ein
+            ("het", _) => "de",            // Dutch alias: @het resolves to @de
+            ("la", "es") => "el",          // Spanish alias: @la resolves to @el
+            ("una", "es") => "un",         // Spanish alias: @una resolves to @un
+            ("a", "pt") => "o",            // Portuguese alias: @a resolves to @o
+            ("uma", _) => "um",            // Portuguese alias: @uma resolves to @um
+            ("la", "fr") => "le",          // French alias: @la resolves to @le
+            ("une", "fr") => "un",         // French alias: @une resolves to @un
+            ("lo" | "la", "it") => "il",   // Italian aliases: @lo/@la resolve to @il
             ("uno" | "una", "it") => "un", // Italian aliases: @uno/@una resolve to @un
             (other, _) => other,
         };

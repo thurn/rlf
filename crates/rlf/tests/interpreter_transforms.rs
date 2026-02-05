@@ -2387,10 +2387,7 @@ fn french_un_in_template() {
     let mut locale = Locale::builder().language("fr").build();
     locale.load_translations_str("fr", source).unwrap();
 
-    assert_eq!(
-        locale.get_phrase("a_book").unwrap().to_string(),
-        "un livre"
-    );
+    assert_eq!(locale.get_phrase("a_book").unwrap().to_string(), "un livre");
     // @une alias resolves to @un
     assert_eq!(
         locale.get_phrase("a_house").unwrap().to_string(),
@@ -2601,10 +2598,7 @@ fn italian_un_in_template() {
     locale.load_translations_str("it", source).unwrap();
 
     // Masculine normal: un
-    assert_eq!(
-        locale.get_phrase("a_book").unwrap().to_string(),
-        "un libro"
-    );
+    assert_eq!(locale.get_phrase("a_book").unwrap().to_string(), "un libro");
     // Masculine vowel: un (same as normal)
     assert_eq!(
         locale.get_phrase("a_friend").unwrap().to_string(),
