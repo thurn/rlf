@@ -130,11 +130,11 @@ Plans:
   2. French @le/@la handles elision from :vowel, contractions work (@de, @au)
   3. Portuguese articles work with @de/@em contractions
   4. Italian @il/@lo/@la handles sound rules, contractions work
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 07-01: TBD
-- [ ] 07-02: TBD
+- [ ] 07-01-PLAN.md — Spanish and Portuguese article/contraction transforms (@el, @un, @o, @um, @de, @em)
+- [ ] 07-02-PLAN.md — French and Italian transforms with elision/sound rules (@le, @un, @de, @au, @liaison, @il, @di, @a)
 
 ### Phase 8: Greek, Romanian, and Middle Eastern Transforms
 **Goal**: Article transforms for Greek/Romanian and special transforms for Arabic/Persian
@@ -201,4 +201,4 @@ Note: Phases 6-9 (language transforms) can proceed in parallel after Phase 3 com
 
 ---
 *Roadmap created: 2026-02-04*
-*Last updated: 2026-02-05 after Phase 6 completion*
+*Last updated: 2026-02-05 after Phase 7 planning*
