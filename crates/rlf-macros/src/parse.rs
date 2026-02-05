@@ -4,6 +4,6 @@ use syn::parse::{Parse, ParseStream};
 
 impl Parse for MacroInput {
     fn parse(_input: ParseStream) -> syn::Result<Self> {
-        Ok(MacroInput)
+        Ok(MacroInput { phrases: Vec::new() })
     }
 }
