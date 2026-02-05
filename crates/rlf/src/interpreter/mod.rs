@@ -7,6 +7,7 @@
 mod context;
 mod error;
 mod evaluator;
+mod locale;
 mod plural;
 mod registry;
 mod transforms;
@@ -14,6 +15,7 @@ mod transforms;
 pub use context::EvalContext;
 pub use error::{EvalError, LoadError, compute_suggestions};
 pub use evaluator::{eval_phrase_def, eval_template};
+pub use locale::Locale;
 pub use plural::plural_category;
 pub use registry::PhraseRegistry;
 pub use transforms::{TransformKind, TransformRegistry};
