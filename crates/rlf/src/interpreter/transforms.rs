@@ -50,6 +50,17 @@ pub enum TransformKind {
     PortugueseDe,
     /// @em - Portuguese "em" + article contraction
     PortugueseEm,
+    // French transforms (Phase 7)
+    /// @le/@la - French definite article with elision
+    FrenchLe,
+    /// @un/@une - French indefinite article
+    FrenchUn,
+    /// @de - French "de" + article contraction
+    FrenchDe,
+    /// @au - French "a" + article contraction
+    FrenchAu,
+    /// @liaison - French prevocalic form selection
+    FrenchLiaison,
 }
 
 impl TransformKind {
@@ -87,6 +98,12 @@ impl TransformKind {
             TransformKind::PortugueseUm => portuguese_um_transform(value),
             TransformKind::PortugueseDe => portuguese_de_transform(value, context),
             TransformKind::PortugueseEm => portuguese_em_transform(value, context),
+            // French transforms need Value (for tags) and context (for plural/vowel)
+            TransformKind::FrenchLe => french_le_transform(value, context),
+            TransformKind::FrenchUn => french_un_transform(value),
+            TransformKind::FrenchDe => french_de_transform(value, context),
+            TransformKind::FrenchAu => french_au_transform(value, context),
+            TransformKind::FrenchLiaison => french_liaison_transform(value, context),
         }
     }
 }
@@ -507,6 +524,171 @@ fn portuguese_em_transform(value: &Value, context: Option<&Value>) -> Result<Str
     Ok(format!("{} {}", contracted, text))
 }
 
+// =============================================================================
+// French Transforms (Phase 7)
+// =============================================================================
+
+/// French definite article lookup table with elision support.
+/// Elision produces l' before vowels (singular only).
+/// Always returns lowercase - capitalization handled by @cap transform.
+fn french_definite_article(
+    gender: RomanceGender,
+    has_vowel: bool,
+    plural: RomancePlural,
+) -> &'static str {
+    match (gender, has_vowel, plural) {
+        // Elision before vowel (singular only)
+        (_, true, RomancePlural::One) => "l'",
+        // Masculine singular
+        (RomanceGender::Masculine, false, RomancePlural::One) => "le",
+        // Feminine singular
+        (RomanceGender::Feminine, false, RomancePlural::One) => "la",
+        // Plural (same for both genders, no elision)
+        (_, _, RomancePlural::Other) => "les",
+    }
+}
+
+/// French indefinite article lookup table.
+/// No plural forms per APPENDIX_STDLIB.
+/// Always returns lowercase - capitalization handled by @cap transform.
+fn french_indefinite_article(gender: RomanceGender) -> &'static str {
+    match gender {
+        RomanceGender::Masculine => "un",
+        RomanceGender::Feminine => "une",
+    }
+}
+
+/// French "de" + article contraction lookup table with elision.
+/// Always returns lowercase - capitalization handled by @cap transform.
+fn french_de_contraction(
+    gender: RomanceGender,
+    has_vowel: bool,
+    plural: RomancePlural,
+) -> &'static str {
+    match (gender, has_vowel, plural) {
+        // Elision: de + l' -> de l' (no contraction, but elided article)
+        (_, true, RomancePlural::One) => "de l'",
+        // Masculine singular: de + le -> du
+        (RomanceGender::Masculine, false, RomancePlural::One) => "du",
+        // Feminine singular: de + la -> de la (no contraction)
+        (RomanceGender::Feminine, false, RomancePlural::One) => "de la",
+        // Plural: de + les -> des
+        (_, _, RomancePlural::Other) => "des",
+    }
+}
+
+/// French "a" + article contraction lookup table with elision.
+/// Always returns lowercase - capitalization handled by @cap transform.
+fn french_au_contraction(
+    gender: RomanceGender,
+    has_vowel: bool,
+    plural: RomancePlural,
+) -> &'static str {
+    match (gender, has_vowel, plural) {
+        // Elision: a + l' -> a l' (no contraction, but elided article)
+        (_, true, RomancePlural::One) => "a l'",
+        // Masculine singular: a + le -> au
+        (RomanceGender::Masculine, false, RomancePlural::One) => "au",
+        // Feminine singular: a + la -> a la (no contraction)
+        (RomanceGender::Feminine, false, RomancePlural::One) => "a la",
+        // Plural: a + les -> aux
+        (_, _, RomancePlural::Other) => "aux",
+    }
+}
+
+/// French definite article transform (@le/@la).
+/// Handles elision before vowels via :vowel tag.
+fn french_le_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
+    let text = value.to_string();
+    let gender = parse_romance_gender(value, "le")?;
+    let has_vowel = value.has_tag("vowel");
+    let plural = parse_romance_plural(context);
+    let article = french_definite_article(gender, has_vowel, plural);
+
+    // Elided article (l') attaches directly, no space
+    if article.ends_with('\'') {
+        Ok(format!("{}{}", article, text))
+    } else {
+        Ok(format!("{} {}", article, text))
+    }
+}
+
+/// French indefinite article transform (@un/@une).
+fn french_un_transform(value: &Value) -> Result<String, EvalError> {
+    let text = value.to_string();
+    let gender = parse_romance_gender(value, "un")?;
+    let article = french_indefinite_article(gender);
+    Ok(format!("{} {}", article, text))
+}
+
+/// French "de" + article contraction transform (@de).
+fn french_de_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
+    let text = value.to_string();
+    let gender = parse_romance_gender(value, "de")?;
+    let has_vowel = value.has_tag("vowel");
+    let plural = parse_romance_plural(context);
+    let contracted = french_de_contraction(gender, has_vowel, plural);
+
+    // "de l'" has apostrophe - attach directly
+    if contracted.ends_with('\'') {
+        Ok(format!("{}{}", contracted, text))
+    } else {
+        Ok(format!("{} {}", contracted, text))
+    }
+}
+
+/// French "a" + article contraction transform (@au).
+fn french_au_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
+    let text = value.to_string();
+    let gender = parse_romance_gender(value, "au")?;
+    let has_vowel = value.has_tag("vowel");
+    let plural = parse_romance_plural(context);
+    let contracted = french_au_contraction(gender, has_vowel, plural);
+
+    // "a l'" has apostrophe - attach directly
+    if contracted.ends_with('\'') {
+        Ok(format!("{}{}", contracted, text))
+    } else {
+        Ok(format!("{} {}", contracted, text))
+    }
+}
+
+/// French liaison transform (@liaison).
+/// Selects between standard and prevocalic forms based on :vowel tag.
+/// The input value should have variants "standard" and "vowel".
+fn french_liaison_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
+    use crate::types::VariantKey;
+
+    // Context should be a phrase with :vowel tag (or not)
+    let has_vowel = match context {
+        Some(v) => v.has_tag("vowel"),
+        None => false,
+    };
+
+    // Select the appropriate variant from the liaison word
+    let variant_key = if has_vowel { "vowel" } else { "standard" };
+
+    // Try to get the variant from the value
+    if let Value::Phrase(phrase) = value {
+        if let Some(variant_text) = phrase.variants.get(&VariantKey::new(variant_key)) {
+            // Need to also output the context word
+            if let Some(ctx_value) = context {
+                return Ok(format!("{} {}", variant_text, ctx_value));
+            } else {
+                return Ok(variant_text.clone());
+            }
+        }
+    }
+
+    // Fallback: just use the text as-is
+    let text = value.to_string();
+    if let Some(ctx_value) = context {
+        Ok(format!("{} {}", text, ctx_value))
+    } else {
+        Ok(text)
+    }
+}
+
 /// Registry for transform functions.
 ///
 /// Transforms are registered per-language with universal transforms available to all.
@@ -540,6 +722,8 @@ impl TransformRegistry {
             ("una", _) => "un",          // Spanish alias: @una resolves to @un
             ("a", "pt") => "o",          // Portuguese alias: @a resolves to @o
             ("uma", _) => "um",          // Portuguese alias: @uma resolves to @um
+            ("la", "fr") => "le",        // French alias: @la resolves to @le
+            ("une", "fr") => "un",       // French alias: @une resolves to @un
             (other, _) => other,
         };
 
@@ -565,6 +749,11 @@ impl TransformRegistry {
             ("pt", "um") => Some(TransformKind::PortugueseUm),
             ("pt", "de") => Some(TransformKind::PortugueseDe),
             ("pt", "em") => Some(TransformKind::PortugueseEm),
+            ("fr", "le") => Some(TransformKind::FrenchLe),
+            ("fr", "un") => Some(TransformKind::FrenchUn),
+            ("fr", "de") => Some(TransformKind::FrenchDe),
+            ("fr", "au") => Some(TransformKind::FrenchAu),
+            ("fr", "liaison") => Some(TransformKind::FrenchLiaison),
             _ => None,
         }
     }

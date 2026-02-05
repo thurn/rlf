@@ -1727,3 +1727,273 @@ fn all_phase6_transforms_work() {
         "Pak de kaart, krijg een karakter."
     );
 }
+
+// =============================================================================
+// French Transform Tests (Phase 7)
+// =============================================================================
+
+#[test]
+fn french_le_masculine_no_elision() {
+    let phrase = Phrase::builder()
+        .text("livre".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FrenchLe;
+    let result = transform.execute(&value, None, "fr").unwrap();
+    assert_eq!(result, "le livre");
+}
+
+#[test]
+fn french_le_feminine_no_elision() {
+    let phrase = Phrase::builder()
+        .text("carte".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FrenchLe;
+    let result = transform.execute(&value, None, "fr").unwrap();
+    assert_eq!(result, "la carte");
+}
+
+#[test]
+fn french_le_elision_masculine() {
+    let phrase = Phrase::builder()
+        .text("ennemi".to_string())
+        .tags(vec![Tag::new("masc"), Tag::new("vowel")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FrenchLe;
+    let result = transform.execute(&value, None, "fr").unwrap();
+    assert_eq!(result, "l'ennemi"); // No space after apostrophe
+}
+
+#[test]
+fn french_le_elision_feminine() {
+    let phrase = Phrase::builder()
+        .text("amie".to_string())
+        .tags(vec![Tag::new("fem"), Tag::new("vowel")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FrenchLe;
+    let result = transform.execute(&value, None, "fr").unwrap();
+    assert_eq!(result, "l'amie");
+}
+
+#[test]
+fn french_le_plural_no_elision() {
+    // Plural never elides
+    let phrase = Phrase::builder()
+        .text("ennemis".to_string())
+        .tags(vec![Tag::new("masc"), Tag::new("vowel")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("other".to_string());
+    let transform = TransformKind::FrenchLe;
+    let result = transform.execute(&value, Some(&context), "fr").unwrap();
+    assert_eq!(result, "les ennemis"); // No elision in plural
+}
+
+#[test]
+fn french_un_masculine() {
+    let phrase = Phrase::builder()
+        .text("livre".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FrenchUn;
+    let result = transform.execute(&value, None, "fr").unwrap();
+    assert_eq!(result, "un livre");
+}
+
+#[test]
+fn french_un_feminine() {
+    let phrase = Phrase::builder()
+        .text("carte".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FrenchUn;
+    let result = transform.execute(&value, None, "fr").unwrap();
+    assert_eq!(result, "une carte");
+}
+
+#[test]
+fn french_de_contraction_masculine() {
+    let phrase = Phrase::builder()
+        .text("vide".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FrenchDe;
+    let result = transform.execute(&value, None, "fr").unwrap();
+    assert_eq!(result, "du vide"); // de + le = du
+}
+
+#[test]
+fn french_de_contraction_feminine() {
+    let phrase = Phrase::builder()
+        .text("main".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FrenchDe;
+    let result = transform.execute(&value, None, "fr").unwrap();
+    assert_eq!(result, "de la main"); // No contraction
+}
+
+#[test]
+fn french_de_elision() {
+    let phrase = Phrase::builder()
+        .text("ennemi".to_string())
+        .tags(vec![Tag::new("masc"), Tag::new("vowel")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FrenchDe;
+    let result = transform.execute(&value, None, "fr").unwrap();
+    assert_eq!(result, "de l'ennemi"); // de + l' (elided)
+}
+
+#[test]
+fn french_de_plural() {
+    let phrase = Phrase::builder()
+        .text("cartes".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("other".to_string());
+    let transform = TransformKind::FrenchDe;
+    let result = transform.execute(&value, Some(&context), "fr").unwrap();
+    assert_eq!(result, "des cartes"); // de + les = des
+}
+
+#[test]
+fn french_au_contraction_masculine() {
+    let phrase = Phrase::builder()
+        .text("marche".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FrenchAu;
+    let result = transform.execute(&value, None, "fr").unwrap();
+    assert_eq!(result, "au marche"); // a + le = au
+}
+
+#[test]
+fn french_au_contraction_feminine() {
+    let phrase = Phrase::builder()
+        .text("main".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FrenchAu;
+    let result = transform.execute(&value, None, "fr").unwrap();
+    assert_eq!(result, "a la main"); // No contraction
+}
+
+#[test]
+fn french_au_elision() {
+    let phrase = Phrase::builder()
+        .text("ami".to_string())
+        .tags(vec![Tag::new("masc"), Tag::new("vowel")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FrenchAu;
+    let result = transform.execute(&value, None, "fr").unwrap();
+    assert_eq!(result, "a l'ami"); // a + l' (elided)
+}
+
+#[test]
+fn french_au_plural() {
+    let phrase = Phrase::builder()
+        .text("marches".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("other".to_string());
+    let transform = TransformKind::FrenchAu;
+    let result = transform.execute(&value, Some(&context), "fr").unwrap();
+    assert_eq!(result, "aux marches"); // a + les = aux
+}
+
+#[test]
+fn french_le_missing_gender() {
+    let phrase = Phrase::builder().text("chose".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FrenchLe;
+    let result = transform.execute(&value, None, "fr");
+    assert!(matches!(result, Err(EvalError::MissingTag { .. })));
+}
+
+#[test]
+fn french_transform_aliases() {
+    let registry = TransformRegistry::new();
+    assert_eq!(registry.get("la", "fr"), Some(TransformKind::FrenchLe));
+    assert_eq!(registry.get("une", "fr"), Some(TransformKind::FrenchUn));
+}
+
+// =============================================================================
+// French Contraction Lowercase Tests (Phase 7)
+// Per locked decision: "Capitalization handled via separate @cap transform
+// (contractions always lowercase)"
+// =============================================================================
+
+#[test]
+fn french_de_contraction_preserves_lowercase() {
+    // Contraction output is always lowercase regardless of input text case
+    let phrase = Phrase::builder()
+        .text("Vide".to_string()) // Input starts with capital
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FrenchDe;
+    let result = transform.execute(&value, None, "fr").unwrap();
+    // Contraction "du" must be lowercase, input text preserved as-is
+    assert_eq!(result, "du Vide");
+    assert!(result.starts_with("du"), "Contraction must be lowercase");
+}
+
+#[test]
+fn french_au_contraction_preserves_lowercase() {
+    let phrase = Phrase::builder()
+        .text("Marche".to_string()) // Input starts with capital
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FrenchAu;
+    let result = transform.execute(&value, None, "fr").unwrap();
+    // Contraction "au" must be lowercase
+    assert_eq!(result, "au Marche");
+    assert!(result.starts_with("au"), "Contraction must be lowercase");
+}
+
+#[test]
+fn french_de_elision_preserves_lowercase() {
+    let phrase = Phrase::builder()
+        .text("Ennemi".to_string()) // Input starts with capital
+        .tags(vec![Tag::new("masc"), Tag::new("vowel")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FrenchDe;
+    let result = transform.execute(&value, None, "fr").unwrap();
+    // Elided form "de l'" must be lowercase
+    assert_eq!(result, "de l'Ennemi");
+    assert!(
+        result.starts_with("de l'"),
+        "Elided contraction must be lowercase"
+    );
+}
+
+#[test]
+fn french_le_article_preserves_lowercase() {
+    let phrase = Phrase::builder()
+        .text("Livre".to_string()) // Input starts with capital
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FrenchLe;
+    let result = transform.execute(&value, None, "fr").unwrap();
+    // Article "le" must be lowercase
+    assert_eq!(result, "le Livre");
+    assert!(result.starts_with("le"), "Article must be lowercase");
+}
