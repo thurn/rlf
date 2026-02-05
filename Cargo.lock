@@ -379,6 +379,7 @@ dependencies = [
  "insta",
  "serde",
  "strsim",
+ "tempfile",
  "thiserror",
  "unicode-segmentation",
  "winnow",
