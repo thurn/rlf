@@ -4,6 +4,9 @@
 //! - `rlf check` - Validate .rlf file syntax
 
 mod commands;
+mod output;
+
+use std::process::exit;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use commands::{run_check, CheckArgs};
@@ -75,10 +78,10 @@ fn main() -> miette::Result<()> {
     };
 
     match result {
-        Ok(code) => std::process::exit(code),
+        Ok(code) => exit(code),
         Err(e) => {
             eprintln!("{:?}", e);
-            std::process::exit(exitcode::SOFTWARE);
+            exit(exitcode::SOFTWARE);
         }
     }
 }
