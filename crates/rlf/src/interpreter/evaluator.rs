@@ -55,11 +55,11 @@ pub fn eval_template(
             } => {
                 // 1. Resolve reference to Value
                 let value = resolve_reference(reference, ctx, registry, transform_registry, lang)?;
-                // 2. Apply selectors to get variant/final value
+                // 2. Apply selectors to get variant/final value (returns Value to preserve tags)
                 let selected = apply_selectors(&value, selectors, ctx, lang)?;
                 // 3. Apply transforms (right-to-left per DESIGN.md)
                 let transformed =
-                    apply_transforms(&selected, transforms, transform_registry, lang)?;
+                    apply_transforms(&selected.to_string(), transforms, transform_registry, lang)?;
                 output.push_str(&transformed);
             }
         }
@@ -271,19 +271,22 @@ fn eval_with_from_modifier(
     }
 }
 
-/// Apply selectors to a value, producing a string.
+/// Apply selectors to a value, producing a Value.
 ///
 /// Selectors are resolved and combined with "." to form a compound key.
 /// The key is then used to look up a variant in the phrase.
+///
+/// If no selectors are present, returns the original Value unchanged,
+/// preserving Phrase type with its tags for transform access.
 fn apply_selectors(
     value: &Value,
     selectors: &[Selector],
     ctx: &EvalContext<'_>,
     lang: &str,
-) -> Result<String, EvalError> {
+) -> Result<Value, EvalError> {
     if selectors.is_empty() {
-        // No selectors - return the value's string representation
-        return Ok(value.to_string());
+        // No selectors - return the original Value (preserves Phrase type with tags)
+        return Ok(value.clone());
     }
 
     // Build compound key from selectors
@@ -294,9 +297,12 @@ fn apply_selectors(
     }
     let compound_key = key_parts.join(".");
 
-    // Look up variant in phrase
+    // Look up variant in phrase - result is String since variant lookup returns text
     match value {
-        Value::Phrase(phrase) => variant_lookup(phrase, &compound_key),
+        Value::Phrase(phrase) => {
+            let variant_text = variant_lookup(phrase, &compound_key)?;
+            Ok(Value::String(variant_text))
+        }
         _ => {
             // Non-phrase values don't have variants
             let available: Vec<String> = vec![];
