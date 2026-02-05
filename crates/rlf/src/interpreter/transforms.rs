@@ -303,7 +303,7 @@ fn dutch_de_transform(value: &Value) -> Result<String, EvalError> {
 /// Unconditionally prepends "een " to the value's text.
 /// Dutch indefinite article is invariant - always "een" regardless of gender.
 fn dutch_een_transform(value: &Value) -> Result<String, EvalError> {
-    Ok(format!("een {}", value.to_string()))
+    Ok(format!("een {value}"))
 }
 
 /// Registry for transform functions.
@@ -331,10 +331,10 @@ impl TransformRegistry {
     pub fn get(&self, name: &str, lang: &str) -> Option<TransformKind> {
         // Resolve aliases first
         let canonical = match name {
-            "an" => "a",              // English alias: @an resolves to @a
-            "die" | "das" => "der",   // German aliases: @die/@das resolve to @der
-            "eine" => "ein",          // German alias: @eine resolves to @ein
-            "het" => "de",            // Dutch alias: @het resolves to @de
+            "an" => "a",            // English alias: @an resolves to @a
+            "die" | "das" => "der", // German aliases: @die/@das resolve to @der
+            "eine" => "ein",        // German alias: @eine resolves to @ein
+            "het" => "de",          // Dutch alias: @het resolves to @de
             other => other,
         };
 

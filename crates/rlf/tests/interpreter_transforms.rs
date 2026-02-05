@@ -956,10 +956,22 @@ fn german_all_cases_masculine() {
     let mut locale = Locale::builder().language("de").build();
     locale.load_translations_str("de", source).unwrap();
 
-    assert_eq!(locale.get_phrase("nom").unwrap().to_string(), "der Charakter");
-    assert_eq!(locale.get_phrase("acc").unwrap().to_string(), "den Charakter");
-    assert_eq!(locale.get_phrase("dat").unwrap().to_string(), "dem Charakter");
-    assert_eq!(locale.get_phrase("gen").unwrap().to_string(), "des Charakter");
+    assert_eq!(
+        locale.get_phrase("nom").unwrap().to_string(),
+        "der Charakter"
+    );
+    assert_eq!(
+        locale.get_phrase("acc").unwrap().to_string(),
+        "den Charakter"
+    );
+    assert_eq!(
+        locale.get_phrase("dat").unwrap().to_string(),
+        "dem Charakter"
+    );
+    assert_eq!(
+        locale.get_phrase("gen").unwrap().to_string(),
+        "des Charakter"
+    );
 }
 
 #[test]
@@ -976,10 +988,22 @@ fn german_all_cases_neuter() {
     let mut locale = Locale::builder().language("de").build();
     locale.load_translations_str("de", source).unwrap();
 
-    assert_eq!(locale.get_phrase("nom").unwrap().to_string(), "das Ereignis");
-    assert_eq!(locale.get_phrase("acc").unwrap().to_string(), "das Ereignis");
-    assert_eq!(locale.get_phrase("dat").unwrap().to_string(), "dem Ereignis");
-    assert_eq!(locale.get_phrase("gen").unwrap().to_string(), "des Ereignis");
+    assert_eq!(
+        locale.get_phrase("nom").unwrap().to_string(),
+        "das Ereignis"
+    );
+    assert_eq!(
+        locale.get_phrase("acc").unwrap().to_string(),
+        "das Ereignis"
+    );
+    assert_eq!(
+        locale.get_phrase("dat").unwrap().to_string(),
+        "dem Ereignis"
+    );
+    assert_eq!(
+        locale.get_phrase("gen").unwrap().to_string(),
+        "des Ereignis"
+    );
 }
 
 // =============================================================================
@@ -1072,7 +1096,124 @@ fn dutch_transform_een_lookup() {
 fn dutch_transform_not_available_for_other_languages() {
     // Dutch transforms should not be available for other languages
     let registry = TransformRegistry::new();
-    assert_eq!(registry.get("de", "de"), None);  // "de" is Dutch, not German
+    assert_eq!(registry.get("de", "de"), None); // "de" is Dutch, not German
     assert_eq!(registry.get("het", "en"), None);
     assert_eq!(registry.get("een", "de"), None);
+}
+
+// =============================================================================
+// Dutch Article Transform Integration Tests (Full Evaluation Path)
+// =============================================================================
+
+#[test]
+fn dutch_de_in_template() {
+    let source = r#"
+        kaart = :de "kaart";
+        karakter = :het "karakter";
+        the_card = "{@de kaart}";
+        the_char = "{@het karakter}";
+    "#;
+
+    let mut locale = Locale::builder().language("nl").build();
+    locale.load_translations_str("nl", source).unwrap();
+
+    assert_eq!(
+        locale.get_phrase("the_card").unwrap().to_string(),
+        "de kaart"
+    );
+    assert_eq!(
+        locale.get_phrase("the_char").unwrap().to_string(),
+        "het karakter"
+    );
+}
+
+#[test]
+fn dutch_een_in_template() {
+    let source = r#"
+        kaart = :de "kaart";
+        karakter = :het "karakter";
+        a_card = "{@een kaart}";
+        a_char = "{@een karakter}";
+    "#;
+
+    let mut locale = Locale::builder().language("nl").build();
+    locale.load_translations_str("nl", source).unwrap();
+
+    // Indefinite is always "een" regardless of gender
+    assert_eq!(
+        locale.get_phrase("a_card").unwrap().to_string(),
+        "een kaart"
+    );
+    assert_eq!(
+        locale.get_phrase("a_char").unwrap().to_string(),
+        "een karakter"
+    );
+}
+
+#[test]
+fn dutch_de_with_cap() {
+    // Test transform ordering: {@cap @de kaart} -> "De kaart"
+    let source = r#"
+        kaart = :de "kaart";
+        the_card = "{@cap @de kaart}";
+    "#;
+
+    let mut locale = Locale::builder().language("nl").build();
+    locale.load_translations_str("nl", source).unwrap();
+
+    // Right-to-left: @de first ("de kaart"), then @cap ("De kaart")
+    assert_eq!(
+        locale.get_phrase("the_card").unwrap().to_string(),
+        "De kaart"
+    );
+}
+
+#[test]
+fn dutch_de_missing_tag_full_eval() {
+    // Test error when tag missing in full evaluation
+    let source = r#"
+        ding = "ding";
+        the_thing = "{@de ding}";
+    "#;
+
+    let mut locale = Locale::builder().language("nl").build();
+    locale.load_translations_str("nl", source).unwrap();
+
+    let result = locale.get_phrase("the_thing");
+    assert!(matches!(result, Err(EvalError::MissingTag { .. })));
+}
+
+#[test]
+fn dutch_het_alias_in_template() {
+    // Test: @het alias works in template evaluation
+    let source = r#"
+        karakter = :het "karakter";
+        the_char = "{@het karakter}";
+    "#;
+
+    let mut locale = Locale::builder().language("nl").build();
+    locale.load_translations_str("nl", source).unwrap();
+
+    assert_eq!(
+        locale.get_phrase("the_char").unwrap().to_string(),
+        "het karakter"
+    );
+}
+
+#[test]
+fn dutch_upper_de_card() {
+    // Test {@upper @de kaart} -> "DE KAART"
+    let source = r#"
+        kaart = :de "kaart";
+        shouted = "{@upper @de kaart}";
+    "#;
+
+    let mut locale = Locale::builder().language("nl").build();
+    locale.load_translations_str("nl", source).unwrap();
+
+    // Right-to-left: @de first ("de kaart"), then @upper ("DE KAART")
+    assert_eq!(
+        locale.get_phrase("shouted").unwrap().to_string(),
+        "DE KAART"
+    );
 }
