@@ -1217,3 +1217,102 @@ fn dutch_upper_de_card() {
         "DE KAART"
     );
 }
+
+// =============================================================================
+// Cross-Language Verification (Phase 6 Complete)
+// =============================================================================
+
+#[test]
+fn transforms_are_language_scoped() {
+    // @a only works for English, not German or Dutch
+    let registry = TransformRegistry::new();
+
+    assert!(registry.get("a", "en").is_some());
+    assert!(registry.get("a", "de").is_none()); // German has @der/@ein, not @a
+    assert!(registry.get("a", "nl").is_none()); // Dutch has @de/@een, not @a
+
+    assert!(registry.get("der", "de").is_some());
+    assert!(registry.get("der", "en").is_none());
+
+    assert!(registry.get("de", "nl").is_some());
+    assert!(registry.get("de", "de").is_none()); // "de" is Dutch, not German
+}
+
+#[test]
+fn universal_transforms_work_in_all_languages() {
+    let registry = TransformRegistry::new();
+
+    // @cap, @upper, @lower should work for all languages
+    for lang in &["en", "de", "nl", "es", "fr"] {
+        assert!(
+            registry.get("cap", lang).is_some(),
+            "cap should work for {}",
+            lang
+        );
+        assert!(
+            registry.get("upper", lang).is_some(),
+            "upper should work for {}",
+            lang
+        );
+        assert!(
+            registry.get("lower", lang).is_some(),
+            "lower should work for {}",
+            lang
+        );
+    }
+}
+
+#[test]
+fn unknown_transform_returns_none() {
+    let registry = TransformRegistry::new();
+
+    // @foo doesn't exist in any language
+    assert!(registry.get("foo", "en").is_none());
+    assert!(registry.get("foo", "de").is_none());
+    assert!(registry.get("foo", "nl").is_none());
+}
+
+#[test]
+fn all_phase6_transforms_work() {
+    // English
+    let en_source = r#"
+        card = :a "card";
+        event = :an "event";
+        test = "Draw {@a card}, play {@an event}, get {@the card}.";
+    "#;
+
+    // German
+    let de_source = r#"
+        karte = :fem "Karte";
+        test = "Nimm {@der:acc karte}, benutze {@ein karte}.";
+    "#;
+
+    // Dutch
+    let nl_source = r#"
+        kaart = :de "kaart";
+        karakter = :het "karakter";
+        test = "Pak {@de kaart}, krijg {@een karakter}.";
+    "#;
+
+    let mut en_locale = Locale::builder().language("en").build();
+    en_locale.load_translations_str("en", en_source).unwrap();
+
+    let mut de_locale = Locale::builder().language("de").build();
+    de_locale.load_translations_str("de", de_source).unwrap();
+
+    let mut nl_locale = Locale::builder().language("nl").build();
+    nl_locale.load_translations_str("nl", nl_source).unwrap();
+
+    assert_eq!(
+        en_locale.get_phrase("test").unwrap().to_string(),
+        "Draw a card, play an event, get the card."
+    );
+    assert_eq!(
+        de_locale.get_phrase("test").unwrap().to_string(),
+        "Nimm die Karte, benutze eine Karte."
+    );
+    assert_eq!(
+        nl_locale.get_phrase("test").unwrap().to_string(),
+        "Pak de kaart, krijg een karakter."
+    );
+}
