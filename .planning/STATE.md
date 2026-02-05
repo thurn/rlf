@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** When you add a phrase to `strings.rlf.rs`, it immediately appears in IDE autocomplete
-**Current focus:** Phase 7 - Romance Language Transforms
+**Current focus:** Phase 7 - Romance Language Transforms (COMPLETE)
 
 ## Current Position
 
 Phase: 7 of 10 (Romance Language Transforms)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-02-05 - Completed 07-01-PLAN.md
+Plan: 2 of 2 in current phase (COMPLETE)
+Status: Phase complete
+Last activity: 2026-02-05 - Completed 07-02-PLAN.md
 
-Progress: [#################] 57% (17/30 plans)
+Progress: [##################] 60% (18/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 17
-- Average duration: 4.5 min
-- Total execution time: 1.30 hours
+- Total plans completed: 18
+- Average duration: 4.6 min
+- Total execution time: 1.38 hours
 
 **By Phase:**
 
@@ -33,10 +33,10 @@ Progress: [#################] 57% (17/30 plans)
 | 04-locale-management-and-error-handling | 2 | 10 min | 5 min |
 | 05-macro-code-generation | 4 | 20 min | 5 min |
 | 06-english-and-germanic-transforms | 3 | 14 min | 5 min |
-| 07-romance-language-transforms | 1 | 5 min | 5 min |
+| 07-romance-language-transforms | 2 | 13 min | 7 min |
 
 **Recent Trend:**
-- Last 5 plans: 4 min, 5 min, 5 min, 4 min, 5 min
+- Last 5 plans: 5 min, 5 min, 4 min, 5 min, 8 min
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -94,6 +94,10 @@ Recent decisions affecting current work:
 - Shared RomanceGender and RomancePlural types across Spanish/Portuguese
 - Portuguese @um ignores plural context (no plural indefinite forms)
 - Spanish @la->@el, @una->@un aliases; Portuguese @a->@o, @uma->@um aliases
+- French @un has no plural forms (per APPENDIX_STDLIB)
+- ItalianSound enum (Normal, Vowel, SImpura) for three-way article distinction
+- @liaison outputs only selected variant, not context
+- Spanish @una alias made language-specific to avoid shadowing Italian
 
 ### Pending Todos
 
@@ -220,22 +224,31 @@ Phase 6 (English and Germanic Transforms) is now complete with:
   - @het alias resolving to @de
   - 19 Dutch tests (9 unit + 6 integration + 4 cross-language)
 
-## Phase 7 Progress
+## Phase 7 Completion Summary
 
-Phase 7 (Romance Language Transforms) in progress:
-- **07-01:** Spanish and Portuguese Transforms (COMPLETE)
+Phase 7 (Romance Language Transforms) is now complete with:
+- **07-01:** Spanish and Portuguese Transforms
   - SpanishEl/SpanishUn transforms with :masc/:fem tags and plural context
   - PortugueseO/PortugueseUm article transforms
   - PortugueseDe/PortugueseEm preposition contractions (do/da/no/na)
   - RomanceGender and RomancePlural shared types
   - 28 new tests (10 Spanish + 12 Portuguese + 6 integration)
 
-All 110 transform tests passing (272 total tests):
+- **07-02:** French and Italian Transforms
+  - FrenchLe/FrenchUn article transforms with elision (l' before vowels)
+  - FrenchDe/FrenchAu contraction transforms
+  - FrenchLiaison for prevocalic form selection (beau/bel, ce/cet)
+  - ItalianIl/ItalianUn article transforms with three-way sound distinction
+  - ItalianDi/ItalianA contraction transforms
+  - ItalianSound enum (Normal, Vowel, SImpura)
+  - 59 new tests (21 French + 24 Italian + 14 integration)
+
+All 169 transform tests passing (331 total tests):
 - 33 file parser integration tests
 - 46 template parser integration tests
 - 10 interpreter foundation tests
 - 27 interpreter evaluation tests
-- 110 interpreter transform tests
+- 169 interpreter transform tests
 - 7 interpreter error tests
 - 25 locale integration tests
 - 4 trybuild compile tests (1 pass, 3 fail)
@@ -243,6 +256,6 @@ All 110 transform tests passing (272 total tests):
 
 ## Session Continuity
 
-Last session: 2026-02-05T04:51:00Z
-Stopped at: Completed 07-01-PLAN.md
+Last session: 2026-02-05T05:30:00Z
+Stopped at: Completed 07-02-PLAN.md
 Resume file: None
