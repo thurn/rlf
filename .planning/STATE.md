@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** When you add a phrase to `strings.rlf.rs`, it immediately appears in IDE autocomplete
-**Current focus:** Phase 4 complete - ready for Phase 5
+**Current focus:** Phase 5 in progress - Macro Code Generation
 
 ## Current Position
 
-Phase: 4 of 10 (Locale Management and Error Handling) - COMPLETE
-Plan: 2 of 2 in current phase (PHASE COMPLETE)
-Status: Phase complete - ready for Phase 5
-Last activity: 2026-02-05 - Completed 04-02-PLAN.md
+Phase: 5 of 10 (Macro Code Generation)
+Plan: 1 of 4 in current phase
+Status: In progress
+Last activity: 2026-02-05 - Completed 05-01-PLAN.md
 
-Progress: [#########-] 30% (9/30 plans)
+Progress: [##########] 33% (10/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9
-- Average duration: 4.3 min
-- Total execution time: 0.65 hours
+- Total plans completed: 10
+- Average duration: 4.2 min
+- Total execution time: 0.70 hours
 
 **By Phase:**
 
@@ -31,9 +31,10 @@ Progress: [#########-] 30% (9/30 plans)
 | 02-interpreter-engine | 2 | 8 min | 4 min |
 | 03-universal-transforms-and-icu4x | 2 | 6 min | 3 min |
 | 04-locale-management-and-error-handling | 2 | 10 min | 5 min |
+| 05-macro-code-generation | 1 | 4 min | 4 min |
 
 **Recent Trend:**
-- Last 5 plans: 5 min, 2 min, 4 min, 3 min, 7 min
+- Last 5 plans: 2 min, 4 min, 3 min, 7 min, 4 min
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -69,6 +70,8 @@ Recent decisions affecting current work:
 - Per-language registries use HashMap<String, PhraseRegistry>
 - Loading same language replaces all phrases (not merge)
 - Fallback only tried on PhraseNotFound errors
+- Macro AST types separate from runtime parser AST (need proc_macro2::Span)
+- Template string parsing is manual (interpolations inside LitStr, not token trees)
 
 ### Pending Todos
 
@@ -142,6 +145,16 @@ Phase 4 (Locale Management and Error Handling) is now complete with:
   - Fallback language support
   - 27 new locale integration tests
 
+## Phase 5 Progress
+
+Phase 5 (Macro Code Generation) in progress:
+- **05-01:** TokenStream Parsing Foundation (COMPLETE)
+  - Created rlf-macros proc-macro crate
+  - syn 2.0, quote 1.0, proc-macro2 1.0 dependencies
+  - MacroInput, PhraseDefinition, Template AST types with spans
+  - Parse trait implementations for all AST types
+  - Template string parsing with interpolation extraction
+
 All 192 tests passing:
 - 33 file parser integration tests
 - 46 template parser integration tests
@@ -154,6 +167,6 @@ All 192 tests passing:
 
 ## Session Continuity
 
-Last session: 2026-02-05T00:47:16Z
-Stopped at: Completed 04-02-PLAN.md
+Last session: 2026-02-05T02:03:00Z
+Stopped at: Completed 05-01-PLAN.md
 Resume file: None
