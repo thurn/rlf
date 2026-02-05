@@ -719,3 +719,99 @@ fn english_upper_a_card() {
     // Right-to-left: @a first ("a card"), then @upper ("A CARD")
     assert_eq!(locale.get_phrase("shouted").unwrap().to_string(), "A CARD");
 }
+
+// =============================================================================
+// German Article Transforms (@der/@die/@das, @ein/@eine)
+// =============================================================================
+
+#[test]
+fn german_der_nominative_masculine() {
+    let phrase = Phrase::builder()
+        .text("Charakter".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::GermanDer;
+    let result = transform.execute(&value, None, "de").unwrap();
+    assert_eq!(result, "der Charakter");
+}
+
+#[test]
+fn german_der_accusative_masculine() {
+    let phrase = Phrase::builder()
+        .text("Charakter".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("acc".to_string());
+    let transform = TransformKind::GermanDer;
+    let result = transform.execute(&value, Some(&context), "de").unwrap();
+    assert_eq!(result, "den Charakter");
+}
+
+#[test]
+fn german_der_dative_feminine() {
+    let phrase = Phrase::builder()
+        .text("Karte".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("dat".to_string());
+    let transform = TransformKind::GermanDer;
+    let result = transform.execute(&value, Some(&context), "de").unwrap();
+    assert_eq!(result, "der Karte"); // feminine dative = "der"
+}
+
+#[test]
+fn german_der_neuter() {
+    let phrase = Phrase::builder()
+        .text("Ereignis".to_string())
+        .tags(vec![Tag::new("neut")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::GermanDer;
+    let result = transform.execute(&value, None, "de").unwrap();
+    assert_eq!(result, "das Ereignis");
+}
+
+#[test]
+fn german_ein_accusative_masculine() {
+    let phrase = Phrase::builder()
+        .text("Charakter".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("acc".to_string());
+    let transform = TransformKind::GermanEin;
+    let result = transform.execute(&value, Some(&context), "de").unwrap();
+    assert_eq!(result, "einen Charakter");
+}
+
+#[test]
+fn german_ein_nominative_feminine() {
+    let phrase = Phrase::builder()
+        .text("Karte".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::GermanEin;
+    let result = transform.execute(&value, None, "de").unwrap();
+    assert_eq!(result, "eine Karte");
+}
+
+#[test]
+fn german_der_missing_gender_error() {
+    let phrase = Phrase::builder().text("Ding".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::GermanDer;
+    let result = transform.execute(&value, None, "de");
+    assert!(matches!(result, Err(EvalError::MissingTag { .. })));
+}
+
+#[test]
+fn german_transform_aliases() {
+    let registry = TransformRegistry::new();
+    assert_eq!(registry.get("die", "de"), Some(TransformKind::GermanDer));
+    assert_eq!(registry.get("das", "de"), Some(TransformKind::GermanDer));
+    assert_eq!(registry.get("eine", "de"), Some(TransformKind::GermanEin));
+}
