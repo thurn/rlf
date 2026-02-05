@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** When you add a phrase to `strings.rlf.rs`, it immediately appears in IDE autocomplete
-**Current focus:** Phase 7 - Romance Language Transforms (COMPLETE)
+**Current focus:** Phase 8 - Greek, Romanian, and Middle Eastern Transforms (IN PROGRESS)
 
 ## Current Position
 
-Phase: 7 of 10 (Romance Language Transforms)
-Plan: 2 of 2 in current phase (COMPLETE)
-Status: Phase complete
-Last activity: 2026-02-05 - Completed 07-02-PLAN.md
+Phase: 8 of 10 (Greek, Romanian, and Middle Eastern Transforms)
+Plan: 1 of 2 in current phase (COMPLETE)
+Status: In progress
+Last activity: 2026-02-05 - Completed 08-01-PLAN.md
 
-Progress: [##################] 60% (18/30 plans)
+Progress: [###################] 63% (19/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 18
+- Total plans completed: 19
 - Average duration: 4.6 min
-- Total execution time: 1.38 hours
+- Total execution time: 1.48 hours
 
 **By Phase:**
 
@@ -34,9 +34,10 @@ Progress: [##################] 60% (18/30 plans)
 | 05-macro-code-generation | 4 | 20 min | 5 min |
 | 06-english-and-germanic-transforms | 3 | 14 min | 5 min |
 | 07-romance-language-transforms | 2 | 13 min | 7 min |
+| 08-greek-romanian-and-middle-eastern-transforms | 1 | 6 min | 6 min |
 
 **Recent Trend:**
-- Last 5 plans: 5 min, 5 min, 4 min, 5 min, 8 min
+- Last 5 plans: 5 min, 4 min, 5 min, 8 min, 6 min
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -98,6 +99,10 @@ Recent decisions affecting current work:
 - ItalianSound enum (Normal, Vowel, SImpura) for three-way article distinction
 - @liaison outputs only selected variant, not context
 - Spanish @una alias made language-specific to avoid shadowing Italian
+- Greek reuses RomancePlural type for singular/plural distinction
+- Romanian suffix is simple append without morphological merging
+- Greek dative case included for completeness though archaic in modern Greek
+- Greek @i/@to -> @o, @mia/@ena -> @enas aliases in registry
 
 ### Pending Todos
 
@@ -243,12 +248,22 @@ Phase 7 (Romance Language Transforms) is now complete with:
   - ItalianSound enum (Normal, Vowel, SImpura)
   - 59 new tests (21 French + 24 Italian + 14 integration)
 
-All 169 transform tests passing (331 total tests):
+## Phase 8 Progress
+
+Phase 8 (Greek, Romanian, and Middle Eastern Transforms) in progress:
+- **08-01:** Greek and Romanian Article Transforms (COMPLETE)
+  - GreekO transform with 24 definite article forms (4 cases x 3 genders x 2 numbers)
+  - GreekEnas transform with 12 indefinite article forms (4 cases x 3 genders)
+  - RomanianDef transform with postposed suffix appending
+  - Greek @i/@to -> @o, @mia/@ena -> @enas aliases
+  - 38 new tests (29 Greek + 9 Romanian)
+
+All 207 transform tests passing (369 total tests):
 - 33 file parser integration tests
 - 46 template parser integration tests
 - 10 interpreter foundation tests
 - 27 interpreter evaluation tests
-- 169 interpreter transform tests
+- 207 interpreter transform tests
 - 7 interpreter error tests
 - 25 locale integration tests
 - 4 trybuild compile tests (1 pass, 3 fail)
@@ -256,6 +271,6 @@ All 169 transform tests passing (331 total tests):
 
 ## Session Continuity
 
-Last session: 2026-02-05T05:30:00Z
-Stopped at: Completed 07-02-PLAN.md
+Last session: 2026-02-05T05:34:00Z
+Stopped at: Completed 08-01-PLAN.md
 Resume file: None
