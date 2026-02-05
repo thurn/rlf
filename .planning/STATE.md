@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** When you add a phrase to `strings.rlf.rs`, it immediately appears in IDE autocomplete
-**Current focus:** Phase 9 - Asian Language Transforms (COMPLETE)
+**Current focus:** Phase 10 - CLI Tools (In progress)
 
 ## Current Position
 
-Phase: 9 of 10 (Asian Language Transforms)
-Plan: 3 of 3 in current phase
-Status: Phase complete
-Last activity: 2026-02-05 - Completed 09-03-PLAN.md
+Phase: 10 of 10 (CLI Tools)
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-02-05 - Completed 10-01-PLAN.md
 
-Progress: [########################] 77% (23/30 plans)
+Progress: [#########################] 80% (24/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 23
+- Total plans completed: 24
 - Average duration: 4.5 min
-- Total execution time: 1.84 hours
+- Total execution time: 1.92 hours
 
 **By Phase:**
 
@@ -36,9 +36,10 @@ Progress: [########################] 77% (23/30 plans)
 | 07-romance-language-transforms | 2 | 13 min | 7 min |
 | 08-greek-romanian-and-middle-eastern-transforms | 2 | 12 min | 6 min |
 | 09-asian-language-transforms | 3 | 15 min | 5 min |
+| 10-cli-tools | 1 | 5 min | 5 min |
 
 **Recent Trend:**
-- Last 5 plans: 6 min, 6 min, 3 min, 8 min, 4 min
+- Last 5 plans: 6 min, 3 min, 8 min, 4 min, 5 min
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -121,6 +122,10 @@ Recent decisions affecting current work:
 - Turkish @inflect requires :front/:back tags (no auto-detection)
 - Turkish uses simplified 2-way harmony for all suffixes (ignoring voicing)
 - Suffix chains parsed as dot-separated names (pl.dat)
+- RlfDiagnostic wraps ParseError with NamedSource for source context display
+- Byte offset calculated from line:column by summing line lengths
+- Exit code 65 (DATAERR) for syntax errors, 0 for success
+- CLI commands in commands/ module with run_X function pattern
 
 ### Pending Todos
 
@@ -309,8 +314,17 @@ Phase 9 (Asian Language Transforms) is now COMPLETE with:
 
 Total tests: 511 passing
 
+## Phase 10 Progress
+
+Phase 10 (CLI Tools) is in progress with:
+- **10-01:** CLI Check Command (COMPLETE)
+  - rlf-cli crate with clap derive for git-style subcommands
+  - `rlf check` command with miette compiler-quality diagnostics
+  - JSON output mode (--json) and strict mode (--strict)
+  - Exit codes: 0 (success), 65 (DATAERR for syntax errors)
+
 ## Session Continuity
 
-Last session: 2026-02-05T06:39:05Z
-Stopped at: Completed 09-03-PLAN.md
+Last session: 2026-02-05T14:48:36Z
+Stopped at: Completed 10-01-PLAN.md
 Resume file: None
