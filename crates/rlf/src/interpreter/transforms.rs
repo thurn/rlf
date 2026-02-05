@@ -1215,19 +1215,19 @@ impl TransformRegistry {
         // Resolve aliases first (some are language-specific)
         // Order matters: more specific patterns (with lang) before wildcards
         let canonical = match (name, lang) {
-            ("an", _) => "a",              // English alias: @an resolves to @a
-            ("die" | "das", _) => "der",   // German aliases: @die/@das resolve to @der
-            ("eine", _) => "ein",          // German alias: @eine resolves to @ein
-            ("het", _) => "de",            // Dutch alias: @het resolves to @de
-            ("la", "es") => "el",          // Spanish alias: @la resolves to @el
-            ("una", "es") => "un",         // Spanish alias: @una resolves to @un
-            ("a", "pt") => "o",            // Portuguese alias: @a resolves to @o
-            ("uma", _) => "um",            // Portuguese alias: @uma resolves to @um
-            ("la", "fr") => "le",          // French alias: @la resolves to @le
-            ("une", "fr") => "un",         // French alias: @une resolves to @un
-            ("lo" | "la", "it") => "il",   // Italian aliases: @lo/@la resolve to @il
-            ("uno" | "una", "it") => "un", // Italian aliases: @uno/@una resolve to @un
-            ("i" | "to", "el") => "o",     // Greek aliases: @i/@to resolve to @o
+            ("an", _) => "a",                // English alias: @an resolves to @a
+            ("die" | "das", _) => "der",     // German aliases: @die/@das resolve to @der
+            ("eine", _) => "ein",            // German alias: @eine resolves to @ein
+            ("het", _) => "de",              // Dutch alias: @het resolves to @de
+            ("la", "es") => "el",            // Spanish alias: @la resolves to @el
+            ("una", "es") => "un",           // Spanish alias: @una resolves to @un
+            ("a", "pt") => "o",              // Portuguese alias: @a resolves to @o
+            ("uma", _) => "um",              // Portuguese alias: @uma resolves to @um
+            ("la", "fr") => "le",            // French alias: @la resolves to @le
+            ("une", "fr") => "un",           // French alias: @une resolves to @un
+            ("lo" | "la", "it") => "il",     // Italian aliases: @lo/@la resolve to @il
+            ("uno" | "una", "it") => "un",   // Italian aliases: @uno/@una resolve to @un
+            ("i" | "to", "el") => "o",       // Greek aliases: @i/@to resolve to @o
             ("mia" | "ena", "el") => "enas", // Greek aliases: @mia/@ena resolve to @enas
             (other, _) => other,
         };
