@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** When you add a phrase to `strings.rlf.rs`, it immediately appears in IDE autocomplete
-**Current focus:** Phase 4 - Locale Management and Error Handling
+**Current focus:** Phase 4 complete - ready for Phase 5
 
 ## Current Position
 
-Phase: 4 of 10 (Locale Management and Error Handling)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-02-05 - Completed 04-01-PLAN.md
+Phase: 4 of 10 (Locale Management and Error Handling) - COMPLETE
+Plan: 2 of 2 in current phase (PHASE COMPLETE)
+Status: Phase complete - ready for Phase 5
+Last activity: 2026-02-05 - Completed 04-02-PLAN.md
 
-Progress: [########--] 27% (8/30 plans)
+Progress: [#########-] 30% (9/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8
-- Average duration: 4.0 min
-- Total execution time: 0.53 hours
+- Total plans completed: 9
+- Average duration: 4.3 min
+- Total execution time: 0.65 hours
 
 **By Phase:**
 
@@ -30,10 +30,10 @@ Progress: [########--] 27% (8/30 plans)
 | 01-core-types-and-parser | 3 | 14 min | 5 min |
 | 02-interpreter-engine | 2 | 8 min | 4 min |
 | 03-universal-transforms-and-icu4x | 2 | 6 min | 3 min |
-| 04-locale-management-and-error-handling | 1 | 3 min | 3 min |
+| 04-locale-management-and-error-handling | 2 | 10 min | 5 min |
 
 **Recent Trend:**
-- Last 5 plans: 3 min, 5 min, 2 min, 4 min, 3 min
+- Last 5 plans: 5 min, 2 min, 4 min, 3 min, 7 min
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -65,6 +65,10 @@ Recent decisions affecting current work:
 - Public API encapsulates TransformRegistry creation (callers don't manage it)
 - Max edit distance for suggestions: 1 for short keys (<=3 chars), 2 for longer keys
 - Limit suggestions to 3, sorted by distance
+- Locale owns TransformRegistry (not borrowed)
+- Per-language registries use HashMap<String, PhraseRegistry>
+- Loading same language replaces all phrases (not merge)
+- Fallback only tried on PhraseNotFound errors
 
 ### Pending Todos
 
@@ -120,26 +124,36 @@ Phase 3 (Universal Transforms and ICU4X) is now complete with:
   - Public API encapsulation of TransformRegistry
   - 30 comprehensive transform tests
 
-## Phase 4 Progress
+## Phase 4 Completion Summary
 
-Phase 4 (Locale Management and Error Handling) in progress:
-- **04-01:** Error Types and Suggestions (COMPLETE)
+Phase 4 (Locale Management and Error Handling) is now complete with:
+- **04-01:** Error Types and Suggestions
   - LoadError enum with Io, Parse, NoPathForReload variants
   - compute_suggestions function with Levenshtein distance
   - MissingVariant enhanced with did-you-mean suggestions
   - 7 new error type tests
 
-All 165 tests passing:
+- **04-02:** Locale API Implementation
+  - Locale struct with builder pattern
+  - Per-language phrase storage (HashMap<String, PhraseRegistry>)
+  - Owned TransformRegistry for shared transforms
+  - Translation loading from file and string
+  - Hot-reload support via reload_translations()
+  - Fallback language support
+  - 27 new locale integration tests
+
+All 192 tests passing:
 - 33 file parser integration tests
 - 46 template parser integration tests
 - 10 interpreter foundation tests
 - 27 interpreter evaluation tests
 - 30 interpreter transform tests
 - 7 interpreter error tests
+- 27 locale integration tests
 - 12 doctests
 
 ## Session Continuity
 
-Last session: 2026-02-05T00:35:46Z
-Stopped at: Completed 04-01-PLAN.md
+Last session: 2026-02-05T00:47:16Z
+Stopped at: Completed 04-02-PLAN.md
 Resume file: None
