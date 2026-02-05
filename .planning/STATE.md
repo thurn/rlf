@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** When you add a phrase to `strings.rlf.rs`, it immediately appears in IDE autocomplete
-**Current focus:** Phase 9 - Asian Language Transforms (In Progress)
+**Current focus:** Phase 9 - Asian Language Transforms (COMPLETE)
 
 ## Current Position
 
 Phase: 9 of 10 (Asian Language Transforms)
-Plan: 2 of 3 in current phase
-Status: In progress
-Last activity: 2026-02-05 - Completed 09-02-PLAN.md
+Plan: 3 of 3 in current phase
+Status: Phase complete
+Last activity: 2026-02-05 - Completed 09-03-PLAN.md
 
-Progress: [#######################] 73% (22/30 plans)
+Progress: [########################] 77% (23/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 22
+- Total plans completed: 23
 - Average duration: 4.5 min
-- Total execution time: 1.77 hours
+- Total execution time: 1.84 hours
 
 **By Phase:**
 
@@ -35,10 +35,10 @@ Progress: [#######################] 73% (22/30 plans)
 | 06-english-and-germanic-transforms | 3 | 14 min | 5 min |
 | 07-romance-language-transforms | 2 | 13 min | 7 min |
 | 08-greek-romanian-and-middle-eastern-transforms | 2 | 12 min | 6 min |
-| 09-asian-language-transforms | 2 | 11 min | 6 min |
+| 09-asian-language-transforms | 3 | 15 min | 5 min |
 
 **Recent Trend:**
-- Last 5 plans: 8 min, 6 min, 6 min, 3 min, 8 min
+- Last 5 plans: 6 min, 6 min, 3 min, 8 min, 4 min
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -115,6 +115,12 @@ Recent decisions affecting current work:
 - Thai @count format: {count}{classifier}{text} no spaces (like CJK)
 - Bengali @count format: {count}{classifier} {text} classifier attached to number
 - Indonesian @plural: simple reduplication with hyphen
+- Korean @particle uses hangeul::ends_with_jongseong for consonant detection
+- Non-Hangul text treated as vowel-ending for Korean particles
+- Korean @particle returns only particle string (not prepended to text)
+- Turkish @inflect requires :front/:back tags (no auto-detection)
+- Turkish uses simplified 2-way harmony for all suffixes (ignoring voicing)
+- Suffix chains parsed as dot-separated names (pl.dat)
 
 ### Pending Todos
 
@@ -277,10 +283,10 @@ Phase 8 (Greek, Romanian, and Middle Eastern Transforms) is now complete with:
   - Byte-level Unicode verification for RTL text testing
   - 14 new tests (7 Arabic + 7 Persian)
 
-## Phase 9 Progress Summary
+## Phase 9 Completion Summary
 
-Phase 9 (Asian Language Transforms) is in progress with:
-- **09-01:** CJK Count Transforms (COMPLETE)
+Phase 9 (Asian Language Transforms) is now COMPLETE with:
+- **09-01:** CJK Count Transforms
   - ChineseCount transform with 7 classifiers (zhang, ge, ming, wei, tiao, ben, zhi)
   - JapaneseCount transform with 6 counters (mai, nin, hiki, hon, ko, satsu)
   - KoreanCount transform with 5 counters (jang, myeong, mari, gae, gwon)
@@ -288,17 +294,23 @@ Phase 9 (Asian Language Transforms) is in progress with:
   - find_classifier helper for tag-based lookup
   - 24 new tests (7 Chinese + 6 Japanese + 6 Korean + 5 registry/edge cases)
 
-- **09-02:** SEA Count Transforms (COMPLETE)
+- **09-02:** SEA Count Transforms
   - VietnameseCount transform with 5 classifiers (cai, con, nguoi, chiec, to)
   - ThaiCount transform with 4 classifiers (bai, tua, khon, an)
   - BengaliCount transform with 4 classifiers (ta, ti, khana, jon)
   - IndonesianPlural transform with simple reduplication
   - 19 new tests (4 Vietnamese + 4 Thai + 4 Bengali + 4 Indonesian + 3 registry)
 
-Total tests: 490 passing
+- **09-03:** Korean Particle and Turkish Inflect Transforms
+  - KoreanParticle transform with phonology-based selection (ga/i, reul/eul, neun/eun)
+  - TurkishInflect transform with vowel harmony suffix chains (pl, dat, loc, abl)
+  - hangeul crate integration for jongseong detection
+  - 19 new tests (9 Korean + 10 Turkish)
+
+Total tests: 511 passing
 
 ## Session Continuity
 
-Last session: 2026-02-05T06:38:00Z
-Stopped at: Completed 09-02-PLAN.md
+Last session: 2026-02-05T06:39:05Z
+Stopped at: Completed 09-03-PLAN.md
 Resume file: None
