@@ -31,7 +31,6 @@ pub struct ValidationContext {
     /// Phrase name -> defined variant keys (for literal selector validation).
     pub phrase_variants: HashMap<String, HashSet<String>>,
     /// Phrase name -> defined tags.
-    #[expect(dead_code)] // Infrastructure for Phase 6+ tag validation
     pub phrase_tags: HashMap<String, HashSet<String>>,
 }
 
@@ -459,5 +458,323 @@ fn collect_reference_refs(
                 collect_reference_refs(arg, params, ctx, refs);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use syn::parse_quote;
+
+    /// Helper to parse a rlf! macro input from tokens.
+    fn parse_input(tokens: proc_macro2::TokenStream) -> MacroInput {
+        syn::parse2(tokens).expect("should parse")
+    }
+
+    // =========================================================================
+    // ValidationContext::from_input tests
+    // =========================================================================
+
+    #[test]
+    fn test_context_empty_input() {
+        let input = parse_input(parse_quote! {});
+        let ctx = ValidationContext::from_input(&input);
+        assert!(ctx.phrases.is_empty());
+        assert!(ctx.phrase_variants.is_empty());
+        assert!(ctx.phrase_tags.is_empty());
+    }
+
+    #[test]
+    fn test_context_single_phrase() {
+        let input = parse_input(parse_quote! {
+            hello = "world";
+        });
+        let ctx = ValidationContext::from_input(&input);
+        assert!(ctx.phrases.contains("hello"));
+        assert_eq!(ctx.phrases.len(), 1);
+    }
+
+    #[test]
+    fn test_context_phrase_with_variants() {
+        let input = parse_input(parse_quote! {
+            card = { one: "card", other: "cards" };
+        });
+        let ctx = ValidationContext::from_input(&input);
+        assert!(ctx.phrases.contains("card"));
+
+        let variants = ctx.phrase_variants.get("card").expect("should have variants");
+        assert!(variants.contains("one"));
+        assert!(variants.contains("other"));
+    }
+
+    #[test]
+    fn test_context_dotted_variant_keys() {
+        let input = parse_input(parse_quote! {
+            noun = {
+                nom.one: "noun",
+                nom.other: "nouns",
+                acc.one: "noun",
+                acc.other: "nouns"
+            };
+        });
+        let ctx = ValidationContext::from_input(&input);
+
+        let variants = ctx.phrase_variants.get("noun").expect("should have variants");
+        // Both full keys and first components should be present
+        assert!(variants.contains("nom.one"));
+        assert!(variants.contains("nom.other"));
+        assert!(variants.contains("nom")); // First component
+        assert!(variants.contains("acc")); // First component
+    }
+
+    #[test]
+    fn test_context_phrase_with_tags() {
+        let input = parse_input(parse_quote! {
+            :masc :inanimate item = "item";
+        });
+        let ctx = ValidationContext::from_input(&input);
+
+        let tags = ctx.phrase_tags.get("item").expect("should have tags");
+        assert!(tags.contains("masc"));
+        assert!(tags.contains("inanimate"));
+    }
+
+    // =========================================================================
+    // compute_suggestions tests
+    // =========================================================================
+
+    #[test]
+    fn test_suggestions_exact_match_excluded() {
+        let available = vec!["card".to_string()];
+        let suggestions = compute_suggestions("card", available.iter());
+        assert!(suggestions.is_empty(), "exact matches should not be suggested");
+    }
+
+    #[test]
+    fn test_suggestions_one_char_off_short() {
+        let available = vec!["cat".to_string(), "dog".to_string()];
+        let suggestions = compute_suggestions("car", available.iter());
+        // "car" vs "cat" = distance 1, name len 3 <= 3, so should suggest
+        assert!(suggestions.contains(&"cat".to_string()));
+    }
+
+    #[test]
+    fn test_suggestions_two_chars_off_long() {
+        let available = vec!["hello".to_string(), "world".to_string()];
+        let suggestions = compute_suggestions("hallo", available.iter());
+        // "hallo" vs "hello" = distance 1, should suggest
+        assert!(suggestions.contains(&"hello".to_string()));
+    }
+
+    #[test]
+    fn test_suggestions_three_chars_off_rejected() {
+        let available = vec!["hello".to_string()];
+        let suggestions = compute_suggestions("xxxxx", available.iter());
+        // distance > 2, should not suggest
+        assert!(suggestions.is_empty());
+    }
+
+    #[test]
+    fn test_suggestions_sorted_by_distance() {
+        let available = vec![
+            "card".to_string(),
+            "cart".to_string(),
+            "cars".to_string(),
+        ];
+        let suggestions = compute_suggestions("carx", available.iter());
+        // All have distance 1, should be sorted alphabetically (secondary)
+        assert!(!suggestions.is_empty());
+    }
+
+    #[test]
+    fn test_suggestions_limited_to_three() {
+        let available = vec![
+            "aa".to_string(),
+            "ab".to_string(),
+            "ac".to_string(),
+            "ad".to_string(),
+            "ae".to_string(),
+        ];
+        let suggestions = compute_suggestions("ax", available.iter());
+        assert!(suggestions.len() <= 3);
+    }
+
+    // =========================================================================
+    // validate() error condition tests
+    // =========================================================================
+
+    #[test]
+    fn test_validate_undefined_phrase() {
+        let input = parse_input(parse_quote! {
+            greeting = "{unknown}";
+        });
+        let result = validate(&input);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("unknown phrase or parameter"));
+    }
+
+    #[test]
+    fn test_validate_undefined_parameter() {
+        let input = parse_input(parse_quote! {
+            greet(name) = "Hello, {unknown}";
+        });
+        let result = validate(&input);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("unknown phrase or parameter"));
+    }
+
+    #[test]
+    fn test_validate_unknown_transform() {
+        let input = parse_input(parse_quote! {
+            bad = "{@nonexistent hello}";
+            hello = "hello";
+        });
+        let result = validate(&input);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("unknown transform"));
+    }
+
+    #[test]
+    fn test_validate_invalid_variant_selector() {
+        let input = parse_input(parse_quote! {
+            card = { one: "card", other: "cards" };
+            bad = "{card:nonexistent}";
+        });
+        let result = validate(&input);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("has no variant"));
+        assert!(err.contains("available variants"));
+    }
+
+    #[test]
+    fn test_validate_parameter_shadows_phrase() {
+        let input = parse_input(parse_quote! {
+            card = "card";
+            bad(card) = "uses {card}";
+        });
+        let result = validate(&input);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("shadows phrase"));
+    }
+
+    #[test]
+    fn test_validate_valid_input() {
+        let input = parse_input(parse_quote! {
+            card = { one: "card", other: "cards" };
+            draw(n) = "Draw {n} {card:n}.";
+        });
+        let result = validate(&input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_valid_with_transforms() {
+        let input = parse_input(parse_quote! {
+            hello = "hello";
+            greeting = "{@cap hello} world!";
+        });
+        let result = validate(&input);
+        assert!(result.is_ok());
+    }
+
+    // =========================================================================
+    // detect_cycles tests
+    // =========================================================================
+
+    #[test]
+    fn test_no_cycles() {
+        let input = parse_input(parse_quote! {
+            a = "see {b}";
+            b = "end";
+        });
+        let ctx = ValidationContext::from_input(&input);
+        let result = detect_cycles(&input, &ctx);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_direct_self_reference() {
+        let input = parse_input(parse_quote! {
+            a = "{a}";
+        });
+        let ctx = ValidationContext::from_input(&input);
+        let result = detect_cycles(&input, &ctx);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("cyclic reference"));
+        assert!(err.contains("a -> a"));
+    }
+
+    #[test]
+    fn test_two_node_cycle() {
+        let input = parse_input(parse_quote! {
+            a = "{b}";
+            b = "{a}";
+        });
+        let ctx = ValidationContext::from_input(&input);
+        let result = detect_cycles(&input, &ctx);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("cyclic reference"));
+        // Should contain either "a -> b -> a" or "b -> a -> b"
+        assert!(err.contains("->"));
+    }
+
+    #[test]
+    fn test_three_node_cycle() {
+        let input = parse_input(parse_quote! {
+            a = "{b}";
+            b = "{c}";
+            c = "{a}";
+        });
+        let ctx = ValidationContext::from_input(&input);
+        let result = detect_cycles(&input, &ctx);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("cyclic reference"));
+    }
+
+    #[test]
+    fn test_diamond_not_cycle() {
+        // Diamond shape: a->b, a->c, b->d, c->d
+        // This is NOT a cycle because there's no back edge
+        let input = parse_input(parse_quote! {
+            a = "{b} and {c}";
+            b = "{d}";
+            c = "{d}";
+            d = "end";
+        });
+        let ctx = ValidationContext::from_input(&input);
+        let result = detect_cycles(&input, &ctx);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parameters_dont_form_cycles() {
+        // Parameters are runtime, not compile-time references
+        let input = parse_input(parse_quote! {
+            greet(name) = "Hello, {name}";
+        });
+        let ctx = ValidationContext::from_input(&input);
+        let result = detect_cycles(&input, &ctx);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_phrase_call_cycle() {
+        let input = parse_input(parse_quote! {
+            a(x) = "{b(x)}";
+            b(y) = "{a(y)}";
+        });
+        let ctx = ValidationContext::from_input(&input);
+        let result = detect_cycles(&input, &ctx);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("cyclic reference"));
     }
 }
