@@ -4023,3 +4023,269 @@ fn korean_count_string_context() {
     let result = transform.execute(&value, Some(&context), "ko").unwrap();
     assert_eq!(result, "10장카드");
 }
+
+// =============================================================================
+// Southeast Asian Transforms (Phase 9)
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Vietnamese @count Transform Tests
+// -----------------------------------------------------------------------------
+
+#[test]
+fn vietnamese_count_cai() {
+    // :cai "ban" (table) with context 3 -> "3 cai ban"
+    let phrase = Phrase::builder()
+        .text("ban".to_string())
+        .tags(vec![Tag::new("cai")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::VietnameseCount;
+    let context = Value::Number(3);
+    let result = transform.execute(&value, Some(&context), "vi").unwrap();
+    assert_eq!(result, "3 cai ban");
+}
+
+#[test]
+fn vietnamese_count_con() {
+    // :con "meo" (cat) with context 2 -> "2 con meo"
+    let phrase = Phrase::builder()
+        .text("meo".to_string())
+        .tags(vec![Tag::new("con")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::VietnameseCount;
+    let context = Value::Number(2);
+    let result = transform.execute(&value, Some(&context), "vi").unwrap();
+    assert_eq!(result, "2 con meo");
+}
+
+#[test]
+fn vietnamese_count_nguoi() {
+    // :nguoi "ban" (friend) with context 5 -> "5 nguoi ban"
+    let phrase = Phrase::builder()
+        .text("ban".to_string())
+        .tags(vec![Tag::new("nguoi")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::VietnameseCount;
+    let context = Value::Number(5);
+    let result = transform.execute(&value, Some(&context), "vi").unwrap();
+    assert_eq!(result, "5 nguoi ban");
+}
+
+#[test]
+fn vietnamese_count_missing_tag() {
+    // Phrase without classifier tag returns MissingTag error
+    let phrase = Phrase::builder().text("vat".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::VietnameseCount;
+    let context = Value::Number(3);
+    let result = transform.execute(&value, Some(&context), "vi");
+    assert!(matches!(result, Err(EvalError::MissingTag { .. })));
+}
+
+// -----------------------------------------------------------------------------
+// Thai @count Transform Tests
+// -----------------------------------------------------------------------------
+
+#[test]
+fn thai_count_bai() {
+    // :bai "การ์ด" (card) with context 3 -> "3ใบการ์ด"
+    let phrase = Phrase::builder()
+        .text("การ์ด".to_string())
+        .tags(vec![Tag::new("bai")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ThaiCount;
+    let context = Value::Number(3);
+    let result = transform.execute(&value, Some(&context), "th").unwrap();
+    assert_eq!(result, "3ใบการ์ด");
+}
+
+#[test]
+fn thai_count_khon() {
+    // :khon "ผู้เล่น" (player) with context 2 -> "2คนผู้เล่น"
+    let phrase = Phrase::builder()
+        .text("ผู้เล่น".to_string())
+        .tags(vec![Tag::new("khon")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ThaiCount;
+    let context = Value::Number(2);
+    let result = transform.execute(&value, Some(&context), "th").unwrap();
+    assert_eq!(result, "2คนผู้เล่น");
+}
+
+#[test]
+fn thai_count_tua() {
+    // :tua "แมว" (cat) with context 4 -> "4ตัวแมว"
+    let phrase = Phrase::builder()
+        .text("แมว".to_string())
+        .tags(vec![Tag::new("tua")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ThaiCount;
+    let context = Value::Number(4);
+    let result = transform.execute(&value, Some(&context), "th").unwrap();
+    assert_eq!(result, "4ตัวแมว");
+}
+
+#[test]
+fn thai_count_missing_tag() {
+    // Phrase without classifier tag returns MissingTag error
+    let phrase = Phrase::builder().text("สิ่งของ".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::ThaiCount;
+    let context = Value::Number(3);
+    let result = transform.execute(&value, Some(&context), "th");
+    assert!(matches!(result, Err(EvalError::MissingTag { .. })));
+}
+
+// -----------------------------------------------------------------------------
+// Bengali @count Transform Tests
+// -----------------------------------------------------------------------------
+
+#[test]
+fn bengali_count_ta() {
+    // :ta "বই" (book) with context 3 -> "3টা বই"
+    let phrase = Phrase::builder()
+        .text("বই".to_string())
+        .tags(vec![Tag::new("ta")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::BengaliCount;
+    let context = Value::Number(3);
+    let result = transform.execute(&value, Some(&context), "bn").unwrap();
+    assert_eq!(result, "3টা বই");
+}
+
+#[test]
+fn bengali_count_jon() {
+    // :jon "খেলোয়াড়" (player) with context 2 -> "2জন খেলোয়াড়"
+    let phrase = Phrase::builder()
+        .text("খেলোয়াড়".to_string())
+        .tags(vec![Tag::new("jon")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::BengaliCount;
+    let context = Value::Number(2);
+    let result = transform.execute(&value, Some(&context), "bn").unwrap();
+    assert_eq!(result, "2জন খেলোয়াড়");
+}
+
+#[test]
+fn bengali_count_ti() {
+    // :ti "কলম" (pen) with context 5 -> "5টি কলম" (formal)
+    let phrase = Phrase::builder()
+        .text("কলম".to_string())
+        .tags(vec![Tag::new("ti")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::BengaliCount;
+    let context = Value::Number(5);
+    let result = transform.execute(&value, Some(&context), "bn").unwrap();
+    assert_eq!(result, "5টি কলম");
+}
+
+#[test]
+fn bengali_count_missing_tag() {
+    // Phrase without classifier tag returns MissingTag error
+    let phrase = Phrase::builder().text("জিনিস".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::BengaliCount;
+    let context = Value::Number(3);
+    let result = transform.execute(&value, Some(&context), "bn");
+    assert!(matches!(result, Err(EvalError::MissingTag { .. })));
+}
+
+// -----------------------------------------------------------------------------
+// Indonesian @plural Transform Tests
+// -----------------------------------------------------------------------------
+
+#[test]
+fn indonesian_plural_basic() {
+    // "kartu" -> "kartu-kartu"
+    let phrase = Phrase::builder().text("kartu".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::IndonesianPlural;
+    let result = transform.execute(&value, None, "id").unwrap();
+    assert_eq!(result, "kartu-kartu");
+}
+
+#[test]
+fn indonesian_plural_buku() {
+    // "buku" (book) -> "buku-buku"
+    let phrase = Phrase::builder().text("buku".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::IndonesianPlural;
+    let result = transform.execute(&value, None, "id").unwrap();
+    assert_eq!(result, "buku-buku");
+}
+
+#[test]
+fn indonesian_plural_empty() {
+    // "" -> "-" (edge case)
+    let phrase = Phrase::builder().text("".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::IndonesianPlural;
+    let result = transform.execute(&value, None, "id").unwrap();
+    assert_eq!(result, "-");
+}
+
+#[test]
+fn indonesian_plural_orang() {
+    // "orang" (person) -> "orang-orang"
+    let phrase = Phrase::builder().text("orang".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::IndonesianPlural;
+    let result = transform.execute(&value, None, "id").unwrap();
+    assert_eq!(result, "orang-orang");
+}
+
+// -----------------------------------------------------------------------------
+// SEA Transform Registry Tests
+// -----------------------------------------------------------------------------
+
+#[test]
+fn sea_transforms_registered() {
+    let registry = TransformRegistry::new();
+
+    // Vietnamese @count
+    assert!(registry.get("count", "vi").is_some());
+    assert_eq!(
+        registry.get("count", "vi"),
+        Some(TransformKind::VietnameseCount)
+    );
+
+    // Thai @count
+    assert!(registry.get("count", "th").is_some());
+    assert_eq!(registry.get("count", "th"), Some(TransformKind::ThaiCount));
+
+    // Bengali @count
+    assert!(registry.get("count", "bn").is_some());
+    assert_eq!(
+        registry.get("count", "bn"),
+        Some(TransformKind::BengaliCount)
+    );
+
+    // Indonesian @plural
+    assert!(registry.get("plural", "id").is_some());
+    assert_eq!(
+        registry.get("plural", "id"),
+        Some(TransformKind::IndonesianPlural)
+    );
+}
+
+#[test]
+fn sea_count_default_to_one() {
+    // Without context, default to count=1
+    let phrase = Phrase::builder()
+        .text("ban".to_string())
+        .tags(vec![Tag::new("cai")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::VietnameseCount;
+    let result = transform.execute(&value, None, "vi").unwrap();
+    assert_eq!(result, "1 cai ban");
+}

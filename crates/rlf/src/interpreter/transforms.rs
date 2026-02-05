@@ -1266,15 +1266,15 @@ const VIETNAMESE_CLASSIFIERS: &[(&str, &str)] = &[
 /// Tag name -> classifier character.
 const THAI_CLASSIFIERS: &[(&str, &str)] = &[
     ("bai", "ใบ"),  // Flat objects, cards
-    ("tua", "ตัว"), // Animals, letters, characters
+    ("tua", "ตัว"),  // Animals, letters, characters
     ("khon", "คน"), // People
-    ("an", "อัน"),  // General small objects
+    ("an", "อัน"),   // General small objects
 ];
 
 /// Bengali classifiers.
 /// Tag name -> classifier character.
 const BENGALI_CLASSIFIERS: &[(&str, &str)] = &[
-    ("ta", "টা"),    // General classifier
+    ("ta", "টা"),     // General classifier
     ("ti", "টি"),    // Formal classifier
     ("khana", "খানা"), // For flat objects
     ("jon", "জন"),   // For people
