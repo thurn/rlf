@@ -20,12 +20,15 @@ use crate::input::{
     Interpolation, MacroInput, PhraseBody, PhraseDefinition, Reference, Segment, Template,
 };
 
+/// Known transforms (universal only for Phase 5).
+/// Phase 6+ will add @a/@an which require tags.
+const KNOWN_TRANSFORMS: &[&str] = &["cap", "upper", "lower"];
+
 /// Validation context built from MacroInput.
 pub struct ValidationContext {
     /// All defined phrase names.
     pub phrases: HashSet<String>,
     /// Phrase name -> defined variant keys (for literal selector validation).
-    #[allow(dead_code)] // Used in Task 2
     pub phrase_variants: HashMap<String, HashSet<String>>,
     /// Phrase name -> defined tags.
     #[allow(dead_code)] // Infrastructure for Phase 6+ tag validation
@@ -146,8 +149,77 @@ fn validate_interpolation(
     params: &HashSet<String>,
     ctx: &ValidationContext,
 ) -> syn::Result<()> {
+    // Validate transforms exist (MACRO-11)
+    for transform in &interp.transforms {
+        if !KNOWN_TRANSFORMS.contains(&transform.name.name.as_str()) {
+            let suggestions = compute_suggestions_str(&transform.name.name, KNOWN_TRANSFORMS);
+            let mut msg = format!("unknown transform '@{}'", transform.name.name);
+            if !suggestions.is_empty() {
+                msg.push_str(&format!("\nhelp: did you mean '@{}'?", suggestions[0]));
+            } else {
+                msg.push_str("\nnote: available transforms: cap, upper, lower");
+            }
+            return Err(syn::Error::new(transform.name.span, msg));
+        }
+
+        // Transform tag validation (MACRO-12)
+        // Note: Universal transforms (cap, upper, lower) don't require tags.
+        // This infrastructure is for Phase 6+ when @a/@an are added which require
+        // the 'vowel' tag. For now, no validation needed since all transforms
+        // are universal.
+    }
+
     // Validate the reference (phrase or parameter)
     validate_reference(&interp.reference, params, ctx)?;
+
+    // Validate selectors (MACRO-10, MACRO-13)
+    // Determine if reference is a literal phrase (not a parameter)
+    let is_literal_phrase = match &interp.reference {
+        Reference::Identifier(ident) => {
+            !params.contains(&ident.name) && ctx.phrases.contains(&ident.name)
+        }
+        Reference::Call { name, .. } => ctx.phrases.contains(&name.name),
+    };
+
+    if is_literal_phrase {
+        let phrase_name = match &interp.reference {
+            Reference::Identifier(ident) => &ident.name,
+            Reference::Call { name, .. } => &name.name,
+        };
+
+        // Get phrase variants for literal selector validation
+        let phrase_variants = ctx.phrase_variants.get(phrase_name);
+
+        for selector in &interp.selectors {
+            // If selector name is a parameter, it's dynamic - skip compile-time check
+            if params.contains(&selector.name.name) {
+                continue;
+            }
+
+            // Literal selector - must match a variant key if phrase has variants (MACRO-10)
+            if let Some(variants) = phrase_variants
+                && !variants.contains(&selector.name.name)
+            {
+                let mut available: Vec<_> = variants.iter().cloned().collect();
+                available.sort();
+                return Err(syn::Error::new(
+                    selector.name.span,
+                    format!(
+                        "phrase '{}' has no variant '{}'\nnote: available variants: {}",
+                        phrase_name,
+                        selector.name.name,
+                        available.join(", ")
+                    ),
+                ));
+            }
+
+            // Tag-based selection compatibility (MACRO-13)
+            // When selecting by a literal value on a phrase that has tags,
+            // validate the tag has matching variants.
+            // For Phase 5, this is infrastructure - tags are used but not for selection yet.
+            // Full implementation deferred to Phase 6+ when tag-based transforms are added.
+        }
+    }
 
     Ok(())
 }
@@ -206,6 +278,25 @@ fn compute_suggestions<'a>(name: &str, available: impl Iterator<Item = &'a Strin
             let dist = levenshtein(name, candidate);
             if dist <= max_distance && dist > 0 {
                 Some((dist, candidate.clone()))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    suggestions.sort_by_key(|(dist, _)| *dist);
+    suggestions.into_iter().take(3).map(|(_, s)| s).collect()
+}
+
+/// Compute typo suggestions from a static slice of &str.
+fn compute_suggestions_str(name: &str, available: &[&str]) -> Vec<String> {
+    let max_distance = if name.len() <= 3 { 1 } else { 2 };
+    let mut suggestions: Vec<(usize, String)> = available
+        .iter()
+        .filter_map(|candidate| {
+            let dist = levenshtein(name, candidate);
+            if dist <= max_distance && dist > 0 {
+                Some((dist, (*candidate).to_string()))
             } else {
                 None
             }
