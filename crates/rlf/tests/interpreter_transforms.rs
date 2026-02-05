@@ -3359,3 +3359,319 @@ fn greek_transform_not_available_for_other_languages() {
     assert_eq!(registry.get("o", "el"), Some(TransformKind::GreekO));
     assert_eq!(registry.get("enas", "el"), Some(TransformKind::GreekEnas));
 }
+
+// =============================================================================
+// Arabic Transforms (Phase 8) - @al with sun/moon letter assimilation
+// =============================================================================
+
+#[test]
+fn arabic_al_sun_letter() {
+    // Sun letter: assimilation occurs, first consonant doubles with shadda
+    let registry = TransformRegistry::new();
+    let transform = registry.get("al", "ar").expect("Arabic @al should exist");
+    assert_eq!(transform, TransformKind::ArabicAl);
+
+    // Create a phrase with :sun tag
+    let phrase = Phrase::builder()
+        .text("شمس".to_string()) // shams (sun)
+        .tags(vec![Tag::new("sun")])
+        .build();
+    let value = Value::Phrase(phrase);
+
+    // Execute transform
+    let result = transform.execute(&value, None, "ar").unwrap();
+
+    // Should produce: ال + ش + shadda + مس
+    // The shadda (U+0651) comes AFTER the first consonant
+    let expected = "الش\u{0651}مس"; // al + sh + shadda + ms
+    assert_eq!(result, expected);
+}
+
+#[test]
+fn arabic_al_moon_letter() {
+    // Moon letter: no assimilation, plain ال prefix
+    let registry = TransformRegistry::new();
+    let transform = registry.get("al", "ar").expect("Arabic @al should exist");
+
+    // Create a phrase with :moon tag
+    let phrase = Phrase::builder()
+        .text("قمر".to_string()) // qamar (moon)
+        .tags(vec![Tag::new("moon")])
+        .build();
+    let value = Value::Phrase(phrase);
+
+    // Execute transform
+    let result = transform.execute(&value, None, "ar").unwrap();
+
+    // Should produce: ال + قمر (no assimilation)
+    let expected = "القمر"; // al-qamar
+    assert_eq!(result, expected);
+}
+
+#[test]
+fn arabic_al_missing_tag() {
+    // No :sun or :moon tag -> MissingTag error
+    let registry = TransformRegistry::new();
+    let transform = registry.get("al", "ar").expect("Arabic @al should exist");
+
+    // Create a phrase without sun/moon tag
+    let phrase = Phrase::builder()
+        .text("كتاب".to_string()) // kitab (book)
+        .build();
+    let value = Value::Phrase(phrase);
+
+    // Execute transform - should fail
+    let result = transform.execute(&value, None, "ar");
+
+    match result {
+        Err(EvalError::MissingTag {
+            transform,
+            expected,
+            ..
+        }) => {
+            assert_eq!(transform, "al");
+            assert!(expected.contains(&"sun".to_string()));
+            assert!(expected.contains(&"moon".to_string()));
+        }
+        _ => panic!("Expected MissingTag error"),
+    }
+}
+
+#[test]
+fn arabic_al_sun_shadda_position() {
+    // Verify shadda comes AFTER consonant, not before (per RESEARCH.md pitfall)
+    let registry = TransformRegistry::new();
+    let transform = registry.get("al", "ar").unwrap();
+
+    let phrase = Phrase::builder()
+        .text("نور".to_string()) // noor (light) - starts with noon (sun letter)
+        .tags(vec![Tag::new("sun")])
+        .build();
+    let value = Value::Phrase(phrase);
+
+    let result = transform.execute(&value, None, "ar").unwrap();
+
+    // Check byte-level: shadda (U+0651) should come after noon (U+0646), not before
+    let bytes: Vec<char> = result.chars().collect();
+
+    // ال = alef (U+0627) + lam (U+0644)
+    // Then noon (U+0646), then shadda (U+0651), then rest
+    assert_eq!(bytes[0], '\u{0627}'); // alef
+    assert_eq!(bytes[1], '\u{0644}'); // lam
+    assert_eq!(bytes[2], '\u{0646}'); // noon (first char of original text)
+    assert_eq!(bytes[3], '\u{0651}'); // shadda AFTER noon
+}
+
+#[test]
+fn arabic_al_output_bytes() {
+    // Byte-level verification to avoid RTL text comparison issues
+    let registry = TransformRegistry::new();
+    let transform = registry.get("al", "ar").unwrap();
+
+    // Test with simple Arabic text - taa (sun letter)
+    let phrase = Phrase::builder()
+        .text("ت".to_string()) // just the letter taa (U+062A)
+        .tags(vec![Tag::new("sun")])
+        .build();
+    let value = Value::Phrase(phrase);
+
+    let result = transform.execute(&value, None, "ar").unwrap();
+
+    // Expected: alef + lam + taa + shadda
+    let expected_chars: Vec<char> = vec![
+        '\u{0627}', // ARABIC LETTER ALEF
+        '\u{0644}', // ARABIC LETTER LAM
+        '\u{062A}', // ARABIC LETTER TEH
+        '\u{0651}', // ARABIC SHADDA
+    ];
+
+    let result_chars: Vec<char> = result.chars().collect();
+    assert_eq!(result_chars, expected_chars);
+}
+
+// =============================================================================
+// Persian Transforms (Phase 8) - @ezafe connector
+// =============================================================================
+
+#[test]
+fn persian_ezafe_consonant() {
+    // Word ends in consonant: use kasra (-e)
+    let registry = TransformRegistry::new();
+    let transform = registry
+        .get("ezafe", "fa")
+        .expect("Persian @ezafe should exist");
+    assert_eq!(transform, TransformKind::PersianEzafe);
+
+    // Create a phrase without :vowel tag (consonant-final)
+    let phrase = Phrase::builder()
+        .text("کتاب".to_string()) // ketab (book)
+        .build();
+    let value = Value::Phrase(phrase);
+
+    // Execute transform
+    let result = transform.execute(&value, None, "fa").unwrap();
+
+    // Should produce: کتاب + kasra (U+0650)
+    let expected = "کتاب\u{0650}"; // ketab + kasra
+    assert_eq!(result, expected);
+}
+
+#[test]
+fn persian_ezafe_vowel() {
+    // Word ends in vowel: use -ye connector with ZWNJ
+    let registry = TransformRegistry::new();
+    let transform = registry.get("ezafe", "fa").unwrap();
+
+    // Create a phrase with :vowel tag
+    let phrase = Phrase::builder()
+        .text("خانه".to_string()) // khane (house) - ends in silent h/vowel
+        .tags(vec![Tag::new("vowel")])
+        .build();
+    let value = Value::Phrase(phrase);
+
+    // Execute transform
+    let result = transform.execute(&value, None, "fa").unwrap();
+
+    // Should produce: خانه + ZWNJ + ye
+    let expected = "خانه\u{200C}\u{06CC}"; // khane + ZWNJ + Persian ye
+    assert_eq!(result, expected);
+}
+
+#[test]
+fn persian_ezafe_kasra_unicode() {
+    // Verify kasra is exactly U+0650
+    let registry = TransformRegistry::new();
+    let transform = registry.get("ezafe", "fa").unwrap();
+
+    let phrase = Phrase::builder().text("x".to_string()).build();
+    let value = Value::Phrase(phrase);
+
+    let result = transform.execute(&value, None, "fa").unwrap();
+
+    // Last character should be kasra
+    let last_char = result.chars().last().unwrap();
+    assert_eq!(last_char, '\u{0650}', "Kasra should be U+0650");
+}
+
+#[test]
+fn persian_ezafe_zwnj_unicode() {
+    // Verify ZWNJ is exactly U+200C
+    let registry = TransformRegistry::new();
+    let transform = registry.get("ezafe", "fa").unwrap();
+
+    let phrase = Phrase::builder()
+        .text("x".to_string())
+        .tags(vec![Tag::new("vowel")])
+        .build();
+    let value = Value::Phrase(phrase);
+
+    let result = transform.execute(&value, None, "fa").unwrap();
+
+    // Second to last character should be ZWNJ
+    let chars: Vec<char> = result.chars().collect();
+    assert_eq!(chars[1], '\u{200C}', "ZWNJ should be U+200C");
+}
+
+#[test]
+fn persian_ezafe_output_bytes() {
+    // Byte-level verification for vowel case
+    let registry = TransformRegistry::new();
+    let transform = registry.get("ezafe", "fa").unwrap();
+
+    // Simple test: single character + ezafe
+    let phrase = Phrase::builder()
+        .text("ا".to_string()) // alef
+        .tags(vec![Tag::new("vowel")])
+        .build();
+    let value = Value::Phrase(phrase);
+
+    let result = transform.execute(&value, None, "fa").unwrap();
+
+    let expected_chars: Vec<char> = vec![
+        '\u{0627}', // ARABIC LETTER ALEF
+        '\u{200C}', // ZERO WIDTH NON-JOINER
+        '\u{06CC}', // ARABIC LETTER FARSI YEH
+    ];
+
+    let result_chars: Vec<char> = result.chars().collect();
+    assert_eq!(result_chars, expected_chars);
+}
+
+// =============================================================================
+// Arabic and Persian Integration Tests
+// =============================================================================
+
+#[test]
+fn arabic_definite_article_in_phrase() {
+    // Test @al in full phrase evaluation using Locale
+    let source = r#"
+        shams = :sun "شمس";
+        qamar = :moon "قمر";
+        sun_sentence = "This is {@al shams}.";
+        moon_sentence = "This is {@al qamar}.";
+    "#;
+
+    let mut locale = Locale::builder().language("ar").build();
+    locale.load_translations_str("ar", source).unwrap();
+
+    // Sun letter with assimilation
+    assert_eq!(
+        locale.get_phrase("sun_sentence").unwrap().to_string(),
+        "This is الش\u{0651}مس." // ash-shams with shadda
+    );
+
+    // Moon letter without assimilation
+    assert_eq!(
+        locale.get_phrase("moon_sentence").unwrap().to_string(),
+        "This is القمر." // al-qamar
+    );
+}
+
+#[test]
+fn persian_ezafe_in_phrase() {
+    // Test @ezafe in full phrase evaluation using Locale
+    let source = r#"
+        ketab = "کتاب";
+        khane = :vowel "خانه";
+        book_of = "The {@ezafe ketab} man.";
+        house_of = "The {@ezafe khane} friend.";
+    "#;
+
+    let mut locale = Locale::builder().language("fa").build();
+    locale.load_translations_str("fa", source).unwrap();
+
+    // Consonant-final with kasra
+    assert_eq!(
+        locale.get_phrase("book_of").unwrap().to_string(),
+        "The کتاب\u{0650} man." // ketab-e
+    );
+
+    // Vowel-final with ZWNJ + ye
+    assert_eq!(
+        locale.get_phrase("house_of").unwrap().to_string(),
+        "The خانه\u{200C}\u{06CC} friend." // khane-ye
+    );
+}
+
+#[test]
+fn arabic_transform_not_available_for_other_languages() {
+    let registry = TransformRegistry::new();
+    // Arabic transforms should not be available for other languages
+    assert_eq!(registry.get("al", "en"), None);
+    assert_eq!(registry.get("al", "fa"), None); // Not Persian either
+    // But should be available for Arabic
+    assert_eq!(registry.get("al", "ar"), Some(TransformKind::ArabicAl));
+}
+
+#[test]
+fn persian_transform_not_available_for_other_languages() {
+    let registry = TransformRegistry::new();
+    // Persian transforms should not be available for other languages
+    assert_eq!(registry.get("ezafe", "en"), None);
+    assert_eq!(registry.get("ezafe", "ar"), None); // Not Arabic either
+    // But should be available for Persian
+    assert_eq!(
+        registry.get("ezafe", "fa"),
+        Some(TransformKind::PersianEzafe)
+    );
+}
