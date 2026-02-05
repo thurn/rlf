@@ -91,6 +91,15 @@ pub enum TransformKind {
     JapaneseCount,
     /// @count - Korean count with counter
     KoreanCount,
+    // Southeast Asian transforms (Phase 9)
+    /// @count - Vietnamese count with classifier
+    VietnameseCount,
+    /// @count - Thai count with classifier
+    ThaiCount,
+    /// @count - Bengali count with classifier
+    BengaliCount,
+    /// @plural - Indonesian reduplication plural
+    IndonesianPlural,
 }
 
 impl TransformKind {
@@ -152,6 +161,12 @@ impl TransformKind {
             TransformKind::ChineseCount => chinese_count_transform(value, context),
             TransformKind::JapaneseCount => japanese_count_transform(value, context),
             TransformKind::KoreanCount => korean_count_transform(value, context),
+            // Southeast Asian transforms need Value (for tags) and context (for count)
+            TransformKind::VietnameseCount => vietnamese_count_transform(value, context),
+            TransformKind::ThaiCount => thai_count_transform(value, context),
+            TransformKind::BengaliCount => bengali_count_transform(value, context),
+            // Indonesian @plural doesn't need context
+            TransformKind::IndonesianPlural => indonesian_plural_transform(value),
         }
     }
 }
@@ -1237,6 +1252,34 @@ const KOREAN_COUNTERS: &[(&str, &str)] = &[
     ("gwon", "권"),   // Books
 ];
 
+/// Vietnamese classifiers.
+/// Tag name -> classifier word (Vietnamese uses Latin script).
+const VIETNAMESE_CLASSIFIERS: &[(&str, &str)] = &[
+    ("cai", "cai"),     // General objects (cái)
+    ("con", "con"),     // Animals, some objects
+    ("nguoi", "nguoi"), // People (người)
+    ("chiec", "chiec"), // Vehicles, single items (chiếc)
+    ("to", "to"),       // Flat paper items (tờ)
+];
+
+/// Thai classifiers.
+/// Tag name -> classifier character.
+const THAI_CLASSIFIERS: &[(&str, &str)] = &[
+    ("bai", "ใบ"),  // Flat objects, cards
+    ("tua", "ตัว"), // Animals, letters, characters
+    ("khon", "คน"), // People
+    ("an", "อัน"),  // General small objects
+];
+
+/// Bengali classifiers.
+/// Tag name -> classifier character.
+const BENGALI_CLASSIFIERS: &[(&str, &str)] = &[
+    ("ta", "টা"),    // General classifier
+    ("ti", "টি"),    // Formal classifier
+    ("khana", "খানা"), // For flat objects
+    ("jon", "জন"),   // For people
+];
+
 /// Extract count value from context.
 fn context_to_count(context: Option<&Value>) -> i64 {
     match context {
@@ -1313,6 +1356,85 @@ fn korean_count_transform(value: &Value, context: Option<&Value>) -> Result<Stri
     })?;
 
     Ok(format!("{}{}{}", count, counter, text))
+}
+
+// =============================================================================
+// Southeast Asian Transforms (Phase 9)
+// =============================================================================
+
+/// Vietnamese @count transform.
+///
+/// Produces "{count} {classifier} {noun}" format (spaces between elements).
+/// Requires classifier tag (cai, con, nguoi, chiec, to).
+fn vietnamese_count_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
+    let text = value.to_string();
+    let count = context_to_count(context);
+
+    let classifier =
+        find_classifier(value, VIETNAMESE_CLASSIFIERS).ok_or_else(|| EvalError::MissingTag {
+            transform: "count".to_string(),
+            expected: VIETNAMESE_CLASSIFIERS
+                .iter()
+                .map(|(t, _)| t.to_string())
+                .collect(),
+            phrase: text.clone(),
+        })?;
+
+    // Vietnamese uses spaces between elements
+    Ok(format!("{} {} {}", count, classifier, text))
+}
+
+/// Thai @count transform.
+///
+/// Produces "{count}{classifier}{noun}" format (no spaces).
+/// Requires classifier tag (bai, tua, khon, an).
+fn thai_count_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
+    let text = value.to_string();
+    let count = context_to_count(context);
+
+    let classifier =
+        find_classifier(value, THAI_CLASSIFIERS).ok_or_else(|| EvalError::MissingTag {
+            transform: "count".to_string(),
+            expected: THAI_CLASSIFIERS
+                .iter()
+                .map(|(t, _)| t.to_string())
+                .collect(),
+            phrase: text.clone(),
+        })?;
+
+    // Thai uses no spaces between elements
+    Ok(format!("{}{}{}", count, classifier, text))
+}
+
+/// Bengali @count transform.
+///
+/// Produces "{count}{classifier} {noun}" format (classifier attached to number, space before noun).
+/// Requires classifier tag (ta, ti, khana, jon).
+fn bengali_count_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
+    let text = value.to_string();
+    let count = context_to_count(context);
+
+    let classifier =
+        find_classifier(value, BENGALI_CLASSIFIERS).ok_or_else(|| EvalError::MissingTag {
+            transform: "count".to_string(),
+            expected: BENGALI_CLASSIFIERS
+                .iter()
+                .map(|(t, _)| t.to_string())
+                .collect(),
+            phrase: text.clone(),
+        })?;
+
+    // Bengali: classifier immediately after number, then space, then noun
+    Ok(format!("{}{} {}", count, classifier, text))
+}
+
+/// Indonesian @plural transform.
+///
+/// Produces "{text}-{text}" format (reduplication).
+/// No tags required, no context needed.
+fn indonesian_plural_transform(value: &Value) -> Result<String, EvalError> {
+    let text = value.to_string();
+    Ok(format!("{}-{}", text, text))
 }
 
 /// Registry for transform functions.
@@ -1397,6 +1519,10 @@ impl TransformRegistry {
             ("zh", "count") => Some(TransformKind::ChineseCount),
             ("ja", "count") => Some(TransformKind::JapaneseCount),
             ("ko", "count") => Some(TransformKind::KoreanCount),
+            ("vi", "count") => Some(TransformKind::VietnameseCount),
+            ("th", "count") => Some(TransformKind::ThaiCount),
+            ("bn", "count") => Some(TransformKind::BengaliCount),
+            ("id", "plural") => Some(TransformKind::IndonesianPlural),
             _ => None,
         }
     }
