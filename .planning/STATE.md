@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** When you add a phrase to `strings.rlf.rs`, it immediately appears in IDE autocomplete
-**Current focus:** Phase 8 - Greek, Romanian, and Middle Eastern Transforms (COMPLETE)
+**Current focus:** Phase 9 - Asian Language Transforms (In Progress)
 
 ## Current Position
 
-Phase: 8 of 10 (Greek, Romanian, and Middle Eastern Transforms)
-Plan: 2 of 2 in current phase (COMPLETE)
-Status: Phase complete
-Last activity: 2026-02-05 - Completed 08-02-PLAN.md
+Phase: 9 of 10 (Asian Language Transforms)
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-02-05 - Completed 09-01-PLAN.md
 
-Progress: [####################] 67% (20/30 plans)
+Progress: [#####################] 70% (21/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 20
-- Average duration: 4.6 min
-- Total execution time: 1.58 hours
+- Total plans completed: 21
+- Average duration: 4.5 min
+- Total execution time: 1.63 hours
 
 **By Phase:**
 
@@ -35,9 +35,10 @@ Progress: [####################] 67% (20/30 plans)
 | 06-english-and-germanic-transforms | 3 | 14 min | 5 min |
 | 07-romance-language-transforms | 2 | 13 min | 7 min |
 | 08-greek-romanian-and-middle-eastern-transforms | 2 | 12 min | 6 min |
+| 09-asian-language-transforms | 1 | 3 min | 3 min |
 
 **Recent Trend:**
-- Last 5 plans: 4 min, 5 min, 8 min, 6 min, 6 min
+- Last 5 plans: 5 min, 8 min, 6 min, 6 min, 3 min
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -107,6 +108,9 @@ Recent decisions affecting current work:
 - Arabic shadda placed AFTER consonant per Unicode standard
 - Persian @ezafe uses ZWNJ before ye for proper rendering
 - Persian kasra (U+0650) for consonant-final, ye (U+06CC) for vowel-final
+- CJK @count format: {count}{classifier}{text} with no spaces
+- Classifier lookup via tag-to-character array with find_classifier helper
+- context_to_count defaults to 1 when no context provided
 
 ### Pending Todos
 
@@ -269,20 +273,21 @@ Phase 8 (Greek, Romanian, and Middle Eastern Transforms) is now complete with:
   - Byte-level Unicode verification for RTL text testing
   - 14 new tests (7 Arabic + 7 Persian)
 
-All 221 transform tests passing (447 total tests):
-- 33 file parser integration tests
-- 46 template parser integration tests
-- 10 interpreter foundation tests
-- 27 interpreter evaluation tests
-- 221 interpreter transform tests
-- 7 interpreter error tests
-- 25 locale integration tests
-- 64 rlf-macros unit tests (22 parse + 25 validate + 17 codegen)
-- 14 trybuild compile tests (6 pass, 8 fail)
-- 14 doctests
+## Phase 9 Progress Summary
+
+Phase 9 (Asian Language Transforms) is in progress with:
+- **09-01:** CJK Count Transforms (COMPLETE)
+  - ChineseCount transform with 7 classifiers (zhang, ge, ming, wei, tiao, ben, zhi)
+  - JapaneseCount transform with 6 counters (mai, nin, hiki, hon, ko, satsu)
+  - KoreanCount transform with 5 counters (jang, myeong, mari, gae, gwon)
+  - hangeul dependency added for Korean @particle in Plan 03
+  - find_classifier helper for tag-based lookup
+  - 24 new tests (7 Chinese + 6 Japanese + 6 Korean + 5 registry/edge cases)
+
+Total tests: 472 passing
 
 ## Session Continuity
 
-Last session: 2026-02-05T05:52:01Z
-Stopped at: Completed quick task 002
+Last session: 2026-02-05T06:25:07Z
+Stopped at: Completed 09-01-PLAN.md
 Resume file: None
