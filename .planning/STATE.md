@@ -121,6 +121,7 @@ None.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 001 | Move tests to separate crate with public API testing | 2026-02-04 | 8751eb4 | [001-move-tests-to-separate-crate-with-public](./quick/001-move-tests-to-separate-crate-with-public/) |
+| 002 | Improve rlf-macro test coverage by 10x (64 unit + 14 trybuild) | 2026-02-05 | a6e761f | [002-improve-rlf-macro-test-coverage-by-10x](./quick/002-improve-rlf-macro-test-coverage-by-10x/) |
 
 ## Phase 1 Completion Summary
 
@@ -268,7 +269,7 @@ Phase 8 (Greek, Romanian, and Middle Eastern Transforms) is now complete with:
   - Byte-level Unicode verification for RTL text testing
   - 14 new tests (7 Arabic + 7 Persian)
 
-All 221 transform tests passing (383 total tests):
+All 221 transform tests passing (447 total tests):
 - 33 file parser integration tests
 - 46 template parser integration tests
 - 10 interpreter foundation tests
@@ -276,11 +277,12 @@ All 221 transform tests passing (383 total tests):
 - 221 interpreter transform tests
 - 7 interpreter error tests
 - 25 locale integration tests
-- 4 trybuild compile tests (1 pass, 3 fail)
+- 64 rlf-macros unit tests (22 parse + 25 validate + 17 codegen)
+- 14 trybuild compile tests (6 pass, 8 fail)
 - 14 doctests
 
 ## Session Continuity
 
-Last session: 2026-02-05T05:35:45Z
-Stopped at: Completed 08-02-PLAN.md
+Last session: 2026-02-05T05:52:01Z
+Stopped at: Completed quick task 002
 Resume file: None
