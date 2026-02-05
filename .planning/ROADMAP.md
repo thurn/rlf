@@ -160,11 +160,12 @@ Plans:
   2. Korean @particle selects particle based on final sound of preceding word
   3. Turkish @inflect applies agglutinative suffixes with vowel harmony
   4. Indonesian @plural produces reduplication
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 09-01: TBD
-- [ ] 09-02: TBD
+- [ ] 09-01-PLAN.md — CJK @count transforms (Chinese, Japanese, Korean) with classifier tags
+- [ ] 09-02-PLAN.md — SEA @count transforms (Vietnamese, Thai, Bengali) and Indonesian @plural
+- [ ] 09-03-PLAN.md — Korean @particle and Turkish @inflect with vowel harmony
 
 ### Phase 10: CLI Tools
 **Goal**: Command-line tools for validation, evaluation, and coverage checking
@@ -197,9 +198,9 @@ Note: Phases 6-9 (language transforms) can proceed in parallel after Phase 3 com
 | 6. English and Germanic Transforms | 3/3 | Complete | 2026-02-05 |
 | 7. Romance Language Transforms | 2/2 | Complete | 2026-02-04 |
 | 8. Greek, Romanian, and Middle Eastern Transforms | 2/2 | Complete | 2026-02-04 |
-| 9. Asian Language Transforms | 0/2 | Not started | - |
+| 9. Asian Language Transforms | 0/3 | Not started | - |
 | 10. CLI Tools | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-04*
-*Last updated: 2026-02-04 after Phase 8 completion*
+*Last updated: 2026-02-04 after Phase 9 planning*
