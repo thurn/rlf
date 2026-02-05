@@ -272,6 +272,40 @@ fn german_ein_transform(value: &Value, context: Option<&Value>) -> Result<String
     Ok(format!("{} {}", article, text))
 }
 
+// =============================================================================
+// Dutch Transforms (Phase 6)
+// =============================================================================
+
+/// Dutch definite article transform (@de/@het).
+///
+/// Reads :de or :het tag from the Value to determine which article to prepend.
+/// Dutch has only two grammatical genders for articles: common (de-words) and neuter (het-words).
+/// Returns MissingTag error if neither tag is present.
+fn dutch_de_transform(value: &Value) -> Result<String, EvalError> {
+    let text = value.to_string();
+
+    if value.has_tag("de") {
+        return Ok(format!("de {}", text));
+    }
+    if value.has_tag("het") {
+        return Ok(format!("het {}", text));
+    }
+
+    Err(EvalError::MissingTag {
+        transform: "de".to_string(),
+        expected: vec!["de".to_string(), "het".to_string()],
+        phrase: text,
+    })
+}
+
+/// Dutch indefinite article transform (@een).
+///
+/// Unconditionally prepends "een " to the value's text.
+/// Dutch indefinite article is invariant - always "een" regardless of gender.
+fn dutch_een_transform(value: &Value) -> Result<String, EvalError> {
+    Ok(format!("een {}", value.to_string()))
+}
+
 /// Registry for transform functions.
 ///
 /// Transforms are registered per-language with universal transforms available to all.
@@ -300,6 +334,7 @@ impl TransformRegistry {
             "an" => "a",              // English alias: @an resolves to @a
             "die" | "das" => "der",   // German aliases: @die/@das resolve to @der
             "eine" => "ein",          // German alias: @eine resolves to @ein
+            "het" => "de",            // Dutch alias: @het resolves to @de
             other => other,
         };
 
@@ -317,6 +352,8 @@ impl TransformRegistry {
             ("en", "the") => Some(TransformKind::EnglishThe),
             ("de", "der") => Some(TransformKind::GermanDer),
             ("de", "ein") => Some(TransformKind::GermanEin),
+            ("nl", "de") => Some(TransformKind::DutchDe),
+            ("nl", "een") => Some(TransformKind::DutchEen),
             _ => None,
         }
     }

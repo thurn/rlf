@@ -815,3 +815,264 @@ fn german_transform_aliases() {
     assert_eq!(registry.get("das", "de"), Some(TransformKind::GermanDer));
     assert_eq!(registry.get("eine", "de"), Some(TransformKind::GermanEin));
 }
+
+// =============================================================================
+// German Article Transform Integration Tests (Full Evaluation Path)
+// =============================================================================
+
+#[test]
+fn german_der_in_template() {
+    let source = r#"
+        karte = :fem "Karte";
+        charakter = :masc "Charakter";
+        ereignis = :neut "Ereignis";
+        the_card = "{@der karte}";
+        the_char = "{@der charakter}";
+        the_event = "{@das ereignis}";
+    "#;
+
+    let mut locale = Locale::builder().language("de").build();
+    locale.load_translations_str("de", source).unwrap();
+
+    assert_eq!(
+        locale.get_phrase("the_card").unwrap().to_string(),
+        "die Karte"
+    );
+    assert_eq!(
+        locale.get_phrase("the_char").unwrap().to_string(),
+        "der Charakter"
+    );
+    assert_eq!(
+        locale.get_phrase("the_event").unwrap().to_string(),
+        "das Ereignis"
+    );
+}
+
+#[test]
+fn german_der_with_case_context() {
+    // Test: "Zerstöre {@der:acc karte}." - accusative case
+    let source = r#"
+        karte = :fem "Karte";
+        charakter = :masc "Charakter";
+        destroy_card = "Zerstöre {@der:acc karte}.";
+        destroy_char = "Zerstöre {@der:acc charakter}.";
+    "#;
+
+    let mut locale = Locale::builder().language("de").build();
+    locale.load_translations_str("de", source).unwrap();
+
+    // Feminine accusative = "die", masculine accusative = "den"
+    assert_eq!(
+        locale.get_phrase("destroy_card").unwrap().to_string(),
+        "Zerstöre die Karte."
+    );
+    assert_eq!(
+        locale.get_phrase("destroy_char").unwrap().to_string(),
+        "Zerstöre den Charakter."
+    );
+}
+
+#[test]
+fn german_ein_in_template() {
+    let source = r#"
+        karte = :fem "Karte";
+        charakter = :masc "Charakter";
+        a_card = "{@ein karte}";
+        a_char = "{@ein:acc charakter}";
+    "#;
+
+    let mut locale = Locale::builder().language("de").build();
+    locale.load_translations_str("de", source).unwrap();
+
+    assert_eq!(
+        locale.get_phrase("a_card").unwrap().to_string(),
+        "eine Karte"
+    );
+    assert_eq!(
+        locale.get_phrase("a_char").unwrap().to_string(),
+        "einen Charakter"
+    );
+}
+
+#[test]
+fn german_dative_case() {
+    // Test dative case for prepositions like "mit" (with)
+    let source = r#"
+        karte = :fem "Karte";
+        charakter = :masc "Charakter";
+        with_card = "mit {@der:dat karte}";
+        with_char = "mit {@ein:dat charakter}";
+    "#;
+
+    let mut locale = Locale::builder().language("de").build();
+    locale.load_translations_str("de", source).unwrap();
+
+    // Feminine dative definite = "der", masculine dative indefinite = "einem"
+    assert_eq!(
+        locale.get_phrase("with_card").unwrap().to_string(),
+        "mit der Karte"
+    );
+    assert_eq!(
+        locale.get_phrase("with_char").unwrap().to_string(),
+        "mit einem Charakter"
+    );
+}
+
+#[test]
+fn german_genitive_case() {
+    // Test genitive case
+    let source = r#"
+        karte = :fem "Karte";
+        charakter = :masc "Charakter";
+        of_card = "{@der:gen karte}";
+        of_char = "{@ein:gen charakter}";
+    "#;
+
+    let mut locale = Locale::builder().language("de").build();
+    locale.load_translations_str("de", source).unwrap();
+
+    // Feminine genitive definite = "der", masculine genitive indefinite = "eines"
+    assert_eq!(
+        locale.get_phrase("of_card").unwrap().to_string(),
+        "der Karte"
+    );
+    assert_eq!(
+        locale.get_phrase("of_char").unwrap().to_string(),
+        "eines Charakter"
+    );
+}
+
+#[test]
+fn german_all_cases_masculine() {
+    // Test all 4 cases for masculine noun
+    let source = r#"
+        charakter = :masc "Charakter";
+        nom = "{@der charakter}";
+        acc = "{@der:acc charakter}";
+        dat = "{@der:dat charakter}";
+        gen = "{@der:gen charakter}";
+    "#;
+
+    let mut locale = Locale::builder().language("de").build();
+    locale.load_translations_str("de", source).unwrap();
+
+    assert_eq!(locale.get_phrase("nom").unwrap().to_string(), "der Charakter");
+    assert_eq!(locale.get_phrase("acc").unwrap().to_string(), "den Charakter");
+    assert_eq!(locale.get_phrase("dat").unwrap().to_string(), "dem Charakter");
+    assert_eq!(locale.get_phrase("gen").unwrap().to_string(), "des Charakter");
+}
+
+#[test]
+fn german_all_cases_neuter() {
+    // Test all 4 cases for neuter noun
+    let source = r#"
+        ereignis = :neut "Ereignis";
+        nom = "{@der ereignis}";
+        acc = "{@der:acc ereignis}";
+        dat = "{@der:dat ereignis}";
+        gen = "{@der:gen ereignis}";
+    "#;
+
+    let mut locale = Locale::builder().language("de").build();
+    locale.load_translations_str("de", source).unwrap();
+
+    assert_eq!(locale.get_phrase("nom").unwrap().to_string(), "das Ereignis");
+    assert_eq!(locale.get_phrase("acc").unwrap().to_string(), "das Ereignis");
+    assert_eq!(locale.get_phrase("dat").unwrap().to_string(), "dem Ereignis");
+    assert_eq!(locale.get_phrase("gen").unwrap().to_string(), "des Ereignis");
+}
+
+// =============================================================================
+// Dutch Article Transforms (@de/@het, @een)
+// =============================================================================
+
+#[test]
+fn dutch_de_with_de_tag() {
+    // Phrase with :de tag (common gender) produces "de kaart"
+    let phrase = Phrase::builder()
+        .text("kaart".to_string())
+        .tags(vec![Tag::new("de")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::DutchDe;
+    let result = transform.execute(&value, None, "nl").unwrap();
+    assert_eq!(result, "de kaart");
+}
+
+#[test]
+fn dutch_de_with_het_tag() {
+    // Phrase with :het tag (neuter gender) produces "het karakter"
+    let phrase = Phrase::builder()
+        .text("karakter".to_string())
+        .tags(vec![Tag::new("het")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::DutchDe;
+    let result = transform.execute(&value, None, "nl").unwrap();
+    assert_eq!(result, "het karakter");
+}
+
+#[test]
+fn dutch_de_missing_tag_error() {
+    // Phrase without :de or :het tag produces error
+    let phrase = Phrase::builder().text("ding".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::DutchDe;
+    let result = transform.execute(&value, None, "nl");
+    assert!(matches!(result, Err(EvalError::MissingTag { .. })));
+}
+
+#[test]
+fn dutch_een_transform() {
+    // @een always produces "een X" regardless of gender
+    let value = Value::String("kaart".to_string());
+    let transform = TransformKind::DutchEen;
+    let result = transform.execute(&value, None, "nl").unwrap();
+    assert_eq!(result, "een kaart");
+}
+
+#[test]
+fn dutch_een_with_phrase() {
+    // @een works with Phrase values too
+    let phrase = Phrase::builder()
+        .text("karakter".to_string())
+        .tags(vec![Tag::new("het")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::DutchEen;
+    let result = transform.execute(&value, None, "nl").unwrap();
+    assert_eq!(result, "een karakter");
+}
+
+#[test]
+fn dutch_transform_alias_het() {
+    // @het resolves to DutchDe
+    let registry = TransformRegistry::new();
+    let transform = registry.get("het", "nl");
+    assert_eq!(transform, Some(TransformKind::DutchDe));
+}
+
+#[test]
+fn dutch_transform_de_lookup() {
+    // @de resolves to DutchDe
+    let registry = TransformRegistry::new();
+    let transform = registry.get("de", "nl");
+    assert_eq!(transform, Some(TransformKind::DutchDe));
+}
+
+#[test]
+fn dutch_transform_een_lookup() {
+    // @een resolves to DutchEen
+    let registry = TransformRegistry::new();
+    let transform = registry.get("een", "nl");
+    assert_eq!(transform, Some(TransformKind::DutchEen));
+}
+
+#[test]
+fn dutch_transform_not_available_for_other_languages() {
+    // Dutch transforms should not be available for other languages
+    let registry = TransformRegistry::new();
+    assert_eq!(registry.get("de", "de"), None);  // "de" is Dutch, not German
+    assert_eq!(registry.get("het", "en"), None);
+    assert_eq!(registry.get("een", "de"), None);
+}
