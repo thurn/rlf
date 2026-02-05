@@ -1,6 +1,11 @@
 //! Internal AST types for the rlf! macro.
 //!
 //! These types mirror the parser AST but include span information for error messages.
+//!
+//! Note: Fields are currently unused but will be consumed in Plan 02 (validation)
+//! and Plan 03 (code generation).
+
+#![allow(dead_code)]
 
 use proc_macro2::Span;
 use syn::Ident;
