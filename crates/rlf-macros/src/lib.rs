@@ -2,6 +2,7 @@ use proc_macro::TokenStream;
 
 mod input;
 mod parse;
+mod validate;
 
 /// The rlf! macro for defining localized phrases.
 ///
@@ -9,9 +10,13 @@ mod parse;
 /// with compile-time validation.
 #[proc_macro]
 pub fn rlf(input: TokenStream) -> TokenStream {
-    let _input = syn::parse_macro_input!(input as input::MacroInput);
+    let input = syn::parse_macro_input!(input as input::MacroInput);
 
-    // TODO: Validation (Plan 02)
+    // Validation (Plan 02)
+    if let Err(e) = validate::validate(&input) {
+        return e.to_compile_error().into();
+    }
+
     // TODO: Code generation (Plan 03)
 
     // For now, just produce empty output so the crate compiles
