@@ -668,8 +668,9 @@ fn french_au_transform(value: &Value, context: Option<&Value>) -> Result<String,
 }
 
 /// French liaison transform (@liaison).
-/// Selects between standard and prevocalic forms based on :vowel tag.
+/// Selects between standard and prevocalic forms based on context's :vowel tag.
 /// The input value should have variants "standard" and "vowel".
+/// Output is just the selected variant - context is only used to determine selection.
 fn french_liaison_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
     use crate::types::VariantKey;
 
@@ -685,22 +686,12 @@ fn french_liaison_transform(value: &Value, context: Option<&Value>) -> Result<St
     // Try to get the variant from the value
     if let Value::Phrase(phrase) = value {
         if let Some(variant_text) = phrase.variants.get(&VariantKey::new(variant_key)) {
-            // Need to also output the context word
-            if let Some(ctx_value) = context {
-                return Ok(format!("{} {}", variant_text, ctx_value));
-            } else {
-                return Ok(variant_text.clone());
-            }
+            return Ok(variant_text.clone());
         }
     }
 
-    // Fallback: just use the text as-is
-    let text = value.to_string();
-    if let Some(ctx_value) = context {
-        Ok(format!("{} {}", text, ctx_value))
-    } else {
-        Ok(text)
-    }
+    // Fallback: just use the text as-is (default variant)
+    Ok(value.to_string())
 }
 
 // =============================================================================
@@ -902,13 +893,14 @@ impl TransformRegistry {
     /// 3. Language-specific transforms (@a, @the for English; @der, @ein for German)
     pub fn get(&self, name: &str, lang: &str) -> Option<TransformKind> {
         // Resolve aliases first (some are language-specific)
+        // Order matters: more specific patterns (with lang) before wildcards
         let canonical = match (name, lang) {
             ("an", _) => "a",            // English alias: @an resolves to @a
             ("die" | "das", _) => "der", // German aliases: @die/@das resolve to @der
             ("eine", _) => "ein",        // German alias: @eine resolves to @ein
             ("het", _) => "de",          // Dutch alias: @het resolves to @de
             ("la", "es") => "el",        // Spanish alias: @la resolves to @el
-            ("una", _) => "un",          // Spanish alias: @una resolves to @un
+            ("una", "es") => "un",       // Spanish alias: @una resolves to @un
             ("a", "pt") => "o",          // Portuguese alias: @a resolves to @o
             ("uma", _) => "um",          // Portuguese alias: @uma resolves to @um
             ("la", "fr") => "le",        // French alias: @la resolves to @le

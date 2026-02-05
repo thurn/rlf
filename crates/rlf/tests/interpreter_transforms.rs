@@ -1,7 +1,7 @@
 //! Integration tests for transform execution in the interpreter.
 
 use rlf::interpreter::{EvalError, Locale, TransformKind, TransformRegistry};
-use rlf::{Phrase, PhraseRegistry, Tag, Value};
+use rlf::{Phrase, PhraseRegistry, Tag, Value, VariantKey};
 use std::collections::HashMap;
 
 // =============================================================================
@@ -2305,4 +2305,501 @@ fn italian_dello_contraction_preserves_lowercase() {
     // Contraction "dello" must be lowercase
     assert_eq!(result, "dello Studente");
     assert!(result.starts_with("dello"), "Contraction must be lowercase");
+}
+
+// =============================================================================
+// French/Italian Integration Tests (Phase 7)
+// =============================================================================
+
+#[test]
+fn french_le_in_template() {
+    let source = r#"
+        livre = :masc "livre";
+        maison = :fem "maison";
+        the_book = "{@le livre}";
+        the_house = "{@la maison}";
+    "#;
+
+    let mut locale = Locale::builder().language("fr").build();
+    locale.load_translations_str("fr", source).unwrap();
+
+    assert_eq!(
+        locale.get_phrase("the_book").unwrap().to_string(),
+        "le livre"
+    );
+    // @la alias resolves to @le, then looks up fem tag
+    assert_eq!(
+        locale.get_phrase("the_house").unwrap().to_string(),
+        "la maison"
+    );
+}
+
+#[test]
+fn french_le_with_elision_in_template() {
+    let source = r#"
+        ami = :masc :vowel "ami";
+        ecole = :fem :vowel "ecole";
+        the_friend = "{@le ami}";
+        the_school = "{@la ecole}";
+    "#;
+
+    let mut locale = Locale::builder().language("fr").build();
+    locale.load_translations_str("fr", source).unwrap();
+
+    // Elision before vowels (singular only)
+    assert_eq!(
+        locale.get_phrase("the_friend").unwrap().to_string(),
+        "l'ami"
+    );
+    assert_eq!(
+        locale.get_phrase("the_school").unwrap().to_string(),
+        "l'ecole"
+    );
+}
+
+#[test]
+fn french_le_plural_no_elision_in_template() {
+    // Test: @le:other uses context for plural (les) which doesn't elide
+    let source = r#"
+        amis = :masc :vowel "amis";
+        get_friends = "{@le:other amis}";
+    "#;
+
+    let mut locale = Locale::builder().language("fr").build();
+    locale.load_translations_str("fr", source).unwrap();
+
+    // Plural "les" does NOT elide, even before vowel
+    assert_eq!(
+        locale.get_phrase("get_friends").unwrap().to_string(),
+        "les amis"
+    );
+}
+
+#[test]
+fn french_un_in_template() {
+    let source = r#"
+        livre = :masc "livre";
+        maison = :fem "maison";
+        a_book = "{@un livre}";
+        a_house = "{@une maison}";
+    "#;
+
+    let mut locale = Locale::builder().language("fr").build();
+    locale.load_translations_str("fr", source).unwrap();
+
+    assert_eq!(
+        locale.get_phrase("a_book").unwrap().to_string(),
+        "un livre"
+    );
+    // @une alias resolves to @un
+    assert_eq!(
+        locale.get_phrase("a_house").unwrap().to_string(),
+        "une maison"
+    );
+}
+
+// NOTE: French @un has no plural forms per APPENDIX_STDLIB.
+// For plural indefinite, use natural language constructs.
+
+#[test]
+fn french_de_contractions_in_template() {
+    let source = r#"
+        livre = :masc "livre";
+        ami = :masc :vowel "ami";
+        maison = :fem "maison";
+        livres = :masc "livres";
+
+        of_book = "{@de livre}";
+        of_friend = "{@de ami}";
+        of_house = "{@de maison}";
+        of_books = "{@de:other livres}";
+    "#;
+
+    let mut locale = Locale::builder().language("fr").build();
+    locale.load_translations_str("fr", source).unwrap();
+
+    // de + le = du
+    assert_eq!(
+        locale.get_phrase("of_book").unwrap().to_string(),
+        "du livre"
+    );
+    // de + l' = de l'
+    assert_eq!(
+        locale.get_phrase("of_friend").unwrap().to_string(),
+        "de l'ami"
+    );
+    // de + la = de la
+    assert_eq!(
+        locale.get_phrase("of_house").unwrap().to_string(),
+        "de la maison"
+    );
+    // de + les = des
+    assert_eq!(
+        locale.get_phrase("of_books").unwrap().to_string(),
+        "des livres"
+    );
+}
+
+#[test]
+fn french_au_contractions_in_template() {
+    let source = r#"
+        marche = :masc "marche";
+        ami = :masc :vowel "ami";
+        maison = :fem "maison";
+        marches = :masc "marches";
+
+        to_market = "{@au marche}";
+        to_friend = "{@au ami}";
+        to_house = "{@au maison}";
+        to_markets = "{@au:other marches}";
+    "#;
+
+    let mut locale = Locale::builder().language("fr").build();
+    locale.load_translations_str("fr", source).unwrap();
+
+    // a + le = au
+    assert_eq!(
+        locale.get_phrase("to_market").unwrap().to_string(),
+        "au marche"
+    );
+    // a + l' = a l'
+    assert_eq!(
+        locale.get_phrase("to_friend").unwrap().to_string(),
+        "a l'ami"
+    );
+    // a + la = a la
+    assert_eq!(
+        locale.get_phrase("to_house").unwrap().to_string(),
+        "a la maison"
+    );
+    // a + les = aux
+    assert_eq!(
+        locale.get_phrase("to_markets").unwrap().to_string(),
+        "aux marches"
+    );
+}
+
+#[test]
+fn french_liaison_transform_direct() {
+    // Test @liaison directly with Value - selects between standard and vowel variants
+    // based on context's :vowel tag
+
+    // Create adjective with liaison variants
+    let mut variants = HashMap::new();
+    variants.insert(VariantKey::new("standard"), "beau".to_string());
+    variants.insert(VariantKey::new("vowel"), "bel".to_string());
+    let beau = Phrase::builder()
+        .text("beau".to_string())
+        .tags(vec![Tag::new("masc")])
+        .variants(variants)
+        .build();
+    let beau_value = Value::Phrase(beau);
+
+    // Create vowel-starting noun (context)
+    let ami = Phrase::builder()
+        .text("ami".to_string())
+        .tags(vec![Tag::new("masc"), Tag::new("vowel")])
+        .build();
+    let ami_value = Value::Phrase(ami);
+
+    // Create consonant-starting noun (context)
+    let livre = Phrase::builder()
+        .text("livre".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let livre_value = Value::Phrase(livre);
+
+    let transform = TransformKind::FrenchLiaison;
+
+    // Before vowel: use "bel"
+    let result = transform
+        .execute(&beau_value, Some(&ami_value), "fr")
+        .unwrap();
+    assert_eq!(result, "bel");
+
+    // Before consonant: use "beau"
+    let result = transform
+        .execute(&beau_value, Some(&livre_value), "fr")
+        .unwrap();
+    assert_eq!(result, "beau");
+
+    // No context: use default text
+    let result = transform.execute(&beau_value, None, "fr").unwrap();
+    assert_eq!(result, "beau");
+}
+
+#[test]
+fn italian_il_in_template() {
+    let source = r#"
+        libro = :masc "libro";
+        casa = :fem "casa";
+        the_book = "{@il libro}";
+        the_house = "{@la casa}";
+    "#;
+
+    let mut locale = Locale::builder().language("it").build();
+    locale.load_translations_str("it", source).unwrap();
+
+    assert_eq!(
+        locale.get_phrase("the_book").unwrap().to_string(),
+        "il libro"
+    );
+    // @la alias resolves to @il
+    assert_eq!(
+        locale.get_phrase("the_house").unwrap().to_string(),
+        "la casa"
+    );
+}
+
+#[test]
+fn italian_il_sound_variants_in_template() {
+    let source = r#"
+        libro = :masc "libro";
+        amico = :masc :vowel "amico";
+        studente = :masc :s_imp "studente";
+
+        the_book = "{@il libro}";
+        the_friend = "{@il amico}";
+        the_student = "{@il studente}";
+    "#;
+
+    let mut locale = Locale::builder().language("it").build();
+    locale.load_translations_str("it", source).unwrap();
+
+    // Normal: il
+    assert_eq!(
+        locale.get_phrase("the_book").unwrap().to_string(),
+        "il libro"
+    );
+    // Vowel: l'
+    assert_eq!(
+        locale.get_phrase("the_friend").unwrap().to_string(),
+        "l'amico"
+    );
+    // S-impura: lo
+    assert_eq!(
+        locale.get_phrase("the_student").unwrap().to_string(),
+        "lo studente"
+    );
+}
+
+#[test]
+fn italian_un_in_template() {
+    let source = r#"
+        libro = :masc "libro";
+        amico = :masc :vowel "amico";
+        casa = :fem "casa";
+        studente = :masc :s_imp "studente";
+
+        a_book = "{@un libro}";
+        a_friend = "{@un amico}";
+        a_house = "{@una casa}";
+        a_student = "{@uno studente}";
+    "#;
+
+    let mut locale = Locale::builder().language("it").build();
+    locale.load_translations_str("it", source).unwrap();
+
+    // Masculine normal: un
+    assert_eq!(
+        locale.get_phrase("a_book").unwrap().to_string(),
+        "un libro"
+    );
+    // Masculine vowel: un (same as normal)
+    assert_eq!(
+        locale.get_phrase("a_friend").unwrap().to_string(),
+        "un amico"
+    );
+    // Feminine: una
+    assert_eq!(
+        locale.get_phrase("a_house").unwrap().to_string(),
+        "una casa"
+    );
+    // S-impura: uno
+    assert_eq!(
+        locale.get_phrase("a_student").unwrap().to_string(),
+        "uno studente"
+    );
+}
+
+#[test]
+fn italian_di_contractions_in_template() {
+    let source = r#"
+        libro = :masc "libro";
+        amico = :masc :vowel "amico";
+        casa = :fem "casa";
+        studente = :masc :s_imp "studente";
+        libri = :masc "libri";
+        amici = :masc :vowel "amici";
+
+        of_book = "{@di libro}";
+        of_friend = "{@di amico}";
+        of_house = "{@di casa}";
+        of_student = "{@di studente}";
+        of_books = "{@di:other libri}";
+        of_friends = "{@di:other amici}";
+    "#;
+
+    let mut locale = Locale::builder().language("it").build();
+    locale.load_translations_str("it", source).unwrap();
+
+    // di + il = del
+    assert_eq!(
+        locale.get_phrase("of_book").unwrap().to_string(),
+        "del libro"
+    );
+    // di + l' = dell'
+    assert_eq!(
+        locale.get_phrase("of_friend").unwrap().to_string(),
+        "dell'amico"
+    );
+    // di + la = della
+    assert_eq!(
+        locale.get_phrase("of_house").unwrap().to_string(),
+        "della casa"
+    );
+    // di + lo = dello
+    assert_eq!(
+        locale.get_phrase("of_student").unwrap().to_string(),
+        "dello studente"
+    );
+    // di + i = dei
+    assert_eq!(
+        locale.get_phrase("of_books").unwrap().to_string(),
+        "dei libri"
+    );
+    // di + gli = degli (plural vowel)
+    assert_eq!(
+        locale.get_phrase("of_friends").unwrap().to_string(),
+        "degli amici"
+    );
+}
+
+#[test]
+fn italian_a_contractions_in_template() {
+    let source = r#"
+        mercato = :masc "mercato";
+        amico = :masc :vowel "amico";
+        casa = :fem "casa";
+        stadio = :masc :s_imp "stadio";
+
+        to_market = "{@a mercato}";
+        to_friend = "{@a amico}";
+        to_house = "{@a casa}";
+        to_stadium = "{@a stadio}";
+    "#;
+
+    let mut locale = Locale::builder().language("it").build();
+    locale.load_translations_str("it", source).unwrap();
+
+    // a + il = al
+    assert_eq!(
+        locale.get_phrase("to_market").unwrap().to_string(),
+        "al mercato"
+    );
+    // a + l' = all'
+    assert_eq!(
+        locale.get_phrase("to_friend").unwrap().to_string(),
+        "all'amico"
+    );
+    // a + la = alla
+    assert_eq!(
+        locale.get_phrase("to_house").unwrap().to_string(),
+        "alla casa"
+    );
+    // a + lo = allo
+    assert_eq!(
+        locale.get_phrase("to_stadium").unwrap().to_string(),
+        "allo stadio"
+    );
+}
+
+#[test]
+fn french_italian_cross_language() {
+    // Verify same phrase structure works in both French and Italian
+    let fr_source = r#"
+        livre = :masc "livre";
+        draw_book = "Prends {@le livre}.";
+    "#;
+
+    let it_source = r#"
+        libro = :masc "libro";
+        draw_book = "Prendi {@il libro}.";
+    "#;
+
+    // French locale
+    let mut fr_locale = Locale::builder().language("fr").build();
+    fr_locale.load_translations_str("fr", fr_source).unwrap();
+
+    // Italian locale
+    let mut it_locale = Locale::builder().language("it").build();
+    it_locale.load_translations_str("it", it_source).unwrap();
+
+    assert_eq!(
+        fr_locale.get_phrase("draw_book").unwrap().to_string(),
+        "Prends le livre."
+    );
+    assert_eq!(
+        it_locale.get_phrase("draw_book").unwrap().to_string(),
+        "Prendi il libro."
+    );
+}
+
+#[test]
+fn all_phase7_transforms_work() {
+    // Spanish
+    let es_source = r#"
+        carta = :fem "carta";
+        test = "Roba {@el carta}, compra {@un carta}.";
+    "#;
+
+    // Portuguese
+    let pt_source = r#"
+        carta = :fem "carta";
+        mao = :fem "mao";
+        test = "Compre {@o carta}, {@de mao}.";
+    "#;
+
+    // French
+    let fr_source = r#"
+        livre = :masc "livre";
+        ami = :masc :vowel "ami";
+        test = "Prends {@le livre}, {@de ami}.";
+    "#;
+
+    // Italian
+    let it_source = r#"
+        libro = :masc "libro";
+        amico = :masc :vowel "amico";
+        test = "Prendi {@il libro}, {@di amico}.";
+    "#;
+
+    let mut es_locale = Locale::builder().language("es").build();
+    es_locale.load_translations_str("es", es_source).unwrap();
+
+    let mut pt_locale = Locale::builder().language("pt").build();
+    pt_locale.load_translations_str("pt", pt_source).unwrap();
+
+    let mut fr_locale = Locale::builder().language("fr").build();
+    fr_locale.load_translations_str("fr", fr_source).unwrap();
+
+    let mut it_locale = Locale::builder().language("it").build();
+    it_locale.load_translations_str("it", it_source).unwrap();
+
+    assert_eq!(
+        es_locale.get_phrase("test").unwrap().to_string(),
+        "Roba la carta, compra una carta."
+    );
+    assert_eq!(
+        pt_locale.get_phrase("test").unwrap().to_string(),
+        "Compre a carta, da mao."
+    );
+    assert_eq!(
+        fr_locale.get_phrase("test").unwrap().to_string(),
+        "Prends le livre, de l'ami."
+    );
+    assert_eq!(
+        it_locale.get_phrase("test").unwrap().to_string(),
+        "Prendi il libro, dell'amico."
+    );
 }
