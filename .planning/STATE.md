@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-04)
 
 **Core value:** When you add a phrase to `strings.rlf.rs`, it immediately appears in IDE autocomplete
-**Current focus:** Phase 5 complete - Macro Code Generation
+**Current focus:** Phase 6 - English and Germanic Transforms
 
 ## Current Position
 
-Phase: 5 of 10 (Macro Code Generation)
-Plan: 4 of 4 in current phase (COMPLETE)
-Status: Phase complete
-Last activity: 2026-02-05 - Completed 05-04-PLAN.md
+Phase: 6 of 10 (English and Germanic Transforms)
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-02-05 - Completed 06-01-PLAN.md
 
-Progress: [#############] 43% (13/30 plans)
+Progress: [##############] 47% (14/30 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 13
+- Total plans completed: 14
 - Average duration: 4.5 min
-- Total execution time: 0.98 hours
+- Total execution time: 1.06 hours
 
 **By Phase:**
 
@@ -32,9 +32,10 @@ Progress: [#############] 43% (13/30 plans)
 | 03-universal-transforms-and-icu4x | 2 | 6 min | 3 min |
 | 04-locale-management-and-error-handling | 2 | 10 min | 5 min |
 | 05-macro-code-generation | 4 | 20 min | 5 min |
+| 06-english-and-germanic-transforms | 1 | 5 min | 5 min |
 
 **Recent Trend:**
-- Last 5 plans: 7 min, 4 min, 5 min, 7 min, 4 min
+- Last 5 plans: 4 min, 5 min, 7 min, 4 min, 5 min
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -78,6 +79,10 @@ Recent decisions affecting current work:
 - Generated functions use expect() for errors (programming errors)
 - PhraseId constants use SCREAMING_CASE
 - Deterministic cycle detection via sorted key/ref iteration for stable trybuild tests
+- apply_selectors returns Value (not String) to preserve Phrase tags for transforms
+- apply_transforms accepts Value, first transform sees original Phrase with tags
+- Selector application strips tags (variant lookup returns String)
+- @an alias resolves to @a in TransformRegistry
 
 ### Pending Todos
 
@@ -181,19 +186,29 @@ Phase 5 (Macro Code Generation) is now complete with:
   - trybuild tests for compile-time error verification
   - Deterministic cycle detection for stable tests
 
-All 197 tests passing:
+## Phase 6 Progress
+
+Phase 6 (English and Germanic Transforms) in progress:
+- **06-01:** English Article Transforms (COMPLETE)
+  - EnglishA transform reading :a/:an tags
+  - EnglishThe transform prepending "the"
+  - @an alias resolving to @a
+  - Value-based transform execution preserves tags
+  - 19 new English transform tests
+
+All 208 tests passing:
 - 33 file parser integration tests
 - 46 template parser integration tests
 - 10 interpreter foundation tests
 - 27 interpreter evaluation tests
-- 30 interpreter transform tests
+- 48 interpreter transform tests (was 30, +18 English)
 - 7 interpreter error tests
 - 25 locale integration tests
 - 4 trybuild compile tests (1 pass, 3 fail)
-- 15 doctests
+- 14 doctests
 
 ## Session Continuity
 
-Last session: 2026-02-05T02:21:47Z
-Stopped at: Completed 05-04-PLAN.md (Phase 5 complete)
+Last session: 2026-02-05T03:59:42Z
+Stopped at: Completed 06-01-PLAN.md
 Resume file: None
