@@ -114,10 +114,12 @@ Plans:
   1. English @a/@an selects article from :a/:an tags, @the produces "the"
   2. German @der/@die/@das and @ein/@eine select by gender and case
   3. Dutch @de/@het selects by gender tag, @een produces indefinite
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 06-01: TBD
+- [ ] 06-01-PLAN.md — English transforms (@a/@an, @the) with Value threading fix
+- [ ] 06-02-PLAN.md — German transforms (@der/@ein) with case declension tables
+- [ ] 06-03-PLAN.md — Dutch transforms (@de/@het, @een) and cross-language verification
 
 ### Phase 7: Romance Language Transforms
 **Goal**: Article and contraction transforms work for Spanish, French, Portuguese, Italian
@@ -191,7 +193,7 @@ Note: Phases 6-9 (language transforms) can proceed in parallel after Phase 3 com
 | 3. Universal Transforms and ICU4X | 2/2 | Complete | 2026-02-04 |
 | 4. Locale Management and Error Handling | 2/2 | Complete | 2026-02-05 |
 | 5. Macro Code Generation | 4/4 | Complete | 2026-02-05 |
-| 6. English and Germanic Transforms | 0/1 | Not started | - |
+| 6. English and Germanic Transforms | 0/3 | Not started | - |
 | 7. Romance Language Transforms | 0/2 | Not started | - |
 | 8. Greek, Romanian, and Middle Eastern Transforms | 0/1 | Not started | - |
 | 9. Asian Language Transforms | 0/2 | Not started | - |
@@ -199,4 +201,4 @@ Note: Phases 6-9 (language transforms) can proceed in parallel after Phase 3 com
 
 ---
 *Roadmap created: 2026-02-04*
-*Last updated: 2026-02-05 after Phase 5 completion*
+*Last updated: 2026-02-05 after Phase 6 planning*
