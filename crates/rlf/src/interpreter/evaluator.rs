@@ -6,6 +6,7 @@
 
 use std::collections::HashMap;
 
+use crate::interpreter::error::compute_suggestions;
 use crate::interpreter::plural::plural_category;
 use crate::interpreter::transforms::TransformRegistry;
 use crate::interpreter::{EvalContext, EvalError, PhraseRegistry};
@@ -295,10 +296,12 @@ fn apply_selectors(
         Value::Phrase(phrase) => variant_lookup(phrase, &compound_key),
         _ => {
             // Non-phrase values don't have variants
+            let available: Vec<String> = vec![];
             Err(EvalError::MissingVariant {
                 phrase: value.to_string(),
-                key: compound_key,
-                available: vec![],
+                key: compound_key.clone(),
+                suggestions: compute_suggestions(&compound_key, &available),
+                available,
             })
         }
     }
@@ -384,9 +387,11 @@ fn variant_lookup(phrase: &Phrase, key: &str) -> Result<String, EvalError> {
 
     // No match found - return error with available variants
     let available: Vec<String> = phrase.variants.keys().map(|k| k.to_string()).collect();
+    let suggestions = compute_suggestions(key, &available);
     Err(EvalError::MissingVariant {
         phrase: phrase.text.clone(),
         key: key.to_string(),
+        suggestions,
         available,
     })
 }

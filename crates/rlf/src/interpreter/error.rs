@@ -2,7 +2,39 @@
 
 use std::path::PathBuf;
 
+use strsim::levenshtein;
 use thiserror::Error;
+
+/// Compute "did you mean" suggestions for a key using Levenshtein distance.
+///
+/// Returns up to 3 suggestions with edit distance <= 2 (or <= 1 for short keys).
+pub fn compute_suggestions(target: &str, available: &[String]) -> Vec<String> {
+    let max_distance = if target.len() <= 3 { 1 } else { 2 };
+
+    let mut scored: Vec<_> = available
+        .iter()
+        .filter_map(|candidate| {
+            let dist = levenshtein(target, candidate);
+            if dist <= max_distance && dist > 0 {
+                Some((candidate.clone(), dist))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    scored.sort_by_key(|(_, dist)| *dist);
+    scored.truncate(3);
+    scored.into_iter().map(|(s, _)| s).collect()
+}
+
+fn format_suggestions(suggestions: &[String]) -> String {
+    if suggestions.is_empty() {
+        String::new()
+    } else {
+        format!("; did you mean: {}?", suggestions.join(", "))
+    }
+}
 
 /// Errors that occur during translation loading.
 #[derive(Debug, Error)]
@@ -41,11 +73,12 @@ pub enum EvalError {
     PhraseNotFoundById { id: u64 },
 
     /// Required variant key is missing from phrase.
-    #[error("missing variant '{key}' in phrase '{phrase}', available: {}", available.join(", "))]
+    #[error("missing variant '{key}' in phrase '{phrase}', available: {}{}", available.join(", "), format_suggestions(suggestions))]
     MissingVariant {
         phrase: String,
         key: String,
         available: Vec<String>,
+        suggestions: Vec<String>,
     },
 
     /// Transform requires a tag that the phrase doesn't have.
