@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: Locale Management and Error Handling** - Locale struct, phrase loading, and comprehensive error types
 - [x] **Phase 5: Macro Code Generation** - rlf! macro parsing, code generation, and compile-time validation
 - [x] **Phase 6: English and Germanic Transforms** - Article transforms for English, German, and Dutch
-- [ ] **Phase 7: Romance Language Transforms** - Article and contraction transforms for Spanish, French, Portuguese, Italian
+- [x] **Phase 7: Romance Language Transforms** - Article and contraction transforms for Spanish, French, Portuguese, Italian
 - [ ] **Phase 8: Greek, Romanian, and Middle Eastern Transforms** - Greek articles, Romanian postposed articles, Arabic/Persian
 - [ ] **Phase 9: Asian Language Transforms** - CJK counters, Korean particles, Turkish inflection, Indonesian plural
 - [ ] **Phase 10: CLI Tools** - rlf check, rlf eval, rlf coverage commands
@@ -133,8 +133,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 07-01-PLAN.md — Spanish and Portuguese article/contraction transforms (@el, @un, @o, @um, @de, @em)
-- [ ] 07-02-PLAN.md — French and Italian transforms with elision/sound rules (@le, @un, @de, @au, @liaison, @il, @di, @a)
+- [x] 07-01-PLAN.md — Spanish and Portuguese article/contraction transforms (@el, @un, @o, @um, @de, @em)
+- [x] 07-02-PLAN.md — French and Italian transforms with elision/sound rules (@le, @un, @de, @au, @liaison, @il, @di, @a)
 
 ### Phase 8: Greek, Romanian, and Middle Eastern Transforms
 **Goal**: Article transforms for Greek/Romanian and special transforms for Arabic/Persian
@@ -194,11 +194,11 @@ Note: Phases 6-9 (language transforms) can proceed in parallel after Phase 3 com
 | 4. Locale Management and Error Handling | 2/2 | Complete | 2026-02-05 |
 | 5. Macro Code Generation | 4/4 | Complete | 2026-02-05 |
 | 6. English and Germanic Transforms | 3/3 | Complete | 2026-02-05 |
-| 7. Romance Language Transforms | 0/2 | Not started | - |
+| 7. Romance Language Transforms | 2/2 | Complete | 2026-02-04 |
 | 8. Greek, Romanian, and Middle Eastern Transforms | 0/1 | Not started | - |
 | 9. Asian Language Transforms | 0/2 | Not started | - |
 | 10. CLI Tools | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-04*
-*Last updated: 2026-02-05 after Phase 7 planning*
+*Last updated: 2026-02-04 after Phase 7 execution*
