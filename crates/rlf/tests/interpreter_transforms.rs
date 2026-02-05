@@ -1540,6 +1540,149 @@ fn portuguese_o_missing_gender() {
     assert!(matches!(result, Err(EvalError::MissingTag { .. })));
 }
 
+// =============================================================================
+// Spanish/Portuguese Integration Tests (Phase 7)
+// =============================================================================
+
+#[test]
+fn spanish_el_in_template() {
+    let source = r#"
+        carta = :fem "carta";
+        enemigo = :masc "enemigo";
+        the_card = "{@el carta}";
+        the_enemy = "{@la enemigo}";
+    "#;
+
+    let mut locale = Locale::builder().language("es").build();
+    locale.load_translations_str("es", source).unwrap();
+
+    assert_eq!(
+        locale.get_phrase("the_card").unwrap().to_string(),
+        "la carta"
+    );
+    // Note: @la alias resolves to @el, then looks up fem tag
+    assert_eq!(
+        locale.get_phrase("the_enemy").unwrap().to_string(),
+        "el enemigo"
+    );
+}
+
+#[test]
+fn spanish_el_with_plural_context() {
+    // Test: @el:other uses context to select plural article form
+    let source = r#"
+        carta = :fem "carta";
+        cartas = :fem "cartas";
+        return_all = "devuelve {@el:other cartas}";
+    "#;
+
+    let mut locale = Locale::builder().language("es").build();
+    locale.load_translations_str("es", source).unwrap();
+
+    // @el:other uses "other" context for plural article (las)
+    let result = locale.get_phrase("return_all").unwrap();
+    assert_eq!(result.to_string(), "devuelve las cartas");
+}
+
+#[test]
+fn spanish_un_in_template() {
+    let source = r#"
+        carta = :fem "carta";
+        enemigo = :masc "enemigo";
+        draw_one = "Roba {@un carta}.";
+        draw_enemy = "Roba {@una enemigo}.";
+    "#;
+
+    let mut locale = Locale::builder().language("es").build();
+    locale.load_translations_str("es", source).unwrap();
+
+    assert_eq!(
+        locale.get_phrase("draw_one").unwrap().to_string(),
+        "Roba una carta."
+    );
+    // @una resolves to @un
+    assert_eq!(
+        locale.get_phrase("draw_enemy").unwrap().to_string(),
+        "Roba un enemigo."
+    );
+}
+
+#[test]
+fn portuguese_o_in_template() {
+    let source = r#"
+        carta = :fem "carta";
+        inimigo = :masc "inimigo";
+        the_card = "{@o carta}";
+        the_enemy = "{@a inimigo}";
+    "#;
+
+    let mut locale = Locale::builder().language("pt").build();
+    locale.load_translations_str("pt", source).unwrap();
+
+    assert_eq!(
+        locale.get_phrase("the_card").unwrap().to_string(),
+        "a carta"
+    );
+    // @a alias resolves to @o
+    assert_eq!(
+        locale.get_phrase("the_enemy").unwrap().to_string(),
+        "o inimigo"
+    );
+}
+
+#[test]
+fn portuguese_contractions_in_template() {
+    let source = r#"
+        vazio = :masc "vazio";
+        mao = :fem "mao";
+        from_void = "{@de vazio}";
+        in_hand = "{@em mao}";
+    "#;
+
+    let mut locale = Locale::builder().language("pt").build();
+    locale.load_translations_str("pt", source).unwrap();
+
+    assert_eq!(
+        locale.get_phrase("from_void").unwrap().to_string(),
+        "do vazio" // de + o = do
+    );
+    assert_eq!(
+        locale.get_phrase("in_hand").unwrap().to_string(),
+        "na mao" // em + a = na
+    );
+}
+
+#[test]
+fn spanish_portuguese_cross_language() {
+    // Verify same phrase structure works in both languages
+    let es_source = r#"
+        carta = :fem "carta";
+        draw_card = "Roba {@un carta}.";
+    "#;
+
+    let pt_source = r#"
+        carta = :fem "carta";
+        draw_card = "Compre {@um carta}.";
+    "#;
+
+    // Spanish locale
+    let mut es_locale = Locale::builder().language("es").build();
+    es_locale.load_translations_str("es", es_source).unwrap();
+
+    // Portuguese locale
+    let mut pt_locale = Locale::builder().language("pt").build();
+    pt_locale.load_translations_str("pt", pt_source).unwrap();
+
+    assert_eq!(
+        es_locale.get_phrase("draw_card").unwrap().to_string(),
+        "Roba una carta."
+    );
+    assert_eq!(
+        pt_locale.get_phrase("draw_card").unwrap().to_string(),
+        "Compre uma carta."
+    );
+}
+
 #[test]
 fn all_phase6_transforms_work() {
     // English
