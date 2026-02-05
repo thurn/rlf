@@ -176,11 +176,12 @@ Plans:
   2. `rlf eval --lang <lang> --template <template>` evaluates template with params
   3. `rlf coverage --source <file> --lang <langs>` shows translation coverage table
   4. Exit codes are correct (0 success, non-zero failure)
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 10-01: TBD
-- [ ] 10-02: TBD
+- [ ] 10-01-PLAN.md — rlf-cli crate setup and check command with miette diagnostics
+- [ ] 10-02-PLAN.md — eval command for template evaluation
+- [ ] 10-03-PLAN.md — coverage command with ASCII table output
 
 ## Progress
 
@@ -199,8 +200,8 @@ Note: Phases 6-9 (language transforms) can proceed in parallel after Phase 3 com
 | 7. Romance Language Transforms | 2/2 | Complete | 2026-02-04 |
 | 8. Greek, Romanian, and Middle Eastern Transforms | 2/2 | Complete | 2026-02-04 |
 | 9. Asian Language Transforms | 3/3 | Complete | 2026-02-05 |
-| 10. CLI Tools | 0/2 | Not started | - |
+| 10. CLI Tools | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-04*
-*Last updated: 2026-02-05 after Phase 9 completion*
+*Last updated: 2026-02-05 after Phase 10 planning*
