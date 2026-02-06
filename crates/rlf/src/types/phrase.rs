@@ -122,3 +122,9 @@ impl Display for Phrase {
         write!(f, "{}", self.text)
     }
 }
+
+impl From<Phrase> for String {
+    fn from(phrase: Phrase) -> Self {
+        phrase.text
+    }
+}
