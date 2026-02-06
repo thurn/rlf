@@ -500,8 +500,7 @@ or load translations, use the global locale API:
 // At startup
 rlf::set_language("ru");
 rlf::with_locale_mut(|locale| {
-    locale.load_translations("ru", "assets/localization/ru.rlf")?;
-    Ok(())
+    locale.load_translations("ru", "assets/localization/ru.rlf").unwrap();
 });
 
 // Usage — no locale parameter needed
