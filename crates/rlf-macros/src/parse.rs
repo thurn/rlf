@@ -336,21 +336,36 @@ fn parse_interpolation(content: &str, span: Span) -> syn::Result<Interpolation> 
     }
 
     // Parse reference (identifier or call)
-    let reference = parse_reference(rest, span)?;
+    let (reference, remaining, auto_cap) = parse_reference(rest, span)?;
+
+    // If auto-capitalization was triggered, prepend @cap transform
+    if auto_cap {
+        transforms.insert(
+            0,
+            TransformRef {
+                name: SpannedIdent::from_str("cap", span),
+                context: None,
+            },
+        );
+    }
 
     // Extract selectors from the rest (they come after the reference)
-    let selectors = extract_selectors(&reference.1, span)?;
+    let selectors = extract_selectors(&remaining, span)?;
 
     Ok(Interpolation {
         transforms,
-        reference: reference.0,
+        reference,
         selectors,
         span,
     })
 }
 
-/// Parse a reference from a string, returning the Reference and any remaining content.
-fn parse_reference(content: &str, span: Span) -> syn::Result<(Reference, String)> {
+/// Parse a reference from a string, returning the Reference, auto-cap flag, and remaining content.
+///
+/// Auto-capitalization: if the identifier starts with an uppercase ASCII letter,
+/// the first character is lowercased and `auto_cap` is set to true. The caller
+/// should prepend `@cap` to the transform list.
+fn parse_reference(content: &str, span: Span) -> syn::Result<(Reference, String, bool)> {
     let content = content.trim();
 
     if content.is_empty() {
@@ -371,6 +386,20 @@ fn parse_reference(content: &str, span: Span) -> syn::Result<(Reference, String)
 
     let ident = &content[..ident_end];
     let rest = &content[ident_end..];
+
+    // Detect auto-capitalization: uppercase first ASCII letter
+    let first_char = ident.chars().next().unwrap();
+    let auto_cap = first_char.is_ascii_uppercase();
+    let actual_ident = if auto_cap {
+        let mut chars = ident.chars();
+        let lowered = chars.next().unwrap().to_ascii_lowercase();
+        let mut result = String::with_capacity(ident.len());
+        result.push(lowered);
+        result.extend(chars);
+        result
+    } else {
+        ident.to_string()
+    };
 
     // Check for call syntax: name(args)
     if rest.starts_with('(') {
@@ -402,22 +431,24 @@ fn parse_reference(content: &str, span: Span) -> syn::Result<(Reference, String)
         let mut args = Vec::new();
         if !args_str.is_empty() {
             for arg in args_str.split(',') {
-                let (arg_ref, _) = parse_reference(arg.trim(), span)?;
+                let (arg_ref, _, _) = parse_reference(arg.trim(), span)?;
                 args.push(arg_ref);
             }
         }
 
         Ok((
             Reference::Call {
-                name: SpannedIdent::from_str(ident, span),
+                name: SpannedIdent::from_str(actual_ident, span),
                 args,
             },
             after_call.to_string(),
+            auto_cap,
         ))
     } else {
         Ok((
-            Reference::Identifier(SpannedIdent::from_str(ident, span)),
+            Reference::Identifier(SpannedIdent::from_str(actual_ident, span)),
             rest.to_string(),
+            auto_cap,
         ))
     }
 }
