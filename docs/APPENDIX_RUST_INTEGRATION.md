@@ -23,39 +23,20 @@ The process has three phases:
 The macro receives tokens from inside the `rlf! { ... }` block. It parses these
 into an internal representation:
 
-```rust
-// Internal AST (conceptual)
-struct PhraseDefinition {
-    name: Identifier,
-    parameters: Vec<Identifier>,
-    body: PhraseBody,
-    tags: Vec<MetadataTag>,
-}
+The macro parses each phrase into a `PhraseDefinition` containing:
 
-enum PhraseBody {
-    Simple(TemplateString),
-    Variants(Vec<(VariantKey, TemplateString)>),
-}
+- A **name** (identifier with span information for error reporting)
+- A list of **parameters** (identifiers)
+- **Metadata tags** (e.g., `:a`, `:fem`)
+- An optional **`:from` parameter** for metadata inheritance
+- A **body**: either a `Simple` template or `Variants` (a list of
+  `VariantEntry` values, each with one or more keys and a template)
 
-struct TemplateString {
-    segments: Vec<Segment>,
-}
-
-enum Segment {
-    Literal(String),
-    Interpolation {
-        transforms: Vec<Transform>,
-        reference: Reference,
-        selectors: Vec<Selector>,
-    },
-}
-
-enum Reference {
-    Parameter(Identifier),
-    Phrase(Identifier),
-    PhraseCall { name: Identifier, args: Vec<Reference> },
-}
-```
+Each `Template` contains a list of `Segment` values: either `Literal` text or
+`Interpolation` blocks. Interpolations contain transforms, a `Reference` (either
+an `Identifier` or a `Call` with arguments), and selectors. At parse time,
+parameters and phrases are not distinguished -- both are represented as
+`Identifier`. Resolution happens during validation and evaluation.
 
 ### Parsing Interpolations
 
@@ -862,135 +843,88 @@ Key differences:
 
 ## Selection Evaluation
 
-Selection is resolved at runtime by the interpreter. The interpreter tries exact
-matches first, then progressively shorter fallback keys:
+Selection is resolved at runtime by the interpreter. Given an RLF definition
+like:
 
-```rust
-// RLF:
+```
 card = { nom: "card", nom.other: "cards" };
 draw(n) = "Draw {n} {card:nom:n}.";
-
-// Interpreter logic:
-fn resolve_variant(
-    variants: &HashMap<String, String>,
-    key: &str,
-    phrase_name: &str,
-) -> Result<&str, EvalError> {
-    // Try exact match: "nom.one"
-    if let Some(v) = variants.get(key) {
-        return Ok(v);
-    }
-    // Try fallback: "nom"
-    if let Some(dot) = key.rfind('.') {
-        let fallback = &key[..dot];
-        if let Some(v) = variants.get(fallback) {
-            return Ok(v);
-        }
-    }
-    Err(EvalError::MissingVariant {
-        phrase: phrase_name.to_string(),
-        key: key.to_string(),
-        available: variants.keys().cloned().collect(),
-    })
-}
 ```
+
+**Variant resolution** tries an exact key match first. If not found, it
+progressively strips the last `.segment` from the key and retries. For example,
+`nom.one` -> try "nom.one" (miss) -> try "nom" (hit) -> "card". If no match is
+found after all fallbacks, a `MissingVariant` error is returned listing available
+variant keys and similar suggestions.
 
 ### Tag-Based Selection
 
 When selecting based on a phrase's tag, the interpreter reads the tag and uses
-it as the variant key:
+it as the variant key. For example, given:
 
-```rust
-// RLF:
+```
 destroyed = { masc: "destruido", fem: "destruida" };
 destroy(target) = "{target} fue {destroyed:target}.";
-
-// Interpreter logic:
-// 1. Evaluate 'target' parameter → gets a Phrase value
-// 2. Read first tag from target phrase (e.g., "fem")
-// 3. Select 'destroyed' variant using that tag
-// 4. If no matching variant, panic with descriptive error
 ```
+
+**Tag-based selection** works as follows:
+
+1. Evaluate the `target` parameter, which produces a `Phrase` value
+2. Read all metadata tags from the target `Phrase` (e.g., `:fem`)
+3. Use those tags as candidate keys for variant lookup in `destroyed`
+4. If no matching variant is found, return a `MissingVariant` error
+
+When a `Phrase` has multiple tags (e.g., `:masc :anim` in Russian), all tags are
+tried as candidates. This enables multi-dimensional selection for languages where
+gender and animacy are independent grammatical properties.
 
 ---
 
 ## Transform Evaluation
 
-Transforms are evaluated by the interpreter at runtime:
+Transforms are evaluated by the interpreter at runtime. Each transform is a
+variant of the `TransformKind` enum, dispatched via its `execute()` method. For
+example, given:
 
-```rust
-// RLF:
+```
 card = :a "card";
 draw_one = "Draw {@a card}.";
-
-// Interpreter has built-in transform functions:
-fn transform_a(value: Value) -> String {
-    let text = value.to_string();
-
-    if value.has_tag("a") {
-        return format!("a {}", text);
-    }
-    if value.has_tag("an") {
-        return format!("an {}", text);
-    }
-
-    panic!("@a transform requires tag ':a' or ':an' on '{}'", text)
-}
 ```
+
+**@a transform** checks the value's tags for `:an` first, then `:a`. If `:an` is
+found, prepends "an "; if `:a` is found, prepends "a ". If neither tag exists,
+returns a `MissingTag` error. The `@an` alias resolves to the same transform.
 
 ### Transform Aliases
 
-Aliases are resolved by the interpreter:
-
-```rust
-// @an → @a
-play_event = "Play {@an event}.";
-
-// Interpreter maps @an to the same transform function as @a
-```
+**Alias resolution** maps alternative transform names to their canonical
+`TransformKind` variant. For example, `@an` maps to the same `TransformKind` as
+`@a`. The `TransformRegistry` handles this mapping when looking up a transform by
+name and language.
 
 ---
 
 ## Metadata Inheritance Evaluation
 
-The `:from(param)` modifier enables phrase-returning phrases. The interpreter
-handles this by evaluating the template multiple times:
+The `:from(param)` modifier enables phrase-returning phrases. For example, given:
 
-```rust
-// RLF:
+```
 ancient = :an { one: "Ancient", other: "Ancients" };
 subtype(s) = :from(s) "<color=#2E7D32><b>{s}</b></color>";
-
-// Interpreter logic for subtype(ancient):
-fn eval_phrase_with_from(
-    template: &Template,
-    from_param: &str,
-    params: &HashMap<String, Value>,
-) -> Phrase {
-    let source = params.get(from_param).expect("param exists").as_phrase();
-
-    // Inherit tags
-    let tags = source.tags.clone();
-
-    // Evaluate template for each variant
-    let mut variants = HashMap::new();
-    for (key, variant_text) in &source.variants {
-        let mut variant_params = params.clone();
-        variant_params.insert(from_param.to_string(), Value::String(variant_text.clone()));
-        let result = eval_template(template, &variant_params);
-        variants.insert(key.clone(), result);
-    }
-
-    // Default text uses the source's default text
-    let text = {
-        let mut default_params = params.clone();
-        default_params.insert(from_param.to_string(), Value::String(source.text.clone()));
-        eval_template(template, &default_params)
-    };
-
-    Phrase { text, variants, tags }
-}
 ```
+
+**Metadata inheritance** works as follows when evaluating `subtype(ancient)`:
+
+1. Look up the `:from` parameter (`s`) in the evaluation context and extract its
+   `Phrase` value
+2. Clone the source phrase's tags (e.g., `:an`) for inheritance
+3. Evaluate the template using the source phrase's default text to produce the
+   result's default text
+4. For each variant in the source phrase (e.g., `one: "Ancient"`,
+   `other: "Ancients"`), substitute the variant text for the parameter and
+   re-evaluate the template, building the result's variant map
+5. Return a new `Phrase` with the computed default text, variant map, and
+   inherited tags
 
 This enables composition patterns like `{@a subtype(s)}` where `@a` reads the
 inherited tag and `:other` selectors access inherited variants.
@@ -1051,14 +985,10 @@ error: phrase 'card' has no variant 'accusative'
 
 ### Span Preservation
 
-The macro preserves source spans for precise error locations:
-
-```rust
-struct Identifier {
-    name: String,
-    span: Span,
-}
-```
+The macro preserves source spans for precise error locations. Each identifier in
+the AST is wrapped in a `SpannedIdent` that pairs the name string with a
+`proc_macro2::Span`, allowing the macro to point errors directly at the source
+token that caused the issue.
 
 ### Helpful Suggestions
 
@@ -1151,70 +1081,40 @@ icu_locale_core = "2"
 
 ### CLDR Plural Rules
 
-```rust
-use icu_plurals::{PluralCategory, PluralRuleType, PluralRules};
-use icu_locale_core::locale;
+**Plural category resolution** maps a language code and number to one of the
+CLDR plural categories: "zero", "one", "two", "few", "many", or "other".
 
-fn plural_category(lang: &str, n: i64) -> &'static str {
-    let locale = match lang {
-        "en" => locale!("en"),
-        "ru" => locale!("ru"),
-        "ar" => locale!("ar"),
-        _ => locale!("en"),
-    };
-
-    let rules = PluralRules::try_new(locale.into(), PluralRuleType::Cardinal)
-        .expect("locale should be supported");
-
-    match rules.category_for(n) {
-        PluralCategory::Zero => "zero",
-        PluralCategory::One => "one",
-        PluralCategory::Two => "two",
-        PluralCategory::Few => "few",
-        PluralCategory::Many => "many",
-        PluralCategory::Other => "other",
-    }
-}
-```
+1. Normalize the language code to a supported ICU4X locale (unsupported codes
+   fall back to English)
+2. Look up or create a cached `PluralRules` instance for the language (cached
+   per thread to avoid repeated construction)
+3. Compute the cardinal plural category for the given number
+4. Return the category as a string (e.g., "one", "other")
 
 ### Universal Transforms
 
-```rust
-pub fn transform_cap(s: &str) -> String {
-    let mut chars = s.chars();
-    match chars.next() {
-        None => String::new(),
-        Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
-    }
-}
+Universal transforms are implemented as `TransformKind` enum variants (`Cap`,
+`Upper`, `Lower`), dispatched via the `execute()` method:
 
-pub fn transform_upper(s: &str) -> String {
-    s.to_uppercase()
-}
-
-pub fn transform_lower(s: &str) -> String {
-    s.to_lowercase()
-}
-```
+- **@cap**: Uppercases the first grapheme cluster of the text, leaving the rest
+  unchanged. Uses ICU4X locale-aware case mapping for correct behavior with
+  accented characters and non-Latin scripts.
+- **@upper**: Converts the entire text to uppercase using ICU4X locale-aware
+  case mapping.
+- **@lower**: Converts the entire text to lowercase using ICU4X locale-aware
+  case mapping.
 
 ### Language-Specific Transforms
 
-Each language has transform implementations:
+Each language has its own set of `TransformKind` variants. For example, English
+has `EnglishA` (for `@a`/`@an`) and `EnglishThe` (for `@the`). The
+`TransformRegistry` maps transform names to the appropriate variant for each
+language.
 
-```rust
-// English @a transform
-fn transform_a_en(value: Value) -> String {
-    let text = value.to_string();
-
-    if value.has_tag("an") {
-        format!("an {}", text)
-    } else if value.has_tag("a") {
-        format!("a {}", text)
-    } else {
-        panic!("@a transform requires tag ':a' or ':an' on '{}'", text)
-    }
-}
-```
+**@a transform (English)** checks the value's tags for `:an` first, then `:a`.
+If `:an` is found, prepends "an "; if `:a` is found, prepends "a ". If neither
+tag exists, returns a `MissingTag` error. Tags are checked on the `Value`
+directly, so transforms work correctly with `Phrase` values that carry metadata.
 
 ---
 
