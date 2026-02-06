@@ -113,6 +113,9 @@ pub enum TransformKind {
     // Hungarian inflection transform
     /// @inflect - Hungarian suffix chain with vowel harmony
     HungarianInflect,
+    // Japanese particle transform
+    /// @particle - Japanese particle selection based on context
+    JapaneseParticle,
 }
 
 impl TransformKind {
@@ -188,6 +191,8 @@ impl TransformKind {
             TransformKind::FinnishInflect => finnish_inflect_transform(value, context),
             // Hungarian @inflect needs Value (for tags) and context (for suffix chain)
             TransformKind::HungarianInflect => hungarian_inflect_transform(value, context),
+            // Japanese @particle needs context (for particle type)
+            TransformKind::JapaneseParticle => japanese_particle_transform(context),
         }
     }
 }
@@ -1515,6 +1520,78 @@ fn korean_particle_transform(value: &Value, context: Option<&Value>) -> Result<S
 }
 
 // =============================================================================
+// Japanese Particle Transform
+// =============================================================================
+
+/// Japanese particle type for @particle transform.
+#[derive(Clone, Copy)]
+enum JapaneseParticleType {
+    /// Subject particle: が (ga)
+    Subject,
+    /// Object particle: を (wo)
+    Object,
+    /// Topic particle: は (wa)
+    Topic,
+    /// Location particle: に (ni)
+    Location,
+    /// Place of action particle: で (de)
+    Place,
+    /// Direction particle: へ (e)
+    Direction,
+    /// Origin particle: から (kara)
+    From,
+    /// Limit particle: まで (made)
+    Until,
+}
+
+/// Japanese @particle transform.
+///
+/// Appends the appropriate Japanese particle based on context. Unlike Korean,
+/// Japanese particles do not change form based on the preceding sound.
+///
+/// Particle types from context:
+/// - "subj" -> が (ga)
+/// - "obj" -> を (wo)
+/// - "topic" -> は (wa)
+/// - "loc" -> に (ni)
+/// - "place" -> で (de)
+/// - "dir" -> へ (e)
+/// - "from" -> から (kara)
+/// - "until" -> まで (made)
+/// - Default to Subject if no context
+///
+/// Returns ONLY the particle (not prepended to text).
+fn japanese_particle_transform(context: Option<&Value>) -> Result<String, EvalError> {
+    let particle_type = match context {
+        Some(Value::String(s)) => match s.as_str() {
+            "subj" => JapaneseParticleType::Subject,
+            "obj" => JapaneseParticleType::Object,
+            "topic" => JapaneseParticleType::Topic,
+            "loc" => JapaneseParticleType::Location,
+            "place" => JapaneseParticleType::Place,
+            "dir" => JapaneseParticleType::Direction,
+            "from" => JapaneseParticleType::From,
+            "until" => JapaneseParticleType::Until,
+            _ => JapaneseParticleType::Subject,
+        },
+        _ => JapaneseParticleType::Subject,
+    };
+
+    let particle = match particle_type {
+        JapaneseParticleType::Subject => "が",
+        JapaneseParticleType::Object => "を",
+        JapaneseParticleType::Topic => "は",
+        JapaneseParticleType::Location => "に",
+        JapaneseParticleType::Place => "で",
+        JapaneseParticleType::Direction => "へ",
+        JapaneseParticleType::From => "から",
+        JapaneseParticleType::Until => "まで",
+    };
+
+    Ok(particle.to_string())
+}
+
+// =============================================================================
 // Turkish Inflect Transform (Phase 9)
 // =============================================================================
 
@@ -2213,6 +2290,7 @@ impl TransformRegistry {
             ("bn", "count") => Some(TransformKind::BengaliCount),
             ("id", "plural") => Some(TransformKind::IndonesianPlural),
             ("ko", "particle") => Some(TransformKind::KoreanParticle),
+            ("ja", "particle") => Some(TransformKind::JapaneseParticle),
             ("tr", "inflect") => Some(TransformKind::TurkishInflect),
             ("fi", "inflect") => Some(TransformKind::FinnishInflect),
             ("hu", "inflect") => Some(TransformKind::HungarianInflect),

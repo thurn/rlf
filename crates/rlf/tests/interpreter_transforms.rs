@@ -4409,6 +4409,152 @@ fn korean_particle_registered() {
 }
 
 // =============================================================================
+// Japanese @particle Transform Tests
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Japanese @particle Particle Types
+// -----------------------------------------------------------------------------
+
+#[test]
+fn japanese_particle_subj() {
+    // "カード" + :subj -> "が"
+    let phrase = Phrase::builder().text("カード".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::JapaneseParticle;
+    let context = Value::String("subj".to_string());
+    let result = transform.execute(&value, Some(&context), "ja").unwrap();
+    assert_eq!(result, "が");
+}
+
+#[test]
+fn japanese_particle_obj() {
+    // "カード" + :obj -> "を"
+    let phrase = Phrase::builder().text("カード".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::JapaneseParticle;
+    let context = Value::String("obj".to_string());
+    let result = transform.execute(&value, Some(&context), "ja").unwrap();
+    assert_eq!(result, "を");
+}
+
+#[test]
+fn japanese_particle_topic() {
+    // "カード" + :topic -> "は"
+    let phrase = Phrase::builder().text("カード".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::JapaneseParticle;
+    let context = Value::String("topic".to_string());
+    let result = transform.execute(&value, Some(&context), "ja").unwrap();
+    assert_eq!(result, "は");
+}
+
+#[test]
+fn japanese_particle_loc() {
+    // "東京" + :loc -> "に"
+    let phrase = Phrase::builder().text("東京".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::JapaneseParticle;
+    let context = Value::String("loc".to_string());
+    let result = transform.execute(&value, Some(&context), "ja").unwrap();
+    assert_eq!(result, "に");
+}
+
+#[test]
+fn japanese_particle_place() {
+    // "学校" + :place -> "で"
+    let phrase = Phrase::builder().text("学校".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::JapaneseParticle;
+    let context = Value::String("place".to_string());
+    let result = transform.execute(&value, Some(&context), "ja").unwrap();
+    assert_eq!(result, "で");
+}
+
+#[test]
+fn japanese_particle_dir() {
+    // "東" + :dir -> "へ"
+    let phrase = Phrase::builder().text("東".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::JapaneseParticle;
+    let context = Value::String("dir".to_string());
+    let result = transform.execute(&value, Some(&context), "ja").unwrap();
+    assert_eq!(result, "へ");
+}
+
+#[test]
+fn japanese_particle_from() {
+    // "駅" + :from -> "から"
+    let phrase = Phrase::builder().text("駅".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::JapaneseParticle;
+    let context = Value::String("from".to_string());
+    let result = transform.execute(&value, Some(&context), "ja").unwrap();
+    assert_eq!(result, "から");
+}
+
+#[test]
+fn japanese_particle_until() {
+    // "家" + :until -> "まで"
+    let phrase = Phrase::builder().text("家".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::JapaneseParticle;
+    let context = Value::String("until".to_string());
+    let result = transform.execute(&value, Some(&context), "ja").unwrap();
+    assert_eq!(result, "まで");
+}
+
+// -----------------------------------------------------------------------------
+// Japanese @particle Default and Edge Cases
+// -----------------------------------------------------------------------------
+
+#[test]
+fn japanese_particle_default() {
+    // No context -> defaults to Subject particle が
+    let phrase = Phrase::builder().text("猫".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::JapaneseParticle;
+    let result = transform.execute(&value, None, "ja").unwrap();
+    assert_eq!(result, "が");
+}
+
+#[test]
+fn japanese_particle_unknown_context() {
+    // Unknown context string -> defaults to Subject particle が
+    let phrase = Phrase::builder().text("猫".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::JapaneseParticle;
+    let context = Value::String("unknown".to_string());
+    let result = transform.execute(&value, Some(&context), "ja").unwrap();
+    assert_eq!(result, "が");
+}
+
+#[test]
+fn japanese_particle_english_text() {
+    // English text works the same since Japanese particles are phonology-independent
+    let phrase = Phrase::builder().text("card".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::JapaneseParticle;
+    let context = Value::String("obj".to_string());
+    let result = transform.execute(&value, Some(&context), "ja").unwrap();
+    assert_eq!(result, "を");
+}
+
+// -----------------------------------------------------------------------------
+// Japanese @particle Registry Test
+// -----------------------------------------------------------------------------
+
+#[test]
+fn japanese_particle_registered() {
+    let registry = TransformRegistry::new();
+    assert!(registry.get("particle", "ja").is_some());
+    assert_eq!(
+        registry.get("particle", "ja"),
+        Some(TransformKind::JapaneseParticle)
+    );
+}
+
+// =============================================================================
 // Turkish @inflect Transform Tests (Phase 9)
 // =============================================================================
 
