@@ -2000,7 +2000,7 @@ fn french_au_contraction_feminine() {
     let value = Value::Phrase(phrase);
     let transform = TransformKind::FrenchAu;
     let result = transform.execute(&value, None, "fr").unwrap();
-    assert_eq!(result, "a la main"); // No contraction
+    assert_eq!(result, "à la main"); // No contraction, accent grave on "à"
 }
 
 #[test]
@@ -2012,7 +2012,7 @@ fn french_au_elision() {
     let value = Value::Phrase(phrase);
     let transform = TransformKind::FrenchAu;
     let result = transform.execute(&value, None, "fr").unwrap();
-    assert_eq!(result, "a l'ami"); // a + l' (elided)
+    assert_eq!(result, "à l'ami"); // à + l' (elided, accent grave on "à")
 }
 
 #[test]
@@ -2571,15 +2571,15 @@ fn french_au_contractions_in_template() {
         locale.get_phrase("to_market").unwrap().to_string(),
         "au marche"
     );
-    // a + l' = a l'
+    // à + l' = à l'
     assert_eq!(
         locale.get_phrase("to_friend").unwrap().to_string(),
-        "a l'ami"
+        "à l'ami"
     );
-    // a + la = a la
+    // à + la = à la
     assert_eq!(
         locale.get_phrase("to_house").unwrap().to_string(),
-        "a la maison"
+        "à la maison"
     );
     // a + les = aux
     assert_eq!(

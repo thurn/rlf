@@ -747,12 +747,12 @@ fn french_au_contraction(
     plural: RomancePlural,
 ) -> &'static str {
     match (gender, has_vowel, plural) {
-        // Elision: a + l' -> a l' (no contraction, but elided article)
-        (_, true, RomancePlural::One) => "a l'",
-        // Masculine singular: a + le -> au
+        // Elision: à + l' -> à l' (no contraction, but elided article)
+        (_, true, RomancePlural::One) => "à l'",
+        // Masculine singular: à + le -> au (contraction absorbs accent)
         (RomanceGender::Masculine, false, RomancePlural::One) => "au",
-        // Feminine singular: a + la -> a la (no contraction)
-        (RomanceGender::Feminine, false, RomancePlural::One) => "a la",
+        // Feminine singular: à + la -> à la (no contraction)
+        (RomanceGender::Feminine, false, RomancePlural::One) => "à la",
         // Plural: a + les -> aux
         (_, _, RomancePlural::Other) => "aux",
     }
