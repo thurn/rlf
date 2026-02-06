@@ -330,7 +330,7 @@ evaluation goes through `Locale`.
 
 ```rust
 impl Locale {
-    /// Create with default configuration (English, no fallback).
+    /// Create with default configuration (English).
     pub fn new() -> Self;
 
     /// Create with the specified language.
@@ -342,10 +342,10 @@ impl Locale {
     /// Change the current language.
     pub fn set_language(&mut self, language: impl Into<String>);
 
-    /// Get a parameterless phrase (uses current language with fallback).
+    /// Get a parameterless phrase in the current language.
     pub fn get_phrase(&self, name: &str) -> Result<Phrase, EvalError>;
 
-    /// Call a phrase with arguments (uses current language with fallback).
+    /// Call a phrase with arguments in the current language.
     pub fn call_phrase(&self, name: &str, args: &[Value]) -> Result<Phrase, EvalError>;
 
     /// Parse and evaluate a template string (uses current language).
@@ -375,8 +375,8 @@ impl Locale {
 ```
 
 `Locale` uses the current language for all evaluation methods (`get_phrase`,
-`call_phrase`, `eval_str`). If a fallback language is configured and the phrase
-is not found in the primary language, the fallback is tried automatically.
+`call_phrase`, `eval_str`). If a phrase is not found, `PhraseNotFound` error is
+returned.
 
 For lower-level access, `PhraseRegistry` provides per-language phrase storage
 with methods like `call_phrase(lang, name, args)` and `get_phrase(lang, name)`
@@ -456,25 +456,15 @@ pub fn draw(locale: &Locale, n: impl Into<Value>) -> Phrase {
 Use the `Locale` API directly for templates from TOML, JSON, or user-provided
 data. This lets you catch and handle errors rather than panicking.
 
-### Optional Language Fallback
+### No Language Fallback
 
-By default, RLF does **not** fall back to another language when a phrase is
-missing. If you request `draw` in Russian and it doesn't exist, you get
-`PhraseNotFound`—not the English version.
+RLF does **not** fall back to another language when a phrase is missing. If you
+request `draw` in Russian and it doesn't exist, you get `PhraseNotFound`—not the
+English version.
 
-However, `Locale` supports an optional fallback language. When configured, if a
-phrase is not found in the primary language, the fallback language is tried:
-
-```rust
-let mut locale = Locale::builder()
-    .language("ru")
-    .fallback_language("en".to_string())
-    .build();
-```
-
-For production builds, it is recommended to keep fallback disabled and ensure
-translations are complete. Missing phrases should be caught during development
-or by CI tooling.
+This is intentional: translations must be complete. Missing phrases are errors
+that should be caught during development or by CI tooling, not silently papered
+over with fallback behavior.
 
 ### Error Messages
 
