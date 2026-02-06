@@ -110,6 +110,9 @@ pub enum TransformKind {
     // Finnish inflection transform
     /// @inflect - Finnish suffix chain with vowel harmony
     FinnishInflect,
+    // Hungarian inflection transform
+    /// @inflect - Hungarian suffix chain with vowel harmony
+    HungarianInflect,
 }
 
 impl TransformKind {
@@ -183,6 +186,8 @@ impl TransformKind {
             TransformKind::TurkishInflect => turkish_inflect_transform(value, context),
             // Finnish @inflect needs Value (for tags) and context (for suffix chain)
             TransformKind::FinnishInflect => finnish_inflect_transform(value, context),
+            // Hungarian @inflect needs Value (for tags) and context (for suffix chain)
+            TransformKind::HungarianInflect => hungarian_inflect_transform(value, context),
         }
     }
 }
@@ -1867,6 +1872,260 @@ fn finnish_inflect_transform(value: &Value, context: Option<&Value>) -> Result<S
     Ok(result)
 }
 
+// =============================================================================
+// Hungarian Inflect Transform
+// =============================================================================
+
+/// Hungarian vowel harmony type.
+///
+/// Hungarian has a 3-way harmony system for some suffixes:
+/// - Back vowels: a, o, u
+/// - Front unrounded vowels: e, i
+/// - Front rounded vowels: ö, ü
+#[derive(Clone, Copy)]
+enum HungarianHarmony {
+    /// Back vowels: a, á, o, ó, u, ú
+    Back,
+    /// Front unrounded vowels: e, é, i, í
+    Front,
+    /// Front rounded vowels: ö, ő, ü, ű
+    Round,
+}
+
+/// Hungarian suffix types for @inflect transform.
+#[derive(Clone, Copy)]
+enum HungarianSuffix {
+    /// Plural: -k (with linking vowel -ok/-ek/-ök)
+    Plural,
+    /// Nominative: no suffix (unmarked case)
+    Nominative,
+    /// Accusative: -t (with linking vowel -ot/-et/-öt)
+    Accusative,
+    /// Dative: -nak/-nek
+    Dative,
+    /// Inessive (in): -ban/-ben
+    Inessive,
+    /// Illative (into): -ba/-be
+    Illative,
+    /// Elative (out of): -ból/-ből
+    Elative,
+    /// Superessive (on): -n/-on/-en/-ön
+    Superessive,
+    /// Sublative (onto): -ra/-re
+    Sublative,
+    /// Delative (off of): -ról/-ről
+    Delative,
+    /// Adessive (at/near): -nál/-nél
+    Adessive,
+    /// Ablative (from): -tól/-től
+    Ablative,
+    /// Allative (towards): -hoz/-hez/-höz
+    Allative,
+    /// Instrumental: -val/-vel
+    Instrumental,
+    /// Translative (becoming): -vá/-vé
+    Translative,
+    /// Causal-final (for): -ért
+    CausalFinal,
+    /// Terminative (until): -ig
+    Terminative,
+    /// Essive-formal (as): -ként
+    EssiveFormal,
+    /// Possessive 1st person singular: -m/-om/-em/-öm (my)
+    Poss1Sg,
+    /// Possessive 2nd person singular: -d/-od/-ed/-öd (your)
+    Poss2Sg,
+    /// Possessive 3rd person singular: -a/-e/-ja/-je (his/her/its)
+    Poss3Sg,
+    /// Possessive 1st person plural: -unk/-ünk (our)
+    Poss1Pl,
+    /// Possessive 2nd person plural: -tok/-tek/-tök (your, pl.)
+    Poss2Pl,
+    /// Possessive 3rd person plural: -uk/-ük/-juk/-jük (their)
+    Poss3Pl,
+}
+
+/// Parse suffix chain from context value for Hungarian.
+///
+/// Parses dot-separated suffix names: "pl.dat" -> [Plural, Dative]
+fn parse_hungarian_suffix_chain(context: Option<&Value>) -> Vec<HungarianSuffix> {
+    let Some(Value::String(s)) = context else {
+        return Vec::new();
+    };
+
+    s.split('.')
+        .filter_map(|part| match part {
+            "pl" => Some(HungarianSuffix::Plural),
+            "nom" => Some(HungarianSuffix::Nominative),
+            "acc" => Some(HungarianSuffix::Accusative),
+            "dat" => Some(HungarianSuffix::Dative),
+            "ine" => Some(HungarianSuffix::Inessive),
+            "ill" => Some(HungarianSuffix::Illative),
+            "ela" => Some(HungarianSuffix::Elative),
+            "sup" => Some(HungarianSuffix::Superessive),
+            "sub" => Some(HungarianSuffix::Sublative),
+            "del" => Some(HungarianSuffix::Delative),
+            "ade" => Some(HungarianSuffix::Adessive),
+            "abl" => Some(HungarianSuffix::Ablative),
+            "all" => Some(HungarianSuffix::Allative),
+            "ins" => Some(HungarianSuffix::Instrumental),
+            "tra" => Some(HungarianSuffix::Translative),
+            "cau" => Some(HungarianSuffix::CausalFinal),
+            "ter" => Some(HungarianSuffix::Terminative),
+            "ess" => Some(HungarianSuffix::EssiveFormal),
+            "poss1sg" => Some(HungarianSuffix::Poss1Sg),
+            "poss2sg" => Some(HungarianSuffix::Poss2Sg),
+            "poss3sg" => Some(HungarianSuffix::Poss3Sg),
+            "poss1pl" => Some(HungarianSuffix::Poss1Pl),
+            "poss2pl" => Some(HungarianSuffix::Poss2Pl),
+            "poss3pl" => Some(HungarianSuffix::Poss3Pl),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Get the Hungarian suffix text for the given suffix and harmony class.
+///
+/// Hungarian uses 2-way harmony (back/front) for most suffixes, with 3-way
+/// harmony (back/front-unrounded/front-rounded) for allative, superessive,
+/// plural linking vowel, accusative linking vowel, and possessives.
+fn hungarian_suffix_form(suffix: HungarianSuffix, harmony: HungarianHarmony) -> &'static str {
+    match (suffix, harmony) {
+        (HungarianSuffix::Plural, HungarianHarmony::Back) => "ok",
+        (HungarianSuffix::Plural, HungarianHarmony::Front) => "ek",
+        (HungarianSuffix::Plural, HungarianHarmony::Round) => "\u{00f6}k",
+        (HungarianSuffix::Nominative, _) => "",
+        (HungarianSuffix::Accusative, HungarianHarmony::Back) => "ot",
+        (HungarianSuffix::Accusative, HungarianHarmony::Front) => "et",
+        (HungarianSuffix::Accusative, HungarianHarmony::Round) => "\u{00f6}t",
+        (HungarianSuffix::Dative, HungarianHarmony::Back) => "nak",
+        (HungarianSuffix::Dative, HungarianHarmony::Front | HungarianHarmony::Round) => "nek",
+        (HungarianSuffix::Inessive, HungarianHarmony::Back) => "ban",
+        (HungarianSuffix::Inessive, HungarianHarmony::Front | HungarianHarmony::Round) => "ben",
+        (HungarianSuffix::Illative, HungarianHarmony::Back) => "ba",
+        (HungarianSuffix::Illative, HungarianHarmony::Front | HungarianHarmony::Round) => "be",
+        (HungarianSuffix::Elative, HungarianHarmony::Back) => "b\u{00f3}l",
+        (HungarianSuffix::Elative, HungarianHarmony::Front | HungarianHarmony::Round) => {
+            "b\u{0151}l"
+        }
+        (HungarianSuffix::Superessive, HungarianHarmony::Back) => "on",
+        (HungarianSuffix::Superessive, HungarianHarmony::Front) => "en",
+        (HungarianSuffix::Superessive, HungarianHarmony::Round) => "\u{00f6}n",
+        (HungarianSuffix::Sublative, HungarianHarmony::Back) => "ra",
+        (HungarianSuffix::Sublative, HungarianHarmony::Front | HungarianHarmony::Round) => "re",
+        (HungarianSuffix::Delative, HungarianHarmony::Back) => "r\u{00f3}l",
+        (HungarianSuffix::Delative, HungarianHarmony::Front | HungarianHarmony::Round) => {
+            "r\u{0151}l"
+        }
+        (HungarianSuffix::Adessive, HungarianHarmony::Back) => "n\u{00e1}l",
+        (HungarianSuffix::Adessive, HungarianHarmony::Front | HungarianHarmony::Round) => {
+            "n\u{00e9}l"
+        }
+        (HungarianSuffix::Ablative, HungarianHarmony::Back) => "t\u{00f3}l",
+        (HungarianSuffix::Ablative, HungarianHarmony::Front | HungarianHarmony::Round) => {
+            "t\u{0151}l"
+        }
+        (HungarianSuffix::Allative, HungarianHarmony::Back) => "hoz",
+        (HungarianSuffix::Allative, HungarianHarmony::Front) => "hez",
+        (HungarianSuffix::Allative, HungarianHarmony::Round) => "h\u{00f6}z",
+        (HungarianSuffix::Instrumental, HungarianHarmony::Back) => "val",
+        (HungarianSuffix::Instrumental, HungarianHarmony::Front | HungarianHarmony::Round) => "vel",
+        (HungarianSuffix::Translative, HungarianHarmony::Back) => "v\u{00e1}",
+        (HungarianSuffix::Translative, HungarianHarmony::Front | HungarianHarmony::Round) => {
+            "v\u{00e9}"
+        }
+        (HungarianSuffix::CausalFinal, _) => "\u{00e9}rt",
+        (HungarianSuffix::Terminative, _) => "ig",
+        (HungarianSuffix::EssiveFormal, _) => "k\u{00e9}nt",
+        (HungarianSuffix::Poss1Sg, HungarianHarmony::Back) => "om",
+        (HungarianSuffix::Poss1Sg, HungarianHarmony::Front) => "em",
+        (HungarianSuffix::Poss1Sg, HungarianHarmony::Round) => "\u{00f6}m",
+        (HungarianSuffix::Poss2Sg, HungarianHarmony::Back) => "od",
+        (HungarianSuffix::Poss2Sg, HungarianHarmony::Front) => "ed",
+        (HungarianSuffix::Poss2Sg, HungarianHarmony::Round) => "\u{00f6}d",
+        (HungarianSuffix::Poss3Sg, HungarianHarmony::Back) => "a",
+        (HungarianSuffix::Poss3Sg, HungarianHarmony::Front | HungarianHarmony::Round) => "e",
+        (HungarianSuffix::Poss1Pl, HungarianHarmony::Back) => "unk",
+        (HungarianSuffix::Poss1Pl, HungarianHarmony::Front | HungarianHarmony::Round) => {
+            "\u{00fc}nk"
+        }
+        (HungarianSuffix::Poss2Pl, HungarianHarmony::Back) => "tok",
+        (HungarianSuffix::Poss2Pl, HungarianHarmony::Front) => "tek",
+        (HungarianSuffix::Poss2Pl, HungarianHarmony::Round) => "t\u{00f6}k",
+        (HungarianSuffix::Poss3Pl, HungarianHarmony::Back) => "uk",
+        (HungarianSuffix::Poss3Pl, HungarianHarmony::Front | HungarianHarmony::Round) => {
+            "\u{00fc}k"
+        }
+    }
+}
+
+/// Hungarian @inflect transform.
+///
+/// Applies suffix chain with vowel harmony based on `:back`/`:front`/`:round` tags.
+///
+/// Hungarian uses 3-way vowel harmony for some suffixes:
+/// - `:back` — back vowels (a, o, u): -hoz, -ok, -om, etc.
+/// - `:front` — front unrounded vowels (e, i): -hez, -ek, -em, etc.
+/// - `:round` — front rounded vowels (ö, ü): -höz, -ök, -öm, etc.
+///
+/// Context specifies suffix chain as dot-separated names:
+/// - "pl" -> Plural (-ok/-ek/-ök)
+/// - "nom" -> Nominative (no suffix)
+/// - "acc" -> Accusative (-ot/-et/-öt)
+/// - "dat" -> Dative (-nak/-nek)
+/// - "ine" -> Inessive (-ban/-ben)
+/// - "ill" -> Illative (-ba/-be)
+/// - "ela" -> Elative (-ból/-ből)
+/// - "sup" -> Superessive (-on/-en/-ön)
+/// - "sub" -> Sublative (-ra/-re)
+/// - "del" -> Delative (-ról/-ről)
+/// - "ade" -> Adessive (-nál/-nél)
+/// - "abl" -> Ablative (-tól/-től)
+/// - "all" -> Allative (-hoz/-hez/-höz)
+/// - "ins" -> Instrumental (-val/-vel)
+/// - "tra" -> Translative (-vá/-vé)
+/// - "cau" -> Causal-final (-ért)
+/// - "ter" -> Terminative (-ig)
+/// - "ess" -> Essive-formal (-ként)
+/// - "poss1sg" -> 1st person sg possessive (-om/-em/-öm)
+/// - "poss2sg" -> 2nd person sg possessive (-od/-ed/-öd)
+/// - "poss3sg" -> 3rd person sg possessive (-a/-e)
+/// - "poss1pl" -> 1st person pl possessive (-unk/-ünk)
+/// - "poss2pl" -> 2nd person pl possessive (-tok/-tek/-tök)
+/// - "poss3pl" -> 3rd person pl possessive (-uk/-ük)
+///
+/// Example: "pl.dat" on :back "ház" -> "házaknak"
+fn hungarian_inflect_transform(
+    value: &Value,
+    context: Option<&Value>,
+) -> Result<String, EvalError> {
+    let text = value.to_string();
+
+    let harmony = if value.has_tag("back") {
+        HungarianHarmony::Back
+    } else if value.has_tag("front") {
+        HungarianHarmony::Front
+    } else if value.has_tag("round") {
+        HungarianHarmony::Round
+    } else {
+        return Err(EvalError::MissingTag {
+            transform: "inflect".to_string(),
+            expected: vec!["back".to_string(), "front".to_string(), "round".to_string()],
+            phrase: text,
+        });
+    };
+
+    let suffixes = parse_hungarian_suffix_chain(context);
+
+    let mut result = text;
+    for suffix in suffixes {
+        let suffix_text = hungarian_suffix_form(suffix, harmony);
+        result.push_str(suffix_text);
+    }
+
+    Ok(result)
+}
+
 /// Registry for transform functions.
 ///
 /// Transforms are registered per-language with universal transforms available to all.
@@ -1956,6 +2215,7 @@ impl TransformRegistry {
             ("ko", "particle") => Some(TransformKind::KoreanParticle),
             ("tr", "inflect") => Some(TransformKind::TurkishInflect),
             ("fi", "inflect") => Some(TransformKind::FinnishInflect),
+            ("hu", "inflect") => Some(TransformKind::HungarianInflect),
             _ => None,
         }
     }

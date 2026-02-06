@@ -5643,3 +5643,925 @@ fn finnish_inflect_ill_consonant_ending() {
     let result = transform.execute(&value, Some(&context), "fi").unwrap();
     assert_eq!(result, "maanan");
 }
+
+// =============================================================================
+// Hungarian @inflect Transform
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Hungarian @inflect - Registry
+// -----------------------------------------------------------------------------
+
+#[test]
+fn hungarian_inflect_registered() {
+    let registry = TransformRegistry::new();
+    assert!(registry.get("inflect", "hu").is_some());
+    assert_eq!(
+        registry.get("inflect", "hu"),
+        Some(TransformKind::HungarianInflect)
+    );
+}
+
+// -----------------------------------------------------------------------------
+// Hungarian @inflect - Nominative (no suffix)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn hungarian_inflect_nom_back() {
+    // :back "ház" + :nom -> "ház"
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("nom".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "ház");
+}
+
+#[test]
+fn hungarian_inflect_nom_front() {
+    // :front "kert" + :nom -> "kert"
+    let phrase = Phrase::builder()
+        .text("kert".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("nom".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "kert");
+}
+
+#[test]
+fn hungarian_inflect_nom_round() {
+    // :round "tükör" + :nom -> "tükör"
+    let phrase = Phrase::builder()
+        .text("tükör".to_string())
+        .tags(vec![Tag::new("round")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("nom".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "tükör");
+}
+
+// -----------------------------------------------------------------------------
+// Hungarian @inflect - Plural (-ok/-ek/-ök)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn hungarian_inflect_pl_back() {
+    // :back "ház" + :pl -> "házok"
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("pl".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "házok");
+}
+
+#[test]
+fn hungarian_inflect_pl_front() {
+    // :front "kert" + :pl -> "kertek"
+    let phrase = Phrase::builder()
+        .text("kert".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("pl".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "kertek");
+}
+
+#[test]
+fn hungarian_inflect_pl_round() {
+    // :round "tükör" + :pl -> "tükörök"
+    let phrase = Phrase::builder()
+        .text("tükör".to_string())
+        .tags(vec![Tag::new("round")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("pl".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "tükörök");
+}
+
+// -----------------------------------------------------------------------------
+// Hungarian @inflect - Accusative (-ot/-et/-öt)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn hungarian_inflect_acc_back() {
+    // :back "ház" + :acc -> "házot"
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("acc".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "házot");
+}
+
+#[test]
+fn hungarian_inflect_acc_front() {
+    // :front "kert" + :acc -> "kertet"
+    let phrase = Phrase::builder()
+        .text("kert".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("acc".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "kertet");
+}
+
+#[test]
+fn hungarian_inflect_acc_round() {
+    // :round "tükör" + :acc -> "tüköröt"
+    let phrase = Phrase::builder()
+        .text("tükör".to_string())
+        .tags(vec![Tag::new("round")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("acc".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "tüköröt");
+}
+
+// -----------------------------------------------------------------------------
+// Hungarian @inflect - Dative (-nak/-nek)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn hungarian_inflect_dat_back() {
+    // :back "ház" + :dat -> "háznak"
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("dat".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "háznak");
+}
+
+#[test]
+fn hungarian_inflect_dat_front() {
+    // :front "kert" + :dat -> "kertnek"
+    let phrase = Phrase::builder()
+        .text("kert".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("dat".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "kertnek");
+}
+
+// -----------------------------------------------------------------------------
+// Hungarian @inflect - Inessive (-ban/-ben)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn hungarian_inflect_ine_back() {
+    // :back "ház" + :ine -> "házban"
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("ine".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "házban");
+}
+
+#[test]
+fn hungarian_inflect_ine_front() {
+    // :front "kert" + :ine -> "kertben"
+    let phrase = Phrase::builder()
+        .text("kert".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("ine".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "kertben");
+}
+
+// -----------------------------------------------------------------------------
+// Hungarian @inflect - Illative (-ba/-be)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn hungarian_inflect_ill_back() {
+    // :back "ház" + :ill -> "házba"
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("ill".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "házba");
+}
+
+#[test]
+fn hungarian_inflect_ill_front() {
+    // :front "kert" + :ill -> "kertbe"
+    let phrase = Phrase::builder()
+        .text("kert".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("ill".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "kertbe");
+}
+
+// -----------------------------------------------------------------------------
+// Hungarian @inflect - Elative (-ból/-ből)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn hungarian_inflect_ela_back() {
+    // :back "ház" + :ela -> "házból"
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("ela".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "házból");
+}
+
+#[test]
+fn hungarian_inflect_ela_front() {
+    // :front "kert" + :ela -> "kertből"
+    let phrase = Phrase::builder()
+        .text("kert".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("ela".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "kertből");
+}
+
+// -----------------------------------------------------------------------------
+// Hungarian @inflect - Superessive (-on/-en/-ön)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn hungarian_inflect_sup_back() {
+    // :back "ház" + :sup -> "házon"
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("sup".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "házon");
+}
+
+#[test]
+fn hungarian_inflect_sup_front() {
+    // :front "kert" + :sup -> "kerten"
+    let phrase = Phrase::builder()
+        .text("kert".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("sup".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "kerten");
+}
+
+#[test]
+fn hungarian_inflect_sup_round() {
+    // :round "tükör" + :sup -> "tükörön"
+    let phrase = Phrase::builder()
+        .text("tükör".to_string())
+        .tags(vec![Tag::new("round")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("sup".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "tükörön");
+}
+
+// -----------------------------------------------------------------------------
+// Hungarian @inflect - Sublative (-ra/-re)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn hungarian_inflect_sub_back() {
+    // :back "ház" + :sub -> "házra"
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("sub".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "házra");
+}
+
+#[test]
+fn hungarian_inflect_sub_front() {
+    // :front "kert" + :sub -> "kertre"
+    let phrase = Phrase::builder()
+        .text("kert".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("sub".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "kertre");
+}
+
+// -----------------------------------------------------------------------------
+// Hungarian @inflect - Delative (-ról/-ről)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn hungarian_inflect_del_back() {
+    // :back "ház" + :del -> "házról"
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("del".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "házról");
+}
+
+#[test]
+fn hungarian_inflect_del_front() {
+    // :front "kert" + :del -> "kertről"
+    let phrase = Phrase::builder()
+        .text("kert".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("del".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "kertről");
+}
+
+// -----------------------------------------------------------------------------
+// Hungarian @inflect - Adessive (-nál/-nél)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn hungarian_inflect_ade_back() {
+    // :back "ház" + :ade -> "háznál"
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("ade".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "háznál");
+}
+
+#[test]
+fn hungarian_inflect_ade_front() {
+    // :front "kert" + :ade -> "kertnél"
+    let phrase = Phrase::builder()
+        .text("kert".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("ade".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "kertnél");
+}
+
+// -----------------------------------------------------------------------------
+// Hungarian @inflect - Ablative (-tól/-től)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn hungarian_inflect_abl_back() {
+    // :back "ház" + :abl -> "háztól"
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("abl".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "háztól");
+}
+
+#[test]
+fn hungarian_inflect_abl_front() {
+    // :front "kert" + :abl -> "kerttől"
+    let phrase = Phrase::builder()
+        .text("kert".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("abl".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "kerttől");
+}
+
+// -----------------------------------------------------------------------------
+// Hungarian @inflect - Allative (-hoz/-hez/-höz) — 3-way harmony
+// -----------------------------------------------------------------------------
+
+#[test]
+fn hungarian_inflect_all_back() {
+    // :back "ház" + :all -> "házhoz"
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("all".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "házhoz");
+}
+
+#[test]
+fn hungarian_inflect_all_front() {
+    // :front "kert" + :all -> "kerthez"
+    let phrase = Phrase::builder()
+        .text("kert".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("all".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "kerthez");
+}
+
+#[test]
+fn hungarian_inflect_all_round() {
+    // :round "tükör" + :all -> "tükörhöz"
+    let phrase = Phrase::builder()
+        .text("tükör".to_string())
+        .tags(vec![Tag::new("round")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("all".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "tükörhöz");
+}
+
+// -----------------------------------------------------------------------------
+// Hungarian @inflect - Instrumental (-val/-vel)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn hungarian_inflect_ins_back() {
+    // :back "ház" + :ins -> "házval"
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("ins".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "házval");
+}
+
+#[test]
+fn hungarian_inflect_ins_front() {
+    // :front "kert" + :ins -> "kertvel"
+    let phrase = Phrase::builder()
+        .text("kert".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("ins".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "kertvel");
+}
+
+// -----------------------------------------------------------------------------
+// Hungarian @inflect - Translative (-vá/-vé)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn hungarian_inflect_tra_back() {
+    // :back "ház" + :tra -> "házvá"
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("tra".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "házvá");
+}
+
+#[test]
+fn hungarian_inflect_tra_front() {
+    // :front "kert" + :tra -> "kertvé"
+    let phrase = Phrase::builder()
+        .text("kert".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("tra".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "kertvé");
+}
+
+// -----------------------------------------------------------------------------
+// Hungarian @inflect - Invariant suffixes
+// -----------------------------------------------------------------------------
+
+#[test]
+fn hungarian_inflect_cau_back() {
+    // :back "ház" + :cau -> "házért" (invariant suffix)
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("cau".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "házért");
+}
+
+#[test]
+fn hungarian_inflect_cau_front() {
+    // :front "kert" + :cau -> "kertért" (invariant suffix)
+    let phrase = Phrase::builder()
+        .text("kert".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("cau".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "kertért");
+}
+
+#[test]
+fn hungarian_inflect_ter_back() {
+    // :back "ház" + :ter -> "házig" (invariant suffix)
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("ter".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "házig");
+}
+
+#[test]
+fn hungarian_inflect_ess_back() {
+    // :back "ház" + :ess -> "házként" (invariant suffix)
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("ess".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "házként");
+}
+
+// -----------------------------------------------------------------------------
+// Hungarian @inflect - Possessives
+// -----------------------------------------------------------------------------
+
+#[test]
+fn hungarian_inflect_poss1sg_back() {
+    // :back "ház" + :poss1sg -> "házom"
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("poss1sg".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "házom");
+}
+
+#[test]
+fn hungarian_inflect_poss1sg_front() {
+    // :front "kert" + :poss1sg -> "kertem"
+    let phrase = Phrase::builder()
+        .text("kert".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("poss1sg".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "kertem");
+}
+
+#[test]
+fn hungarian_inflect_poss1sg_round() {
+    // :round "tükör" + :poss1sg -> "tükörröm" (simplified, using -öm suffix)
+    let phrase = Phrase::builder()
+        .text("tükör".to_string())
+        .tags(vec![Tag::new("round")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("poss1sg".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "tükör\u{00f6}m");
+}
+
+#[test]
+fn hungarian_inflect_poss2sg_back() {
+    // :back "ház" + :poss2sg -> "házod"
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("poss2sg".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "házod");
+}
+
+#[test]
+fn hungarian_inflect_poss3sg_back() {
+    // :back "ház" + :poss3sg -> "háza"
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("poss3sg".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "háza");
+}
+
+#[test]
+fn hungarian_inflect_poss3sg_front() {
+    // :front "kert" + :poss3sg -> "kerte"
+    let phrase = Phrase::builder()
+        .text("kert".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("poss3sg".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "kerte");
+}
+
+#[test]
+fn hungarian_inflect_poss1pl_back() {
+    // :back "ház" + :poss1pl -> "házunk"
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("poss1pl".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "házunk");
+}
+
+#[test]
+fn hungarian_inflect_poss1pl_front() {
+    // :front "kert" + :poss1pl -> "kertünk"
+    let phrase = Phrase::builder()
+        .text("kert".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("poss1pl".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "kertünk");
+}
+
+#[test]
+fn hungarian_inflect_poss2pl_back() {
+    // :back "ház" + :poss2pl -> "háztok"
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("poss2pl".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "háztok");
+}
+
+#[test]
+fn hungarian_inflect_poss2pl_front() {
+    // :front "kert" + :poss2pl -> "kerttek"
+    let phrase = Phrase::builder()
+        .text("kert".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("poss2pl".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "kerttek");
+}
+
+#[test]
+fn hungarian_inflect_poss2pl_round() {
+    // :round "tükör" + :poss2pl -> "tükörtök"
+    let phrase = Phrase::builder()
+        .text("tükör".to_string())
+        .tags(vec![Tag::new("round")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("poss2pl".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "tükörtök");
+}
+
+#[test]
+fn hungarian_inflect_poss3pl_back() {
+    // :back "ház" + :poss3pl -> "házuk"
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("poss3pl".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "házuk");
+}
+
+#[test]
+fn hungarian_inflect_poss3pl_front() {
+    // :front "kert" + :poss3pl -> "kertük"
+    let phrase = Phrase::builder()
+        .text("kert".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("poss3pl".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "kertük");
+}
+
+// -----------------------------------------------------------------------------
+// Hungarian @inflect - Suffix chains
+// -----------------------------------------------------------------------------
+
+#[test]
+fn hungarian_inflect_pl_dat_back() {
+    // :back "ház" + :pl.dat -> "házoknak"
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("pl.dat".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "házoknak");
+}
+
+#[test]
+fn hungarian_inflect_pl_ine_front() {
+    // :front "kert" + :pl.ine -> "kertekben"
+    let phrase = Phrase::builder()
+        .text("kert".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("pl.ine".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "kertekben");
+}
+
+#[test]
+fn hungarian_inflect_poss1sg_dat_back() {
+    // :back "ház" + :poss1sg.dat -> "házomnak"
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("poss1sg.dat".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "házomnak");
+}
+
+#[test]
+fn hungarian_inflect_pl_abl_round() {
+    // :round "tükör" + :pl.abl -> "tükörök" + "től" -> "tüköröktől"
+    let phrase = Phrase::builder()
+        .text("tükör".to_string())
+        .tags(vec![Tag::new("round")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("pl.abl".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "tüköröktől");
+}
+
+// -----------------------------------------------------------------------------
+// Hungarian @inflect - Error cases
+// -----------------------------------------------------------------------------
+
+#[test]
+fn hungarian_inflect_missing_harmony() {
+    // No harmony tag -> error
+    let phrase = Phrase::builder().text("ház".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("dat".to_string());
+    let result = transform.execute(&value, Some(&context), "hu");
+    assert!(result.is_err());
+}
+
+#[test]
+fn hungarian_inflect_no_context() {
+    // No context -> no suffixes added, word returned as-is
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let result = transform.execute(&value, None, "hu").unwrap();
+    assert_eq!(result, "ház");
+}
+
+#[test]
+fn hungarian_inflect_unknown_suffix_ignored() {
+    // Unknown suffix parts are ignored
+    let phrase = Phrase::builder()
+        .text("ház".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HungarianInflect;
+    let context = Value::String("dat.xyz".to_string());
+    let result = transform.execute(&value, Some(&context), "hu").unwrap();
+    assert_eq!(result, "háznak");
+}
+
+#[test]
+fn hungarian_inflect_not_registered_for_english() {
+    let registry = TransformRegistry::new();
+    assert!(registry.get("inflect", "en").is_none());
+}

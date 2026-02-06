@@ -548,6 +548,70 @@ my_house_gen = "{@inflect:gen.poss1sg talo}"; // → "talonni"
 
 ---
 
+### Hungarian (Magyar)
+
+**Grammatical features**: Vowel harmony (3-way), agglutinative, no gender, 18 cases
+
+**Metadata tags**:
+| Tag | Purpose |
+|-----|---------|
+| `:back` | Back vowels (a, o, u) |
+| `:front` | Front unrounded vowels (e, i) |
+| `:round` | Front rounded vowels (ö, ü) |
+
+**Transforms**:
+| Transform | Aliases | Reads | Effect |
+|-----------|---------|-------|--------|
+| `@inflect` | - | `:back`, `:front`, `:round` | Suffix chain with vowel harmony |
+
+The `@inflect` transform handles agglutinative suffix chains. See **Advanced
+Transforms** section for details.
+
+**Plural categories**: `one`, `other`
+
+**Available suffixes:**
+
+| Context | Meaning | Back form | Front form | Rounded form |
+|---------|---------|-----------|------------|--------------|
+| `pl` | Plural | -ok | -ek | -ök |
+| `nom` | Nominative | (none) | (none) | (none) |
+| `acc` | Accusative | -ot | -et | -öt |
+| `dat` | Dative | -nak | -nek | -nek |
+| `ine` | Inessive (in) | -ban | -ben | -ben |
+| `ill` | Illative (into) | -ba | -be | -be |
+| `ela` | Elative (out of) | -ból | -ből | -ből |
+| `sup` | Superessive (on) | -on | -en | -ön |
+| `sub` | Sublative (onto) | -ra | -re | -re |
+| `del` | Delative (off of) | -ról | -ről | -ről |
+| `ade` | Adessive (at) | -nál | -nél | -nél |
+| `abl` | Ablative (from) | -tól | -től | -től |
+| `all` | Allative (towards) | -hoz | -hez | -höz |
+| `ins` | Instrumental | -val | -vel | -vel |
+| `tra` | Translative | -vá | -vé | -vé |
+| `cau` | Causal-final | -ért | -ért | -ért |
+| `ter` | Terminative | -ig | -ig | -ig |
+| `ess` | Essive-formal | -ként | -ként | -ként |
+| `poss1sg` | My | -om | -em | -öm |
+| `poss2sg` | Your | -od | -ed | -öd |
+| `poss3sg` | His/her/its | -a | -e | -e |
+| `poss1pl` | Our | -unk | -ünk | -ünk |
+| `poss2pl` | Your (pl.) | -tok | -tek | -tök |
+| `poss3pl` | Their | -uk | -ük | -ük |
+
+```rust
+// hu.rlf
+ház = :back "ház";       // house (back vowel)
+kert = :front "kert";    // garden (front vowel)
+tükör = :round "tükör";  // mirror (rounded front vowel)
+
+in_house = "{@inflect:ine ház}";            // → "házban"
+into_garden = "{@inflect:ill kert}";        // → "kertbe"
+to_mirror = "{@inflect:all tükör}";         // → "tükörhöz"
+my_houses = "{@inflect:pl.poss1sg ház}";    // → "házakomom" (simplified)
+```
+
+---
+
 ### Italian (Italiano)
 
 **Grammatical features**: Two genders, articles, contractions, elision
@@ -810,6 +874,7 @@ the_card = "{@def card}";  // → "cartea"
 | Vietnamese | - | - | 1 | `@count` |
 | Turkish | - | 6 | 2 | `@inflect` |
 | Finnish | - | 15 | 2 | `@inflect` |
+| Hungarian | - | 18 | 2 | `@inflect` |
 | Italian | 2 | - | 2 | `@il`, `@un`, `@di`, `@a` |
 | Polish | 3 | 7 | 4 | - |
 | Ukrainian | 3 | 7 | 4 | - |
