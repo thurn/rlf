@@ -54,7 +54,14 @@ pub fn eval_template(
                 selectors,
             } => {
                 // 1. Resolve reference to Value
-                let value = resolve_reference(reference, ctx, registry, transform_registry, lang)?;
+                let value = resolve_reference(
+                    reference,
+                    selectors,
+                    ctx,
+                    registry,
+                    transform_registry,
+                    lang,
+                )?;
                 // 2. Apply selectors to get variant/final value (returns Value to preserve tags)
                 let selected = apply_selectors(&value, selectors, ctx, lang)?;
                 // 3. Apply transforms (right-to-left per DESIGN.md)
@@ -74,9 +81,13 @@ pub fn eval_template(
 /// 1. Parameters (from the evaluation context)
 /// 2. Phrases (from the registry)
 ///
-/// For phrase calls, arguments are resolved recursively and the phrase is evaluated.
+/// When a `Reference::Identifier` refers to a parameterized phrase and the
+/// selector count matches the parameter count, selectors are automatically
+/// forwarded as arguments. This allows `{cards:n}` where `cards(n)` is
+/// defined with variants.
 fn resolve_reference(
     reference: &Reference,
+    selectors: &[Selector],
     ctx: &mut EvalContext<'_>,
     registry: &PhraseRegistry,
     transform_registry: &TransformRegistry,
@@ -91,8 +102,37 @@ fn resolve_reference(
 
             // Then try phrase lookup
             if let Some(def) = registry.get(name) {
-                // No parameters for this call
                 if !def.parameters.is_empty() {
+                    // Auto-forward selectors as arguments when counts match
+                    if selectors.len() == def.parameters.len() {
+                        let resolved_args: Vec<Value> = selectors
+                            .iter()
+                            .map(|sel| resolve_selector_to_value(sel, ctx))
+                            .collect::<Result<Vec<_>, _>>()?;
+
+                        let params: HashMap<String, Value> = def
+                            .parameters
+                            .iter()
+                            .zip(resolved_args)
+                            .map(|(name, value)| (name.clone(), value))
+                            .collect();
+
+                        let mut child_ctx = EvalContext::with_string_context(
+                            &params,
+                            ctx.string_context().map(ToString::to_string),
+                        );
+                        child_ctx.push_call(name)?;
+                        let result = eval_phrase_def(
+                            def,
+                            &mut child_ctx,
+                            registry,
+                            transform_registry,
+                            lang,
+                        )?;
+                        child_ctx.pop_call();
+                        return Ok(Value::Phrase(result));
+                    }
+
                     return Err(EvalError::ArgumentCount {
                         phrase: name.clone(),
                         expected: def.parameters.len(),
@@ -127,7 +167,7 @@ fn resolve_reference(
             // Resolve arguments to values
             let resolved_args: Vec<Value> = args
                 .iter()
-                .map(|arg| resolve_reference(arg, ctx, registry, transform_registry, lang))
+                .map(|arg| resolve_reference(arg, &[], ctx, registry, transform_registry, lang))
                 .collect::<Result<Vec<_>, _>>()?;
 
             // Build param map for child context
@@ -384,6 +424,25 @@ fn build_compound_keys(parts: &[Vec<String>]) -> Vec<String> {
         result = next;
     }
     result
+}
+
+/// Resolve a selector to a Value for use as a forwarded argument.
+///
+/// Used when auto-forwarding selectors as arguments to parameterized phrases.
+/// Returns the parameter's value if it references one, or a string literal otherwise.
+fn resolve_selector_to_value(
+    selector: &Selector,
+    ctx: &EvalContext<'_>,
+) -> Result<Value, EvalError> {
+    match selector {
+        Selector::Identifier(name) => {
+            if let Some(value) = ctx.get_param(name) {
+                Ok(value.clone())
+            } else {
+                Ok(Value::String(name.clone()))
+            }
+        }
+    }
 }
 
 /// Resolve a selector to candidate key strings.

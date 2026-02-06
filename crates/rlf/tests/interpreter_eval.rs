@@ -1744,3 +1744,58 @@ fn eval_russian_dative_case() {
         .unwrap();
     assert_eq!(result.to_string(), "дать карте");
 }
+
+// =============================================================================
+// Selector Auto-forwarding to Parameterized Phrases
+// =============================================================================
+
+#[test]
+fn eval_parameterized_phrase_with_selector_auto_forwards_args() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        cards(n) = { one: "{n} card", other: "{n} cards" };
+        draw(n) = "Draw {cards:n}.";
+    "#,
+        )
+        .unwrap();
+
+    let one = registry
+        .call_phrase("en", "draw", &[Value::from(1)])
+        .unwrap();
+    assert_eq!(one.to_string(), "Draw 1 card.");
+
+    let five = registry
+        .call_phrase("en", "draw", &[Value::from(5)])
+        .unwrap();
+    assert_eq!(five.to_string(), "Draw 5 cards.");
+}
+
+#[test]
+fn eval_parameterized_phrase_selector_auto_forward_with_multiple_params() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        noun(case, n) = {
+            nom.one: "card",
+            nom.other: "cards",
+            acc.one: "card",
+            acc.other: "cards"
+        };
+        test(n) = "Take {noun:acc:n}.";
+    "#,
+        )
+        .unwrap();
+
+    let one = registry
+        .call_phrase("en", "test", &[Value::from(1)])
+        .unwrap();
+    assert_eq!(one.to_string(), "Take card.");
+
+    let five = registry
+        .call_phrase("en", "test", &[Value::from(5)])
+        .unwrap();
+    assert_eq!(five.to_string(), "Take cards.");
+}
