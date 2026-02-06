@@ -419,15 +419,15 @@ allies_not_plural(entity) = "союзники, которые не являют�
 // =========================================================================
 
 with_spark(base, spark, op) = "{base:nom.one} с искрой {spark}{op}";
-with_spark_plural(base, spark, op) = "{base:nom.other} с искрой {spark}{op}";
+with_spark_plural(base, spark, op) = "{base:nom} с искрой {spark}{op}";
 with_cost(base, cost, op) = "{base:nom.one} со стоимостью {cost}{op}";
-with_cost_plural(base, cost, op) = "{base:nom.other} со стоимостью {cost}{op}";
+with_cost_plural(base, cost, op) = "{base:nom} со стоимостью {cost}{op}";
 
 with_materialized(base) = "{base:nom.one} со способностью {materialized}";
-with_materialized_plural(base) = "{base:nom.other} со способностями {materialized}";
+with_materialized_plural(base) = "{base:nom} со способностями {materialized}";
 
 with_activated(base) = "{base:nom.one} с активируемой способностью";
-with_activated_plural(base) = "{base:nom.other} с активируемыми способностями";
+with_activated_plural(base) = "{base:nom} с активируемыми способностями";
 
 // =========================================================================
 // Complex Comparisons
@@ -469,7 +469,7 @@ your_events_could_dissolve(target) = "ваши события, способны�
 // =========================================================================
 
 fast_modified(base) = "{fast} {base:nom.one}";
-fast_modified_plural(base) = "{fast} {base:nom.other}";
+fast_modified_plural(base) = "{fast} {base:nom}";
 
 // =========================================================================
 // Void Location
@@ -488,7 +488,7 @@ another_adj = {
     neut: "другое",
 };
 another(entity) = "{another_adj:entity} {entity:nom.one}";
-other_plural(entities) = "другие {entities:nom.other}";
+other_plural(entities) = "другие {entities:nom}";
 
 each_adj = {
     masc: "каждый",
