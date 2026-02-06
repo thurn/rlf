@@ -630,10 +630,11 @@ let text = label.resolve(&locale)?;  // → "Costs 3 energy."
 
 ### Generic Phrase Calls
 
-For maximum flexibility, store arguments as `Vec<Value>`:
+For maximum flexibility, store arguments as `Vec<Value>`. Note that `Value` does
+not implement `Serialize` or `Deserialize` (because it can contain `Phrase`
+values with complex runtime state), so `DynamicPhrase` is not serializable:
 
 ```rust
-#[derive(Serialize, Deserialize)]
 struct DynamicPhrase {
     id: PhraseId,
     args: Vec<Value>,
@@ -644,6 +645,42 @@ impl DynamicPhrase {
         self.id.call(locale, &self.args)
             .map(|p| p.to_string())
             .ok()
+    }
+}
+```
+
+If you need serialization, store arguments as serializable types and convert
+to `Value` at resolve time:
+
+```rust
+#[derive(Serialize, Deserialize)]
+enum PhraseArg {
+    Number(i64),
+    Float(f64),
+    Text(String),
+    Phrase(PhraseId),
+}
+
+#[derive(Serialize, Deserialize)]
+struct SerializableDynamicPhrase {
+    id: PhraseId,
+    args: Vec<PhraseArg>,
+}
+
+impl SerializableDynamicPhrase {
+    fn resolve(&self, locale: &Locale) -> Result<String, EvalError> {
+        let args: Vec<Value> = self.args.iter().map(|a| match a {
+            PhraseArg::Number(n) => Value::from(*n),
+            PhraseArg::Float(f) => Value::from(*f),
+            PhraseArg::Text(s) => Value::from(s.as_str()),
+            PhraseArg::Phrase(id) => {
+                id.resolve(locale)
+                    .map(Value::from)
+                    .unwrap_or_else(|_| Value::from("[missing]"))
+            }
+        }).collect();
+        self.id.call(locale, &args)
+            .map(|p| p.to_string())
     }
 }
 ```

@@ -759,6 +759,7 @@ dependencies = [
  "strsim",
  "tempfile",
  "thiserror",
+ "trybuild",
  "unicode-segmentation",
  "winnow",
 ]
