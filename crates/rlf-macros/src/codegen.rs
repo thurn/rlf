@@ -152,6 +152,13 @@ fn reconstruct_source(input: &MacroInput) -> String {
             line.push(' ');
         }
 
+        // :from modifier (after tags, before body)
+        if let Some(ref from) = phrase.from_param {
+            line.push_str(":from(");
+            line.push_str(&from.name);
+            line.push_str(") ");
+        }
+
         // Body
         match &phrase.body {
             PhraseBody::Simple(template) => {
@@ -454,6 +461,38 @@ mod tests {
         let source = reconstruct_source(&input);
         // Tags should come after = sign in the file format
         assert!(source.contains("item = :masc \"item\""));
+    }
+
+    #[test]
+    fn test_reconstruct_phrase_with_from_modifier() {
+        let input = parse_input(parse_quote! {
+            :from(s) subtype(s) = "<b>{s}</b>";
+        });
+        let source = reconstruct_source(&input);
+        assert!(
+            source.contains(":from(s)"),
+            "source should contain :from(s), got: {}",
+            source
+        );
+        assert!(source.contains("subtype(s)"));
+    }
+
+    #[test]
+    fn test_reconstruct_phrase_with_tags_and_from() {
+        let input = parse_input(parse_quote! {
+            :an :from(s) subtype(s) = "<b>{s}</b>";
+        });
+        let source = reconstruct_source(&input);
+        assert!(
+            source.contains(":an"),
+            "source should contain :an tag, got: {}",
+            source
+        );
+        assert!(
+            source.contains(":from(s)"),
+            "source should contain :from(s), got: {}",
+            source
+        );
     }
 
     #[test]
