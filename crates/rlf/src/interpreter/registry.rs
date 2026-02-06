@@ -1,10 +1,11 @@
 //! Phrase registry for storing and looking up phrase definitions.
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 
 use crate::interpreter::transforms::TransformRegistry;
 use crate::interpreter::{EvalContext, EvalError, eval_phrase_def, eval_template};
-use crate::parser::ast::PhraseDefinition;
+use crate::parser::ast::{PhraseDefinition, Template};
 use crate::parser::{ParseError, parse_file, parse_template};
 use crate::types::{Phrase, PhraseId, Value};
 
@@ -18,6 +19,10 @@ pub struct PhraseRegistry {
     phrases: HashMap<String, PhraseDefinition>,
     /// Maps PhraseId hash to phrase name for id-based lookup.
     id_to_name: HashMap<u64, String>,
+    /// Cache of parsed template ASTs for `eval_str()`.
+    ///
+    /// Uses `RefCell` for interior mutability so `eval_str` can remain `&self`.
+    template_cache: RefCell<HashMap<String, Template>>,
 }
 
 impl PhraseRegistry {
@@ -103,7 +108,8 @@ impl PhraseRegistry {
     ///
     /// This is the main entry point for runtime template evaluation. The template
     /// string is parsed and evaluated with the given parameters in the specified
-    /// language context.
+    /// language context. Parsed template ASTs are cached so repeated calls with
+    /// the same template string skip parsing.
     ///
     /// # Arguments
     ///
@@ -130,13 +136,40 @@ impl PhraseRegistry {
         lang: &str,
         params: HashMap<String, Value>,
     ) -> Result<Phrase, EvalError> {
-        let template = parse_template(template_str).map_err(|e| EvalError::PhraseNotFound {
-            name: format!("parse error: {}", e),
-        })?;
+        let template = self.cached_template(template_str)?;
         let transform_registry = TransformRegistry::new();
         let mut ctx = EvalContext::new(&params);
         let text = eval_template(&template, &mut ctx, self, &transform_registry, lang)?;
         Ok(Phrase::builder().text(text).build())
+    }
+
+    /// Clear the template cache.
+    ///
+    /// Call this if you need to free memory used by cached template ASTs.
+    pub fn clear_template_cache(&self) {
+        self.template_cache.borrow_mut().clear();
+    }
+
+    /// Return the number of cached template ASTs.
+    pub fn template_cache_len(&self) -> usize {
+        self.template_cache.borrow().len()
+    }
+
+    /// Look up or parse and cache a template string.
+    fn cached_template(&self, template_str: &str) -> Result<Template, EvalError> {
+        {
+            let cache = self.template_cache.borrow();
+            if let Some(template) = cache.get(template_str) {
+                return Ok(template.clone());
+            }
+        }
+        let template = parse_template(template_str).map_err(|e| EvalError::PhraseNotFound {
+            name: format!("parse error: {e}"),
+        })?;
+        self.template_cache
+            .borrow_mut()
+            .insert(template_str.to_string(), template.clone());
+        Ok(template)
     }
 
     /// Call a phrase by name with positional arguments.

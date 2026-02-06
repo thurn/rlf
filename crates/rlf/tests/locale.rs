@@ -382,3 +382,106 @@ fn registry_returns_current_language_registry() {
     let registry = locale.registry().unwrap();
     assert!(registry.get("hello").is_some());
 }
+
+// =========================================================================
+// Template Caching
+// =========================================================================
+
+#[test]
+fn eval_str_caches_parsed_templates() {
+    let mut locale = Locale::new();
+    locale
+        .load_translations_str(
+            "en",
+            r#"
+        card = { one: "card", other: "cards" };
+    "#,
+        )
+        .unwrap();
+
+    assert_eq!(locale.template_cache_len(), 0);
+
+    let params: HashMap<String, Value> = [("n".to_string(), Value::from(3))].into_iter().collect();
+    let phrase = locale.eval_str("Draw {n} {card:n}.", params).unwrap();
+    assert_eq!(phrase.to_string(), "Draw 3 cards.");
+    assert_eq!(locale.template_cache_len(), 1);
+
+    // Second call with same template should use cache
+    let params2: HashMap<String, Value> = [("n".to_string(), Value::from(1))].into_iter().collect();
+    let phrase2 = locale.eval_str("Draw {n} {card:n}.", params2).unwrap();
+    assert_eq!(phrase2.to_string(), "Draw 1 card.");
+    assert_eq!(locale.template_cache_len(), 1);
+}
+
+#[test]
+fn eval_str_caches_different_templates_separately() {
+    let mut locale = Locale::new();
+    locale
+        .load_translations_str(
+            "en",
+            r#"
+        card = { one: "card", other: "cards" };
+    "#,
+        )
+        .unwrap();
+
+    let params1: HashMap<String, Value> = [("n".to_string(), Value::from(1))].into_iter().collect();
+    locale.eval_str("{n} {card:n}", params1).unwrap();
+    assert_eq!(locale.template_cache_len(), 1);
+
+    let params2: HashMap<String, Value> = [("n".to_string(), Value::from(2))].into_iter().collect();
+    locale.eval_str("You have {n} {card:n}.", params2).unwrap();
+    assert_eq!(locale.template_cache_len(), 2);
+}
+
+#[test]
+fn clear_template_cache_removes_all_entries() {
+    let mut locale = Locale::new();
+    locale
+        .load_translations_str(
+            "en",
+            r#"
+        card = { one: "card", other: "cards" };
+    "#,
+        )
+        .unwrap();
+
+    let params: HashMap<String, Value> = [("n".to_string(), Value::from(3))].into_iter().collect();
+    locale.eval_str("Draw {n} {card:n}.", params).unwrap();
+    assert_eq!(locale.template_cache_len(), 1);
+
+    locale.clear_template_cache();
+    assert_eq!(locale.template_cache_len(), 0);
+
+    // Should still work after clearing cache (re-parses)
+    let params2: HashMap<String, Value> = [("n".to_string(), Value::from(1))].into_iter().collect();
+    let phrase = locale.eval_str("Draw {n} {card:n}.", params2).unwrap();
+    assert_eq!(phrase.to_string(), "Draw 1 card.");
+    assert_eq!(locale.template_cache_len(), 1);
+}
+
+#[test]
+fn eval_str_cache_produces_correct_results_with_different_params() {
+    let mut locale = Locale::new();
+    locale
+        .load_translations_str(
+            "en",
+            r#"
+        card = { one: "card", other: "cards" };
+    "#,
+        )
+        .unwrap();
+
+    let template = "You drew {n} {card:n}.";
+
+    for n in [1, 2, 5, 1, 100, 1] {
+        let params: HashMap<String, Value> =
+            [("n".to_string(), Value::from(n))].into_iter().collect();
+        let phrase = locale.eval_str(template, params).unwrap();
+        let expected_card = if n == 1 { "card" } else { "cards" };
+        assert_eq!(phrase.to_string(), format!("You drew {n} {expected_card}."));
+    }
+
+    // Only one cached template despite many calls
+    assert_eq!(locale.template_cache_len(), 1);
+}

@@ -583,3 +583,106 @@ fn phrase_parameter_count() {
     assert_eq!(registry.phrase_parameter_count(id2.as_u64()), 2);
     assert_eq!(registry.phrase_parameter_count(id_missing.as_u64()), 0);
 }
+
+// =============================================================================
+// Template Caching
+// =============================================================================
+
+#[test]
+fn eval_str_caches_parsed_templates() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(r#"card = { one: "card", other: "cards" };"#)
+        .unwrap();
+
+    assert_eq!(registry.template_cache_len(), 0);
+
+    let params: HashMap<String, Value> = [("n".to_string(), Value::from(3))].into_iter().collect();
+    registry
+        .eval_str("Draw {n} {card:n}.", "en", params)
+        .unwrap();
+    assert_eq!(registry.template_cache_len(), 1);
+
+    // Second call with same template should reuse cache
+    let params2: HashMap<String, Value> = [("n".to_string(), Value::from(1))].into_iter().collect();
+    let result = registry
+        .eval_str("Draw {n} {card:n}.", "en", params2)
+        .unwrap();
+    assert_eq!(result.to_string(), "Draw 1 card.");
+    assert_eq!(registry.template_cache_len(), 1);
+}
+
+#[test]
+fn eval_str_caches_different_templates_separately() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(r#"card = { one: "card", other: "cards" };"#)
+        .unwrap();
+
+    let params1: HashMap<String, Value> = [("n".to_string(), Value::from(1))].into_iter().collect();
+    registry.eval_str("{n} {card:n}", "en", params1).unwrap();
+    assert_eq!(registry.template_cache_len(), 1);
+
+    let params2: HashMap<String, Value> = [("n".to_string(), Value::from(2))].into_iter().collect();
+    registry
+        .eval_str("You have {n} {card:n}.", "en", params2)
+        .unwrap();
+    assert_eq!(registry.template_cache_len(), 2);
+}
+
+#[test]
+fn clear_template_cache_removes_all_entries() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(r#"card = { one: "card", other: "cards" };"#)
+        .unwrap();
+
+    let params: HashMap<String, Value> = [("n".to_string(), Value::from(3))].into_iter().collect();
+    registry
+        .eval_str("Draw {n} {card:n}.", "en", params)
+        .unwrap();
+    assert_eq!(registry.template_cache_len(), 1);
+
+    registry.clear_template_cache();
+    assert_eq!(registry.template_cache_len(), 0);
+
+    // Should still work after clearing cache
+    let params2: HashMap<String, Value> = [("n".to_string(), Value::from(1))].into_iter().collect();
+    let result = registry
+        .eval_str("Draw {n} {card:n}.", "en", params2)
+        .unwrap();
+    assert_eq!(result.to_string(), "Draw 1 card.");
+    assert_eq!(registry.template_cache_len(), 1);
+}
+
+#[test]
+fn eval_str_cache_correct_with_varying_params() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(r#"card = { one: "card", other: "cards" };"#)
+        .unwrap();
+
+    let template = "You drew {n} {card:n}.";
+
+    for n in [1, 2, 5, 1, 100, 1] {
+        let params: HashMap<String, Value> =
+            [("n".to_string(), Value::from(n))].into_iter().collect();
+        let result = registry.eval_str(template, "en", params).unwrap();
+        let expected_card = if n == 1 { "card" } else { "cards" };
+        assert_eq!(result.to_string(), format!("You drew {n} {expected_card}."));
+    }
+
+    assert_eq!(registry.template_cache_len(), 1);
+}
+
+#[test]
+fn eval_str_cache_parse_error_not_cached() {
+    let mut registry = PhraseRegistry::new();
+    registry.load_phrases(r#"hello = "Hello!";"#).unwrap();
+
+    // An invalid template should not be cached
+    let params: HashMap<String, Value> = HashMap::new();
+    let result = registry.eval_str("Unclosed {brace", "en", params);
+    assert!(result.is_err());
+    assert_eq!(registry.template_cache_len(), 0);
+}

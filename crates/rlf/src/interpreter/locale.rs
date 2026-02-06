@@ -3,6 +3,7 @@
 //! The Locale struct provides the user-facing API for managing language selection,
 //! loading translations, and accessing phrases.
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -13,6 +14,7 @@ use crate::interpreter::error::LoadError;
 use crate::interpreter::registry::PhraseRegistry;
 use crate::interpreter::transforms::TransformRegistry;
 use crate::interpreter::{EvalContext, EvalError, eval_phrase_def, eval_template};
+use crate::parser::ast::Template;
 use crate::parser::{ParseError, parse_file, parse_template};
 use crate::types::{Phrase, Value};
 
@@ -63,6 +65,13 @@ pub struct Locale {
     /// Only populated for file-loaded translations, not string-loaded.
     #[builder(skip)]
     loaded_paths: HashMap<String, PathBuf>,
+
+    /// Cache of parsed template ASTs for `eval_str()`.
+    ///
+    /// Uses `RefCell` for interior mutability so `eval_str` can remain `&self`.
+    /// Templates are keyed by their source string and reused across calls.
+    #[builder(skip)]
+    template_cache: RefCell<HashMap<String, Template>>,
 }
 
 impl Default for Locale {
@@ -423,7 +432,8 @@ impl Locale {
 
     /// Evaluate a template string with parameters.
     ///
-    /// Uses the current language for plural rules.
+    /// Uses the current language for plural rules. Parsed template ASTs are
+    /// cached so repeated calls with the same template string skip parsing.
     pub fn eval_str(
         &self,
         template_str: &str,
@@ -436,9 +446,7 @@ impl Locale {
                     name: format!("no translations loaded for language '{}'", self.language),
                 })?;
 
-        let template = parse_template(template_str).map_err(|e| EvalError::PhraseNotFound {
-            name: format!("parse error: {e}"),
-        })?;
+        let template = self.cached_template(template_str)?;
         let mut ctx = EvalContext::new(&params);
         let text = eval_template(
             &template,
@@ -448,5 +456,34 @@ impl Locale {
             &self.language,
         )?;
         Ok(Phrase::builder().text(text).build())
+    }
+
+    /// Clear the template cache.
+    ///
+    /// Call this if you need to free memory used by cached template ASTs.
+    pub fn clear_template_cache(&self) {
+        self.template_cache.borrow_mut().clear();
+    }
+
+    /// Return the number of cached template ASTs.
+    pub fn template_cache_len(&self) -> usize {
+        self.template_cache.borrow().len()
+    }
+
+    /// Look up or parse and cache a template string.
+    fn cached_template(&self, template_str: &str) -> Result<Template, EvalError> {
+        {
+            let cache = self.template_cache.borrow();
+            if let Some(template) = cache.get(template_str) {
+                return Ok(template.clone());
+            }
+        }
+        let template = parse_template(template_str).map_err(|e| EvalError::PhraseNotFound {
+            name: format!("parse error: {e}"),
+        })?;
+        self.template_cache
+            .borrow_mut()
+            .insert(template_str.to_string(), template.clone());
+        Ok(template)
     }
 }
