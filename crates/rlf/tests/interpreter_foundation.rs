@@ -31,7 +31,7 @@ fn registry_get_by_id() {
     registry.load_phrases(r#"hello = "Hello!";"#).unwrap();
 
     let id = rlf::PhraseId::from_name("hello");
-    let phrase = registry.get_by_id(id.as_u64()).unwrap();
+    let phrase = registry.get_by_id(id.as_u128()).unwrap();
     assert_eq!(phrase.name, "hello");
 }
 

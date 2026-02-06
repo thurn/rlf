@@ -352,16 +352,16 @@ parameters when the text is actually needed.
 
 ```rust
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct PhraseId(u64);
+pub struct PhraseId(u128);
 ```
 
-`PhraseId` wraps a 64-bit FNV-1a hash of the phrase name. This design provides:
+`PhraseId` wraps a 128-bit FNV-1a hash of the phrase name. This design provides:
 
 | Property | Benefit |
 |----------|---------|
 | **Stability** | Same name → same hash, forever. Adding/removing phrases doesn't affect other IDs. |
-| **Compactness** | 8 bytes, implements `Copy`, stack-allocated. |
-| **Serializability** | Just a `u64`—works with JSON, bincode, protobuf, etc. |
+| **Compactness** | 16 bytes, implements `Copy`, stack-allocated. |
+| **Serializability** | Just a `u128`—works with JSON, bincode, protobuf, etc. |
 | **Const construction** | `PhraseId::from_name()` is `const fn`, enabling compile-time constants. |
 
 ### API
@@ -370,7 +370,7 @@ pub struct PhraseId(u64);
 impl PhraseId {
     /// Create a PhraseId from a phrase name at compile time.
     pub const fn from_name(name: &str) -> Self {
-        Self(const_fnv1a_64(name))
+        Self(const_fnv1a_128(name))
     }
 
     /// Resolve a parameterless phrase using a registry directly.
@@ -393,7 +393,7 @@ impl PhraseId {
     }
 
     /// Get the raw hash value.
-    pub fn as_u64(&self) -> u64 {
+    pub fn as_u128(&self) -> u128 {
         self.0
     }
 }
@@ -424,56 +424,14 @@ impl PhraseId {
 
 ### Hash Function
 
-RLF uses FNV-1a for phrase name hashing because it's simple, fast, and
-implementable as a `const fn`:
-
-```rust
-const fn const_fnv1a_64(s: &str) -> u64 {
-    const FNV_OFFSET: u64 = 0xcbf29ce484222325;
-    const FNV_PRIME: u64 = 0x100000001b3;
-
-    let bytes = s.as_bytes();
-    let mut hash = FNV_OFFSET;
-    let mut i = 0;
-    while i < bytes.len() {
-        hash ^= bytes[i] as u64;
-        hash = hash.wrapping_mul(FNV_PRIME);
-        i += 1;
-    }
-    hash
-}
-```
+RLF uses 128-bit FNV-1a for phrase name hashing because it's simple, fast,
+implementable as a `const fn`, and provides negligible collision probability
+for any realistic number of phrases.
 
 ### Collision Detection
 
-Hash collisions are theoretically possible but practically negligible with
-64-bit hashes. `PhraseRegistry` detects collisions when phrases are inserted:
-
-```rust
-impl PhraseRegistry {
-    pub fn insert(&mut self, def: PhraseDefinition) -> Result<(), EvalError> {
-        let name = def.name.clone();
-        let id = PhraseId::from_name(&name);
-        let hash = id.as_u64();
-
-        // Check for hash collision (different name but same hash)
-        if let Some(existing_name) = self.id_to_name.get(&hash)
-            && existing_name != &name
-        {
-            return Err(EvalError::PhraseNotFound {
-                name: format!(
-                    "hash collision: '{}' and '{}' produce same hash",
-                    existing_name, name
-                ),
-            });
-        }
-
-        self.id_to_name.insert(hash, name.clone());
-        self.phrases.insert(name, def);
-        Ok(())
-    }
-}
-```
+Hash collisions are effectively impossible with 128-bit hashes. `PhraseRegistry`
+still detects collisions when phrases are inserted as a safety measure.
 
 ### Name Registry
 
@@ -483,7 +441,7 @@ lookup:
 ```rust
 struct PhraseRegistry {
     phrases: HashMap<String, PhraseDefinition>,
-    id_to_name: HashMap<u64, String>,
+    id_to_name: HashMap<u128, String>,
 }
 ```
 
@@ -697,8 +655,8 @@ Use `Display` formatting or `as_u64()` for logging:
 
 ```rust
 fn debug_phrase(id: PhraseId) {
-    println!("{id}");  // "PhraseId(0123456789abcdef)"
-    println!("Hash: {:016x}", id.as_u64());
+    println!("{id}");  // "PhraseId(0123456789abcdef0123456789abcdef)"
+    println!("Hash: {:032x}", id.as_u128());
 }
 ```
 
@@ -1247,7 +1205,7 @@ let text = strings::card();
 |------|---------|------|
 | `Phrase` | Returned by all phrase functions; carries text, variants, tags | Heap-allocated |
 | `Value` | Runtime parameter type; accepts numbers, strings, phrases | Enum (24 bytes typical) |
-| `PhraseId` | Serializable reference to any phrase; resolve with `call()` | 8 bytes, `Copy` |
+| `PhraseId` | Serializable reference to any phrase; resolve with `call()` | 16 bytes, `Copy` |
 
 The design prioritizes:
 

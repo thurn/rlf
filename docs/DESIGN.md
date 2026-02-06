@@ -733,9 +733,9 @@ let plural = card.variant("other");         // "cards"
 ## Phrase Identifiers
 
 For scenarios where you need to store a reference to a phrase in serializable
-data structures, RLF provides `PhraseId`—a compact, `Copy`-able, 8-byte
-identifier based on a hash of the phrase name. The `rlf!` macro generates
-`PhraseId` constants for all phrases.
+data structures, RLF provides `PhraseId`—a compact, `Copy`-able, 16-byte
+identifier based on a 128-bit hash of the phrase name. The `rlf!` macro
+generates `PhraseId` constants for all phrases.
 
 ```rust
 // Store in serializable data
@@ -849,7 +849,7 @@ rlf eval --lang ru --param n=3 --template "Draw {n} {card:n}."
 | Type             | Purpose                                | Size / Traits                       |
 | ---------------- | -------------------------------------- | ----------------------------------- |
 | `Phrase`         | Returned by all phrase functions       | Heap-allocated                      |
-| `PhraseId`       | Serializable reference to a phrase     | 8 bytes, `Copy`, `Serialize`        |
+| `PhraseId`       | Serializable reference to a phrase     | 16 bytes, `Copy`, `Serialize`       |
 | `Value`          | Runtime parameter (number/string/phrase) | Enum                              |
 
 | Component        | Compile-Time              | Runtime                             |

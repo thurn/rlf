@@ -169,7 +169,7 @@ pub enum EvalError {
 
     /// Phrase not found by PhraseId hash.
     #[error("phrase not found for id: {id}")]
-    PhraseNotFoundById { id: u64 },
+    PhraseNotFoundById { id: u128 },
 
     /// Required variant key is missing from phrase.
     #[error("missing variant '{key}' in phrase '{phrase}', available: {}{}", available.join(", "), format_suggestions(suggestions))]

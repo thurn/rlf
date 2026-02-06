@@ -578,10 +578,10 @@ fn phrase_parameter_count() {
     let id2 = PhraseId::from_name("two_params");
     let id_missing = PhraseId::from_name("missing");
 
-    assert_eq!(registry.phrase_parameter_count(id0.as_u64()), 0);
-    assert_eq!(registry.phrase_parameter_count(id1.as_u64()), 1);
-    assert_eq!(registry.phrase_parameter_count(id2.as_u64()), 2);
-    assert_eq!(registry.phrase_parameter_count(id_missing.as_u64()), 0);
+    assert_eq!(registry.phrase_parameter_count(id0.as_u128()), 0);
+    assert_eq!(registry.phrase_parameter_count(id1.as_u128()), 1);
+    assert_eq!(registry.phrase_parameter_count(id2.as_u128()), 2);
+    assert_eq!(registry.phrase_parameter_count(id_missing.as_u128()), 0);
 }
 
 // =============================================================================

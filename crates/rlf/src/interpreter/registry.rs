@@ -18,7 +18,7 @@ pub struct PhraseRegistry {
     /// Phrases indexed by name.
     phrases: HashMap<String, PhraseDefinition>,
     /// Maps PhraseId hash to phrase name for id-based lookup.
-    id_to_name: HashMap<u64, String>,
+    id_to_name: HashMap<u128, String>,
     /// Cache of parsed template ASTs for `eval_str()`.
     ///
     /// Uses `RwLock` for interior mutability so `eval_str` can remain `&self`
@@ -38,7 +38,7 @@ impl PhraseRegistry {
     }
 
     /// Get a phrase definition by PhraseId hash.
-    pub fn get_by_id(&self, id: u64) -> Option<&PhraseDefinition> {
+    pub fn get_by_id(&self, id: u128) -> Option<&PhraseDefinition> {
         self.id_to_name
             .get(&id)
             .and_then(|name| self.phrases.get(name))
@@ -50,14 +50,14 @@ impl PhraseRegistry {
     pub fn insert(&mut self, def: PhraseDefinition) -> Result<(), EvalError> {
         let name = def.name.clone();
         let id = PhraseId::from_name(&name);
-        let hash = id.as_u64();
+        let hash = id.as_u128();
 
         // Check for hash collision (different name but same hash)
         if let Some(existing_name) = self.id_to_name.get(&hash)
             && existing_name != &name
         {
             // This is a hash collision - different names producing same hash
-            // This should be extremely rare with 64-bit FNV-1a but we handle it
+            // This should be extremely rare with 128-bit FNV-1a but we handle it
             return Err(EvalError::PhraseNotFound {
                 name: format!(
                     "hash collision: '{}' and '{}' produce same hash",
@@ -280,7 +280,7 @@ impl PhraseRegistry {
     /// * `args` - Positional arguments
     pub fn call_phrase_by_id(
         &self,
-        id: u64,
+        id: u128,
         lang: &str,
         args: &[Value],
     ) -> Result<Phrase, EvalError> {
@@ -299,7 +299,7 @@ impl PhraseRegistry {
     ///
     /// * `id` - PhraseId hash of the phrase
     /// * `lang` - Language code for plural rules
-    pub fn get_phrase_by_id(&self, id: u64, lang: &str) -> Result<Phrase, EvalError> {
+    pub fn get_phrase_by_id(&self, id: u128, lang: &str) -> Result<Phrase, EvalError> {
         let name = self
             .id_to_name
             .get(&id)
@@ -310,7 +310,7 @@ impl PhraseRegistry {
     /// Get the parameter count for a phrase by id.
     ///
     /// Returns 0 if the phrase is not found.
-    pub fn phrase_parameter_count(&self, id: u64) -> usize {
+    pub fn phrase_parameter_count(&self, id: u128) -> usize {
         self.id_to_name
             .get(&id)
             .and_then(|name| self.get(name))
@@ -321,7 +321,7 @@ impl PhraseRegistry {
     /// Look up the phrase name for a PhraseId hash.
     ///
     /// Returns None if no phrase with that hash is registered.
-    pub fn name_for_id(&self, id: u64) -> Option<&str> {
+    pub fn name_for_id(&self, id: u128) -> Option<&str> {
         self.id_to_name.get(&id).map(String::as_str)
     }
 

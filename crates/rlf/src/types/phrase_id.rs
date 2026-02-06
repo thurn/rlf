@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
-use const_fnv1a_hash::fnv1a_hash_str_64;
+use const_fnv1a_hash::fnv1a_hash_str_128;
 use serde::{Deserialize, Serialize};
 
 use crate::interpreter::{EvalError, Locale, PhraseRegistry};
@@ -8,9 +8,9 @@ use crate::types::Value;
 
 /// A compact, serializable identifier for an RLF phrase.
 ///
-/// `PhraseId` wraps a 64-bit FNV-1a hash of the phrase name. This provides:
+/// `PhraseId` wraps a 128-bit FNV-1a hash of the phrase name. This provides:
 /// - **Stability**: Same name always produces the same hash
-/// - **Compactness**: 8 bytes, implements `Copy`, stack-allocated
+/// - **Compactness**: 16 bytes, implements `Copy`, stack-allocated
 /// - **Serializability**: Works with JSON, bincode, protobuf, etc.
 /// - **Const construction**: `from_name()` is a `const fn`
 ///
@@ -31,7 +31,7 @@ use crate::types::Value;
 /// assert_eq!(phrase.to_string(), "Hello!");
 /// ```
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct PhraseId(u64);
+pub struct PhraseId(u128);
 
 impl PhraseId {
     /// Create a PhraseId from a phrase name at compile time.
@@ -44,20 +44,18 @@ impl PhraseId {
     /// const FIRE_ELEMENTAL: PhraseId = PhraseId::from_name("fire_elemental");
     /// ```
     pub const fn from_name(name: &str) -> Self {
-        Self(fnv1a_hash_str_64(name))
+        Self(fnv1a_hash_str_128(name))
     }
 
     /// Get the raw hash value.
-    ///
-    /// Useful for debugging or when you need the underlying u64.
-    pub fn as_u64(&self) -> u64 {
+    pub fn as_u128(&self) -> u128 {
         self.0
     }
 }
 
 impl Display for PhraseId {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "PhraseId({:016x})", self.0)
+        write!(f, "PhraseId({:032x})", self.0)
     }
 }
 
@@ -87,7 +85,7 @@ impl PhraseId {
     /// assert_eq!(phrase.variant("other"), "cards");
     /// ```
     pub fn resolve(&self, locale: &Locale) -> Result<crate::Phrase, EvalError> {
-        locale.get_phrase_by_id(self.0)
+        locale.get_phrase_by_id(self.as_u128())
     }
 
     /// Call a phrase with positional arguments.
@@ -110,7 +108,7 @@ impl PhraseId {
     /// assert_eq!(phrase.to_string(), "Hello, World!");
     /// ```
     pub fn call(&self, locale: &Locale, args: &[Value]) -> Result<crate::Phrase, EvalError> {
-        locale.call_phrase_by_id(self.0, args)
+        locale.call_phrase_by_id(self.as_u128(), args)
     }
 
     /// Get the phrase name for debugging.
@@ -133,21 +131,21 @@ impl PhraseId {
     /// assert_eq!(unknown.name(&locale), None);
     /// ```
     pub fn name<'a>(&self, locale: &'a Locale) -> Option<&'a str> {
-        locale.name_for_id(self.0)
+        locale.name_for_id(self.as_u128())
     }
 
     /// Check if this phrase has parameters.
     ///
     /// Returns false if the phrase is not found.
     pub fn has_parameters(&self, locale: &Locale) -> bool {
-        locale.phrase_parameter_count(self.0) > 0
+        locale.phrase_parameter_count(self.as_u128()) > 0
     }
 
     /// Get the number of parameters this phrase expects.
     ///
     /// Returns 0 if the phrase is not found.
     pub fn parameter_count(&self, locale: &Locale) -> usize {
-        locale.phrase_parameter_count(self.0)
+        locale.phrase_parameter_count(self.as_u128())
     }
 }
 
@@ -159,19 +157,19 @@ impl PhraseId {
 impl PhraseId {
     /// Resolve a parameterless phrase using the global locale.
     pub fn resolve_global(&self) -> Result<crate::Phrase, EvalError> {
-        crate::with_locale(|locale| locale.get_phrase_by_id(self.0))
+        crate::with_locale(|locale| locale.get_phrase_by_id(self.as_u128()))
     }
 
     /// Call a phrase with positional arguments using the global locale.
     pub fn call_global(&self, args: &[Value]) -> Result<crate::Phrase, EvalError> {
-        crate::with_locale(|locale| locale.call_phrase_by_id(self.0, args))
+        crate::with_locale(|locale| locale.call_phrase_by_id(self.as_u128(), args))
     }
 
     /// Get the phrase name using the global locale.
     ///
     /// Returns an owned `String` because the lock cannot outlive the call.
     pub fn name_global(&self) -> Option<String> {
-        crate::with_locale(|locale| locale.name_for_id(self.0).map(str::to_owned))
+        crate::with_locale(|locale| locale.name_for_id(self.as_u128()).map(str::to_owned))
     }
 }
 
@@ -202,7 +200,7 @@ impl PhraseId {
         registry: &PhraseRegistry,
         lang: &str,
     ) -> Result<crate::Phrase, EvalError> {
-        registry.get_phrase_by_id(self.0, lang)
+        registry.get_phrase_by_id(self.as_u128(), lang)
     }
 
     /// Call using a PhraseRegistry directly.
@@ -228,6 +226,6 @@ impl PhraseId {
         lang: &str,
         args: &[Value],
     ) -> Result<crate::Phrase, EvalError> {
-        registry.call_phrase_by_id(self.0, lang, args)
+        registry.call_phrase_by_id(self.as_u128(), lang, args)
     }
 }
