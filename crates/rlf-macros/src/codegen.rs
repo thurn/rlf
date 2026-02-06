@@ -284,10 +284,13 @@ fn reconstruct_template(template: &Template) -> String {
         match segment {
             Segment::Literal(text) => {
                 // Escape special characters for RLF template strings
-                // Braces need to be doubled, quotes need backslash escape
+                // Braces and escape sequences need to be doubled,
+                // quotes need backslash escape
                 let escaped = text
                     .replace('{', "{{")
                     .replace('}', "}}")
+                    .replace('@', "@@")
+                    .replace(':', "::")
                     .replace('\\', "\\\\")
                     .replace('"', "\\\"");
                 result.push_str(&escaped);
@@ -591,6 +594,32 @@ mod tests {
         assert!(source.contains("a = \"first\""));
         assert!(source.contains("b = \"second\""));
         assert!(source.contains("c = \"third\""));
+    }
+
+    #[test]
+    fn test_reconstruct_literal_escapes_at_sign() {
+        let input = parse_input(parse_quote! {
+            test = "Use @@ for transforms.";
+        });
+        let source = reconstruct_source(&input);
+        // The parser converts @@ to @, then reconstruction escapes @ back to @@
+        assert!(
+            source.contains("@@"),
+            "should contain escaped @@, got: {source}"
+        );
+    }
+
+    #[test]
+    fn test_reconstruct_literal_escapes_colon() {
+        let input = parse_input(parse_quote! {
+            test = "Ratio 1::2.";
+        });
+        let source = reconstruct_source(&input);
+        // The parser converts :: to :, then reconstruction escapes : back to ::
+        assert!(
+            source.contains("::"),
+            "should contain escaped ::, got: {source}"
+        );
     }
 
     // =========================================================================

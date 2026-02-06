@@ -251,6 +251,16 @@ pub(crate) fn parse_template_string(s: &str, span: Span) -> syn::Result<Vec<Segm
                     return Err(syn::Error::new(span, "unexpected closing brace"));
                 }
             }
+            '@' if chars.peek() == Some(&'@') => {
+                // Escaped @ sign
+                chars.next();
+                current_literal.push('@');
+            }
+            ':' if chars.peek() == Some(&':') => {
+                // Escaped colon
+                chars.next();
+                current_literal.push(':');
+            }
             _ => {
                 current_literal.push(c);
             }
@@ -540,7 +550,7 @@ mod tests {
     }
 
     // =========================================================================
-    // Escaped braces
+    // Escape sequences
     // =========================================================================
 
     #[test]
@@ -555,6 +565,27 @@ mod tests {
         let segments = parse_ok("a {{b}} c");
         assert_eq!(segments.len(), 1);
         assert_eq!(get_literal(&segments[0]), "a {b} c");
+    }
+
+    #[test]
+    fn test_escaped_at_sign() {
+        let segments = parse_ok("Use @@ for transforms.");
+        assert_eq!(segments.len(), 1);
+        assert_eq!(get_literal(&segments[0]), "Use @ for transforms.");
+    }
+
+    #[test]
+    fn test_escaped_colon() {
+        let segments = parse_ok("Ratio 1::2.");
+        assert_eq!(segments.len(), 1);
+        assert_eq!(get_literal(&segments[0]), "Ratio 1:2.");
+    }
+
+    #[test]
+    fn test_escaped_at_and_colon_together() {
+        let segments = parse_ok("@@ and :: together");
+        assert_eq!(segments.len(), 1);
+        assert_eq!(get_literal(&segments[0]), "@ and : together");
     }
 
     // =========================================================================
