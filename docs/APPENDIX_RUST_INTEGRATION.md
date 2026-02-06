@@ -341,6 +341,36 @@ impl Display for Phrase {
 Common types implement `Into<Value>`: integers become `Value::Number`, strings
 become `Value::String`, and `Phrase` becomes `Value::Phrase`.
 
+### The params! Macro
+
+The `params!` macro creates a `HashMap<String, Value>` from key-value pairs,
+with automatic `Into<Value>` conversion for each value:
+
+```rust
+use rlf::{params, Value};
+
+// Empty map
+let empty = params! {};
+
+// Single entry
+let p = params! { "count" => 3 };
+
+// Multiple entries with mixed types
+let p = params! {
+    "count" => 5,
+    "name" => "Alice",
+    "score" => 9.5_f64,
+};
+assert_eq!(p["count"].as_number(), Some(5));
+assert_eq!(p["name"].as_string(), Some("Alice"));
+assert_eq!(p["score"].as_float(), Some(9.5));
+```
+
+Accepted value types include integers (`i32`, `i64`, `u32`, `u64`, `usize`),
+floats (`f32`, `f64`), string literals (`&str`), owned strings (`String`),
+`Phrase` values, and `Value` directly. Keys can be any expression that
+implements `ToString` (typically `&str`).
+
 ---
 
 ## The PhraseId Type
@@ -1036,6 +1066,63 @@ When loading a translation file, the interpreter validates and returns `Result`:
 2. **Phrase references**: Unknown phrases produce warnings (not errors)
 3. **Parameter counts**: Mismatch with source language produces warnings
 
+### validate_translations()
+
+After loading both source and target language phrases, call
+`validate_translations()` to check the target language for potential issues:
+
+```rust
+pub fn validate_translations(
+    &self,
+    source_language: &str,
+    target_language: &str,
+) -> Vec<LoadWarning>;
+```
+
+Both languages must already be loaded via `load_translations` or
+`load_translations_str`. Returns an empty vector if no warnings are found or
+if either language is not loaded.
+
+```rust
+use rlf::{Locale, LoadWarning};
+
+let mut locale = Locale::new();
+locale.load_translations_str("en", r#"
+    hello = "Hello!";
+    greet(name) = "Hello, {name}!";
+"#).unwrap();
+
+locale.load_translations_str("ru", r#"
+    hello = "Привет!";
+    greet(first, last) = "Привет, {first} {last}!";
+    extra = "Лишнее";
+"#).unwrap();
+
+let warnings = locale.validate_translations("en", "ru");
+for w in &warnings {
+    eprintln!("{w}");
+}
+// warning: phrase 'greet' in 'ru' has 2 parameter(s), but source has 1
+// warning: translation 'ru' defines unknown phrase 'extra' not found in source
+```
+
+### LoadWarning Variants
+
+The `LoadWarning` enum has four variants:
+
+| Variant | Description | Fields |
+|---------|-------------|--------|
+| `UnknownPhrase` | Target defines a phrase not in the source language | `name`, `language` |
+| `ParameterCountMismatch` | Target phrase has different parameter count than source | `name`, `language`, `source_count`, `translation_count` |
+| `InvalidTag` | Phrase uses a metadata tag not recognized for the target language | `name`, `language`, `tag`, `valid_tags` |
+| `InvalidVariantKey` | Phrase uses a variant key component not recognized for the target language | `name`, `language`, `key`, `valid_keys` |
+
+`InvalidTag` and `InvalidVariantKey` are only checked for languages with known
+validation rules (e.g., Russian, Polish). For unrecognized language codes, tag
+and variant key validation is skipped.
+
+`LoadWarning` implements `Display`, `Debug`, `Clone`, `PartialEq`, and `Eq`.
+
 ---
 
 ## Runtime Components
@@ -1175,6 +1262,61 @@ Because RLF uses proc-macros, rust-analyzer provides:
 - **Autocomplete**: Phrase functions appear immediately
 - **Go-to-definition**: Navigate to the macro invocation
 - **Error highlighting**: Syntax errors and undefined references
+
+---
+
+## Locale Construction
+
+The `Locale` struct provides several ways to create an instance:
+
+### Locale::new()
+
+Creates a locale with default settings (English, no string context):
+
+```rust
+let mut locale = Locale::new();
+assert_eq!(locale.language(), "en");
+```
+
+### Locale::with_language()
+
+Creates a locale with a specific initial language:
+
+```rust
+let mut locale = Locale::with_language("ru");
+assert_eq!(locale.language(), "ru");
+```
+
+### Locale::builder()
+
+A builder pattern (via the `bon` crate) for full configuration, including the
+`string_context` option:
+
+```rust
+use rlf::Locale;
+
+let mut locale = Locale::builder()
+    .language("ru")
+    .string_context("card_text".to_string())
+    .build();
+
+assert_eq!(locale.language(), "ru");
+assert_eq!(locale.string_context(), Some("card_text"));
+```
+
+Builder fields:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `language` | `impl Into<String>` | `"en"` | Initial language code |
+| `string_context` | `Option<String>` | `None` | Format variant selection context |
+
+When `string_context` is set, variant phrases prefer the variant matching this
+context as their default text. For example, with
+`string_context = "card_text"`, a phrase
+`{ interface: "X", card_text: "<b>X</b>" }` produces `"<b>X</b>"` as its
+default text. The string context can also be changed after construction via
+`locale.set_string_context(Some("card_text"))`.
 
 ---
 
