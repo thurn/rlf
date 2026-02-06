@@ -480,20 +480,40 @@ However, translators need to preserve markup structure. Consider:
 
 ### StringContext
 
-The current system has `StringContext::Interface` vs `StringContext::CardText` that
-affects formatting. RLF would need a similar mechanism:
+RLF supports string context natively via `Locale::set_string_context()`. The
+current Dreamtides system uses `StringContext::Interface` vs
+`StringContext::CardText` to vary formatting; RLF handles this with variant
+phrases and context-based default selection.
 
-```rust
-rlf! {
-    // Context-aware formatting
-    energy_symbol = {
-        interface: "●",
-        card_text: "<color=#00838F>●</color>",
-    };
-}
+Define variant phrases with named keys for each context:
+
+```
+energy = {
+    interface: "E",
+    card_text: "<b>E</b>",
+};
 ```
 
-Or pass context as a parameter to relevant phrases.
+Then set the active context on the locale. When a context is active, variant
+phrases whose keys include a matching variant use that variant as their default
+text:
+
+```rust
+// Without context: default text is the first variant ("E")
+let phrase = locale.get_phrase("energy").unwrap();
+assert_eq!(phrase.to_string(), "E");
+
+// With context: default text matches the "card_text" variant
+locale.set_string_context(Some("card_text"));
+let phrase = locale.get_phrase("energy").unwrap();
+assert_eq!(phrase.to_string(), "<b>E</b>");
+```
+
+The context also applies to nested phrase references, so a phrase like
+`cost(n) = "{n}{energy}";` automatically picks the correct variant based on the
+active context. The context can also be set via the builder API with
+`Locale::builder().string_context("interface").build()`. All variants remain
+accessible regardless of context via `phrase.variant("interface")`.
 
 ### Error Handling
 
