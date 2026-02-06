@@ -368,6 +368,9 @@ pub struct PhraseId(u128);
 
 ### API
 
+The primary `PhraseId` API uses a `Locale` reference, which handles language
+selection automatically. Prefer these methods for typical usage.
+
 ```rust
 impl PhraseId {
     /// Create a PhraseId from a phrase name at compile time.
@@ -375,36 +378,55 @@ impl PhraseId {
         Self(const_fnv1a_128(name))
     }
 
-    /// Resolve a parameterless phrase using a registry directly.
+    /// Resolve a parameterless phrase to its Phrase value.
+    /// Looks up the phrase in the locale's current language and evaluates it.
+    pub fn resolve(&self, locale: &Locale) -> Result<Phrase, EvalError>;
+
+    /// Call a phrase with positional arguments.
+    /// Looks up the phrase, binds arguments to parameters, and evaluates it.
+    pub fn call(&self, locale: &Locale, args: &[Value]) -> Result<Phrase, EvalError>;
+
+    /// Get the phrase name for debugging.
+    /// Returns None if the phrase is not registered.
+    pub fn name<'a>(&self, locale: &'a Locale) -> Option<&'a str>;
+
+    /// Check if this phrase has parameters.
+    /// Returns false if the phrase is not found.
+    pub fn has_parameters(&self, locale: &Locale) -> bool;
+
+    /// Get the number of parameters this phrase expects.
+    /// Returns 0 if the phrase is not found.
+    pub fn parameter_count(&self, locale: &Locale) -> usize;
+
+    /// Get the raw hash value.
+    pub fn as_u128(&self) -> u128;
+}
+```
+
+### Lower-Level API
+
+The `resolve_with_registry` and `call_with_registry` methods operate on
+`PhraseRegistry` directly, bypassing `Locale`. Prefer `resolve()` and `call()`
+when a `Locale` is available.
+
+```rust
+impl PhraseId {
+    /// Resolve using a PhraseRegistry directly.
     pub fn resolve_with_registry(
         &self,
         registry: &PhraseRegistry,
         lang: &str,
-    ) -> Result<Phrase, EvalError> {
-        registry.get_phrase_by_id(self.0, lang)
-    }
+    ) -> Result<Phrase, EvalError>;
 
-    /// Call a phrase with arguments using a registry directly.
+    /// Call using a PhraseRegistry directly.
     pub fn call_with_registry(
         &self,
         registry: &PhraseRegistry,
         lang: &str,
         args: &[Value],
-    ) -> Result<Phrase, EvalError> {
-        registry.call_phrase_by_id(self.0, lang, args)
-    }
-
-    /// Get the raw hash value.
-    pub fn as_u128(&self) -> u128 {
-        self.0
-    }
+    ) -> Result<Phrase, EvalError>;
 }
 ```
-
-**Note:** The `resolve_with_registry` and `call_with_registry` methods operate
-on `PhraseRegistry` directly. For typical usage, call `locale.get_phrase(name)`
-or `locale.call_phrase(name, args)` on `Locale` instead, which handles language
-selection automatically.
 
 ### Global Locale Methods (requires `global-locale` feature)
 
@@ -507,15 +529,12 @@ let text = locale.call_phrase("draw", &[3.into()])?;
 ```
 
 `PhraseId` is useful when you need to store phrase references in serializable
-data structures. Use `resolve_with_registry` for parameterless phrases and
-`call_with_registry` for phrases with parameters:
+data structures. Use `resolve` for parameterless phrases and `call` for phrases
+with parameters:
 
 ```rust
-let registry = locale.registry().expect("language loaded");
-let lang = locale.language();
-
-let card = strings::phrase_ids::CARD.resolve_with_registry(registry, lang)?;
-let text = strings::phrase_ids::DRAW.call_with_registry(registry, lang, &[3.into()])?;
+let card = strings::phrase_ids::CARD.resolve(&locale)?;
+let text = strings::phrase_ids::DRAW.call(&locale, &[3.into()])?;
 ```
 
 ---
@@ -545,9 +564,7 @@ let json = serde_json::to_string(&card)?;
 
 // Later, resolve to localized text
 fn render_card(card: &CardDefinition, locale: &Locale) -> String {
-    let registry = locale.registry().expect("language loaded");
-    let lang = locale.language();
-    let name = card.name.resolve_with_registry(registry, lang)
+    let name = card.name.resolve(locale)
         .map(|p| p.to_string())
         .unwrap_or_else(|_| "[missing]".to_string());
     format!("{} (Cost: {})", name, card.cost)
@@ -586,19 +603,17 @@ enum PromptLabel {
 
 impl PromptLabel {
     fn resolve(&self, locale: &Locale) -> Result<String, EvalError> {
-        let registry = locale.registry().expect("language loaded");
-        let lang = locale.language();
         match self {
             PromptLabel::Simple(id) => {
-                id.call_with_registry(registry, lang, &[]).map(|p| p.to_string())
+                id.call(locale, &[]).map(|p| p.to_string())
             }
             PromptLabel::WithEnergy { phrase, energy } => {
-                phrase.call_with_registry(registry, lang, &[(*energy).into()])
+                phrase.call(locale, &[(*energy).into()])
                     .map(|p| p.to_string())
             }
             PromptLabel::WithCard { phrase, card } => {
-                let card_phrase = card.resolve_with_registry(registry, lang)?;
-                phrase.call_with_registry(registry, lang, &[card_phrase.into()])
+                let card_phrase = card.resolve(locale)?;
+                phrase.call(locale, &[card_phrase.into()])
                     .map(|p| p.to_string())
             }
         }
@@ -626,8 +641,7 @@ struct DynamicPhrase {
 
 impl DynamicPhrase {
     fn resolve(&self, locale: &Locale) -> Option<String> {
-        let registry = locale.registry()?;
-        self.id.call_with_registry(registry, locale.language(), &self.args)
+        self.id.call(locale, &self.args)
             .map(|p| p.to_string())
             .ok()
     }
@@ -653,7 +667,7 @@ if seen.contains(&strings::phrase_ids::CARD) {
 
 ### Debugging
 
-Use `Display` formatting or `as_u64()` for logging:
+Use `Display` formatting or `as_u128()` for logging:
 
 ```rust
 fn debug_phrase(id: PhraseId) {

@@ -748,9 +748,10 @@ let draw_phrase: PhraseId = strings::phrase_ids::DRAW;
 let phrase = card_name.resolve(&locale).expect("phrase should exist");
 let text = phrase.to_string();  // → "Fire Elemental"
 
-// Resolve phrase with parameters (returns Result<String, EvalError>)
-let text = draw_phrase.call(&locale, &[3.into()])
-    .expect("phrase should exist");  // → "Draw 3 cards."
+// Resolve phrase with parameters (returns Result<Phrase, EvalError>)
+let phrase = draw_phrase.call(&locale, &[3.into()])
+    .expect("phrase should exist");
+let text = phrase.to_string();  // → "Draw 3 cards."
 ```
 
 See **APPENDIX_RUST_INTEGRATION.md** for complete details on `PhraseId`

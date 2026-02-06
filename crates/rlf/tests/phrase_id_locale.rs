@@ -257,6 +257,55 @@ fn parameter_count_returns_zero_for_unknown() {
 }
 
 // =========================================================================
+// call() returns Phrase (not String)
+// =========================================================================
+
+#[test]
+fn call_returns_phrase_with_variants_and_tags() {
+    let mut locale = Locale::new();
+    locale
+        .load_translations_str(
+            "en",
+            r#"
+        item = :a { one: "item", other: "items" };
+        describe(n) = :from(n) "{n}";
+    "#,
+        )
+        .unwrap();
+
+    let id = PhraseId::from_name("describe");
+    let phrase = id
+        .call(
+            &locale,
+            &[Value::from(
+                PhraseId::from_name("item").resolve(&locale).unwrap(),
+            )],
+        )
+        .unwrap();
+    assert_eq!(phrase.to_string(), "item");
+    assert_eq!(phrase.variant("other"), "items");
+}
+
+#[test]
+fn call_result_supports_to_string() {
+    let mut locale = Locale::new();
+    locale
+        .load_translations_str(
+            "en",
+            r#"
+        card = { one: "card", other: "cards" };
+        draw(n) = "Draw {n} {card:n}.";
+    "#,
+        )
+        .unwrap();
+
+    let id = PhraseId::from_name("draw");
+    let result: Result<rlf::Phrase, _> = id.call(&locale, &[Value::from(5)]);
+    let phrase = result.unwrap();
+    assert_eq!(phrase.to_string(), "Draw 5 cards.");
+}
+
+// =========================================================================
 // Const PhraseId construction
 // =========================================================================
 
