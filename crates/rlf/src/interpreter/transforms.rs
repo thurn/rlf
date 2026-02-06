@@ -116,6 +116,19 @@ pub enum TransformKind {
     // Japanese particle transform
     /// @particle - Japanese particle selection based on context
     JapaneseParticle,
+    // Hindi transforms
+    /// @ka/@ki/@ke - Hindi possessive postposition with gender/number agreement
+    HindiKa,
+    /// @ko - Hindi dative/accusative postposition (को)
+    HindiKo,
+    /// @se - Hindi instrumental/ablative postposition (से)
+    HindiSe,
+    /// @me - Hindi locative postposition (में)
+    HindiMe,
+    /// @par - Hindi "on" postposition (पर)
+    HindiPar,
+    /// @ne - Hindi ergative postposition (ने)
+    HindiNe,
 }
 
 impl TransformKind {
@@ -193,6 +206,13 @@ impl TransformKind {
             TransformKind::HungarianInflect => hungarian_inflect_transform(value, context),
             // Japanese @particle needs context (for particle type)
             TransformKind::JapaneseParticle => japanese_particle_transform(context),
+            // Hindi postposition transforms
+            TransformKind::HindiKa => hindi_ka_transform(value, context),
+            TransformKind::HindiKo => hindi_postposition_transform(value, "को"),
+            TransformKind::HindiSe => hindi_postposition_transform(value, "से"),
+            TransformKind::HindiMe => hindi_postposition_transform(value, "में"),
+            TransformKind::HindiPar => hindi_postposition_transform(value, "पर"),
+            TransformKind::HindiNe => hindi_postposition_transform(value, "ने"),
         }
     }
 }
@@ -2203,6 +2223,42 @@ fn hungarian_inflect_transform(
     Ok(result)
 }
 
+// =============================================================================
+// Hindi Transforms
+// =============================================================================
+
+/// Hindi possessive postposition transform (@ka/@ki/@ke).
+///
+/// Reads :masc/:fem tag from Value to determine gender.
+/// Uses context for number (defaults to singular).
+/// - Masculine singular: का (ka)
+/// - Feminine (any number): की (ki)
+/// - Masculine plural/oblique: के (ke)
+fn hindi_ka_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
+    let text = value.to_string();
+    let gender = parse_romance_gender(value, "ka")?;
+    let plural = parse_romance_plural(context);
+    let postposition = hindi_possessive_postposition(gender, plural);
+    Ok(format!("{text} {postposition}"))
+}
+
+/// Hindi possessive postposition lookup table.
+fn hindi_possessive_postposition(gender: RomanceGender, plural: RomancePlural) -> &'static str {
+    match (gender, plural) {
+        (RomanceGender::Masculine, RomancePlural::One) => "का",
+        (RomanceGender::Masculine, RomancePlural::Other) => "के",
+        (RomanceGender::Feminine, _) => "की",
+    }
+}
+
+/// Hindi invariant postposition transform.
+///
+/// Appends a fixed postposition after the value text.
+/// Used for postpositions that do not change form based on gender/number.
+fn hindi_postposition_transform(value: &Value, postposition: &str) -> Result<String, EvalError> {
+    Ok(format!("{value} {postposition}"))
+}
+
 /// Registry for transform functions.
 ///
 /// Transforms are registered per-language with universal transforms available to all.
@@ -2243,6 +2299,7 @@ impl TransformRegistry {
             ("uno" | "una", "it") => "un",   // Italian aliases: @uno/@una resolve to @un
             ("i" | "to", "el") => "o",       // Greek aliases: @i/@to resolve to @o
             ("mia" | "ena", "el") => "enas", // Greek aliases: @mia/@ena resolve to @enas
+            ("ki" | "ke", "hi") => "ka",     // Hindi aliases: @ki/@ke resolve to @ka
             (other, _) => other,
         };
 
@@ -2294,6 +2351,12 @@ impl TransformRegistry {
             ("tr", "inflect") => Some(TransformKind::TurkishInflect),
             ("fi", "inflect") => Some(TransformKind::FinnishInflect),
             ("hu", "inflect") => Some(TransformKind::HungarianInflect),
+            ("hi", "ka") => Some(TransformKind::HindiKa),
+            ("hi", "ko") => Some(TransformKind::HindiKo),
+            ("hi", "se") => Some(TransformKind::HindiSe),
+            ("hi", "me") => Some(TransformKind::HindiMe),
+            ("hi", "par") => Some(TransformKind::HindiPar),
+            ("hi", "ne") => Some(TransformKind::HindiNe),
             _ => None,
         }
     }

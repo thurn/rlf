@@ -6711,3 +6711,320 @@ fn hungarian_inflect_not_registered_for_english() {
     let registry = TransformRegistry::new();
     assert!(registry.get("inflect", "en").is_none());
 }
+
+// =============================================================================
+// Hindi Transform Tests
+// =============================================================================
+
+#[test]
+fn hindi_ka_masculine_singular() {
+    let phrase = Phrase::builder()
+        .text("कार्ड".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HindiKa;
+    let result = transform.execute(&value, None, "hi").unwrap();
+    assert_eq!(result, "कार्ड का");
+}
+
+#[test]
+fn hindi_ka_masculine_plural() {
+    let phrase = Phrase::builder()
+        .text("कार्ड".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("other".to_string());
+    let transform = TransformKind::HindiKa;
+    let result = transform.execute(&value, Some(&context), "hi").unwrap();
+    assert_eq!(result, "कार्ड के");
+}
+
+#[test]
+fn hindi_ka_feminine_singular() {
+    let phrase = Phrase::builder()
+        .text("घटना".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HindiKa;
+    let result = transform.execute(&value, None, "hi").unwrap();
+    assert_eq!(result, "घटना की");
+}
+
+#[test]
+fn hindi_ka_feminine_plural() {
+    let phrase = Phrase::builder()
+        .text("घटनाओं".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("other".to_string());
+    let transform = TransformKind::HindiKa;
+    let result = transform.execute(&value, Some(&context), "hi").unwrap();
+    assert_eq!(result, "घटनाओं की");
+}
+
+#[test]
+fn hindi_ka_missing_gender() {
+    let phrase = Phrase::builder().text("चीज़".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HindiKa;
+    let result = transform.execute(&value, None, "hi");
+    assert!(matches!(result, Err(EvalError::MissingTag { .. })));
+}
+
+#[test]
+fn hindi_ka_numeric_context() {
+    let phrase = Phrase::builder()
+        .text("कार्ड".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HindiKa;
+
+    let ctx_one = Value::Number(1);
+    let result_one = transform.execute(&value, Some(&ctx_one), "hi").unwrap();
+    assert_eq!(result_one, "कार्ड का");
+
+    let ctx_many = Value::Number(5);
+    let result_many = transform.execute(&value, Some(&ctx_many), "hi").unwrap();
+    assert_eq!(result_many, "कार्ड के");
+}
+
+#[test]
+fn hindi_ko_transform() {
+    let phrase = Phrase::builder()
+        .text("कार्ड".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HindiKo;
+    let result = transform.execute(&value, None, "hi").unwrap();
+    assert_eq!(result, "कार्ड को");
+}
+
+#[test]
+fn hindi_se_transform() {
+    let phrase = Phrase::builder()
+        .text("कार्ड".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HindiSe;
+    let result = transform.execute(&value, None, "hi").unwrap();
+    assert_eq!(result, "कार्ड से");
+}
+
+#[test]
+fn hindi_me_transform() {
+    let phrase = Phrase::builder()
+        .text("हाथ".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HindiMe;
+    let result = transform.execute(&value, None, "hi").unwrap();
+    assert_eq!(result, "हाथ में");
+}
+
+#[test]
+fn hindi_par_transform() {
+    let phrase = Phrase::builder()
+        .text("मेज़".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HindiPar;
+    let result = transform.execute(&value, None, "hi").unwrap();
+    assert_eq!(result, "मेज़ पर");
+}
+
+#[test]
+fn hindi_ne_transform() {
+    let phrase = Phrase::builder()
+        .text("खिलाड़ी".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::HindiNe;
+    let result = transform.execute(&value, None, "hi").unwrap();
+    assert_eq!(result, "खिलाड़ी ने");
+}
+
+#[test]
+fn hindi_transform_aliases() {
+    let registry = TransformRegistry::new();
+    assert_eq!(registry.get("ka", "hi"), Some(TransformKind::HindiKa));
+    assert_eq!(registry.get("ki", "hi"), Some(TransformKind::HindiKa));
+    assert_eq!(registry.get("ke", "hi"), Some(TransformKind::HindiKa));
+    assert_eq!(registry.get("ko", "hi"), Some(TransformKind::HindiKo));
+    assert_eq!(registry.get("se", "hi"), Some(TransformKind::HindiSe));
+    assert_eq!(registry.get("me", "hi"), Some(TransformKind::HindiMe));
+    assert_eq!(registry.get("par", "hi"), Some(TransformKind::HindiPar));
+    assert_eq!(registry.get("ne", "hi"), Some(TransformKind::HindiNe));
+}
+
+#[test]
+fn hindi_transforms_not_registered_for_english() {
+    let registry = TransformRegistry::new();
+    assert!(registry.get("ka", "en").is_none());
+    assert!(registry.get("ko", "en").is_none());
+    assert!(registry.get("se", "en").is_none());
+    assert!(registry.get("me", "en").is_none());
+    assert!(registry.get("par", "en").is_none());
+    assert!(registry.get("ne", "en").is_none());
+}
+
+#[test]
+fn hindi_ka_in_template() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+            card = :masc "कार्ड";
+            card_of = "{@ka card}";
+            "#,
+        )
+        .unwrap();
+    let result = registry.call_phrase("hi", "card_of", &[]).unwrap();
+    assert_eq!(result.to_string(), "कार्ड का");
+}
+
+#[test]
+fn hindi_ko_in_template() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+            card = :masc "कार्ड";
+            give_card = "{@ko card} दो";
+            "#,
+        )
+        .unwrap();
+    let result = registry.call_phrase("hi", "give_card", &[]).unwrap();
+    assert_eq!(result.to_string(), "कार्ड को दो");
+}
+
+#[test]
+fn hindi_se_in_template() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+            card = :masc "कार्ड";
+            from_card = "{@se card} लो";
+            "#,
+        )
+        .unwrap();
+    let result = registry.call_phrase("hi", "from_card", &[]).unwrap();
+    assert_eq!(result.to_string(), "कार्ड से लो");
+}
+
+#[test]
+fn hindi_me_in_template() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+            hand = :masc "हाथ";
+            in_hand = "{@me hand}";
+            "#,
+        )
+        .unwrap();
+    let result = registry.call_phrase("hi", "in_hand", &[]).unwrap();
+    assert_eq!(result.to_string(), "हाथ में");
+}
+
+#[test]
+fn hindi_ka_with_plural_context() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+            card = :masc "कार्ड";
+            cards_of = "{@ka:other card}";
+            "#,
+        )
+        .unwrap();
+    let result = registry.call_phrase("hi", "cards_of", &[]).unwrap();
+    assert_eq!(result.to_string(), "कार्ड के");
+}
+
+#[test]
+fn hindi_ki_alias_in_template() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+            event = :fem "घटना";
+            event_of = "{@ki event}";
+            "#,
+        )
+        .unwrap();
+    let result = registry.call_phrase("hi", "event_of", &[]).unwrap();
+    assert_eq!(result.to_string(), "घटना की");
+}
+
+#[test]
+fn hindi_ne_in_template() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+            player = :masc "खिलाड़ी";
+            player_did = "{@ne player} किया";
+            "#,
+        )
+        .unwrap();
+    let result = registry.call_phrase("hi", "player_did", &[]).unwrap();
+    assert_eq!(result.to_string(), "खिलाड़ी ने किया");
+}
+
+#[test]
+fn hindi_par_in_template() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+            table = :fem "मेज़";
+            on_table = "{@par table}";
+            "#,
+        )
+        .unwrap();
+    let result = registry.call_phrase("hi", "on_table", &[]).unwrap();
+    assert_eq!(result.to_string(), "मेज़ पर");
+}
+
+#[test]
+fn hindi_invariant_postpositions_ignore_gender() {
+    // ko, se, me, par, ne do not change form based on gender
+    let masc_phrase = Phrase::builder()
+        .text("कार्ड".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let fem_phrase = Phrase::builder()
+        .text("घटना".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let masc = Value::Phrase(masc_phrase);
+    let fem = Value::Phrase(fem_phrase);
+
+    let ko = TransformKind::HindiKo;
+    assert_eq!(ko.execute(&masc, None, "hi").unwrap(), "कार्ड को");
+    assert_eq!(ko.execute(&fem, None, "hi").unwrap(), "घटना को");
+
+    let se = TransformKind::HindiSe;
+    assert_eq!(se.execute(&masc, None, "hi").unwrap(), "कार्ड से");
+    assert_eq!(se.execute(&fem, None, "hi").unwrap(), "घटना से");
+}
+
+#[test]
+fn hindi_ko_with_string_value() {
+    // Invariant postpositions work on plain strings too
+    let value = Value::String("राम".to_string());
+    let transform = TransformKind::HindiKo;
+    let result = transform.execute(&value, None, "hi").unwrap();
+    assert_eq!(result, "राम को");
+}

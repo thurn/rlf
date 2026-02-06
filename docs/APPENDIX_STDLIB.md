@@ -106,6 +106,23 @@ summon(n) = "召唤{@count:n jue_se}"; // n=2 → "召唤2个角色"
 | `:masc` | Masculine gender |
 | `:fem` | Feminine gender |
 
+**Transforms**:
+| Transform | Aliases | Reads | Context | Effect |
+|-----------|---------|-------|---------|--------|
+| `@ka` | `@ki`, `@ke` | `:masc`, `:fem` | `:one`/`:other` | Possessive postposition (का/की/के) |
+| `@ko` | - | - | - | Dative/accusative postposition (को) |
+| `@se` | - | - | - | Instrumental/ablative postposition (से) |
+| `@me` | - | - | - | Locative postposition (में) |
+| `@par` | - | - | - | "On" postposition (पर) |
+| `@ne` | - | - | - | Ergative postposition (ने) |
+
+The `@ka` transform agrees with the noun's gender and number:
+- Masculine singular: का (ka)
+- Feminine (any number): की (ki)
+- Masculine plural: के (ke)
+
+Use context selector for plural forms: `@ka:other` → के (ke).
+
 **Plural categories**: `one`, `other`
 
 ```rust
@@ -121,6 +138,15 @@ event = :fem {
     obl: "घटना",
     obl.other: "घटनाओं",
 };
+
+card_of = "{@ka card}";         // → "कार्ड का"
+cards_of = "{@ka:other card}";  // → "कार्ड के"
+event_of = "{@ki event}";       // → "घटना की"
+give_card = "{@ko card} दो";    // → "कार्ड को दो"
+from_card = "{@se card}";       // → "कार्ड से"
+in_hand(h) = "{@me h}";        // → "हाथ में"
+on_table(t) = "{@par t}";      // → "मेज़ पर"
+player_did(p) = "{@ne p} किया"; // → "खिलाड़ी ने किया"
 ```
 
 ---
@@ -861,7 +887,7 @@ the_card = "{@def card}";  // → "cartea"
 |----------|--------|-------|--------------|----------------|
 | English | - | - | 2 | `@a`, `@the` |
 | Chinese | - | - | 1 | `@count` |
-| Hindi | 2 | 3 | 2 | - |
+| Hindi | 2 | 3 | 2 | `@ka`, `@ko`, `@se`, `@me`, `@par`, `@ne` |
 | Spanish | 2 | - | 2 | `@el`, `@un` |
 | French | 2 | - | 2 | `@le`, `@un`, `@de`, `@a` |
 | Arabic | 2 | 3 | 6 | `@al` |
