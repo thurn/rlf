@@ -613,6 +613,7 @@ strings::destroy(&locale, strings::card(&locale));  // phrase
 | ---------------------- | --------------- | ------------------------------------------- |
 | `{x}`                  | Any             | Display the value                           |
 | `{card:x}` (selection) | Number          | Select plural category                      |
+| `{card:x}` (selection) | Float           | Convert to integer, select plural category  |
 | `{card:x}` (selection) | String          | Parse as number, or error                   |
 | `{card:x}` (selection) | Phrase          | Look up matching tag                        |
 | `{@a x}`               | Phrase with tag | Use the tag                                 |

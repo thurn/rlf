@@ -325,11 +325,23 @@ impl Phrase {
     pub fn variant(&self, key: &str) -> &str {
         resolve_variant(&self.variants, key)
     }
+
+    /// Check if this phrase has a specific tag.
+    pub fn has_tag(&self, tag: &str) -> bool;
+
+    /// Get the first tag, if any.
+    pub fn first_tag(&self) -> Option<&Tag>;
 }
 
 impl Display for Phrase {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.text)
+    }
+}
+
+impl From<Phrase> for String {
+    fn from(phrase: Phrase) -> Self {
+        phrase.text
     }
 }
 ```
