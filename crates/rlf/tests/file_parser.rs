@@ -517,3 +517,46 @@ fn test_no_auto_capitalization_for_lowercase() {
         PhraseBody::Variants(_) => panic!("expected simple body"),
     }
 }
+
+#[test]
+fn test_multiple_variant_blocks() {
+    let phrases = parse_file(
+        r#"
+        a = { one: "x", two: "y" };
+        b = { three: "z", four: "w" };
+    "#,
+    )
+    .unwrap();
+    assert_eq!(phrases.len(), 2);
+}
+
+#[test]
+fn test_multiple_tagged_variant_blocks() {
+    // Test multiple variant blocks with dotted keys and multi-selector templates
+    let phrases = parse_file(
+        r#"
+        card = :fem :inan {
+            nom.one: "karta",
+            nom: "karty",
+            gen.many: "kart"
+        };
+        character = :masc :anim {
+            nom.one: "char",
+            nom: "chars",
+            gen.many: "charov"
+        };
+        thing = :neut :inan {
+            nom: "thing",
+            gen.many: "things"
+        };
+        adj = {
+            masc: "m",
+            fem: "f",
+            neut: "n"
+        };
+        test(entity) = "{adj:entity} {entity:nom:one}";
+    "#,
+    )
+    .unwrap();
+    assert_eq!(phrases.len(), 5);
+}

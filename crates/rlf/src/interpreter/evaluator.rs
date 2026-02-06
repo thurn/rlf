@@ -284,6 +284,10 @@ fn eval_with_from_modifier(
 /// Selectors are resolved and combined with "." to form a compound key.
 /// The key is then used to look up a variant in the phrase.
 ///
+/// When a selector resolves from a Phrase parameter with multiple tags
+/// (e.g., `:masc :anim`), all tags are tried as candidates. This enables
+/// languages like Russian where gender and animacy are separate tags.
+///
 /// If no selectors are present, returns the original Value unchanged,
 /// preserving Phrase type with its tags for transform access.
 fn apply_selectors(
@@ -297,78 +301,120 @@ fn apply_selectors(
         return Ok(value.clone());
     }
 
-    // Build compound key from selectors
-    let mut key_parts = Vec::new();
+    // Build candidate key parts from selectors. Each selector position may
+    // have multiple candidates (e.g., a Phrase with tags [:masc, :anim]).
+    let mut candidate_parts: Vec<Vec<String>> = Vec::new();
     for selector in selectors {
-        let key = resolve_selector(selector, ctx, lang)?;
-        key_parts.push(key);
+        let candidates = resolve_selector_candidates(selector, ctx, lang)?;
+        candidate_parts.push(candidates);
     }
-    let compound_key = key_parts.join(".");
 
-    // Look up variant in phrase - result is String since variant lookup returns text
+    // Generate compound keys by taking the cartesian product of candidates,
+    // trying each combination until one matches. For typical usage (most
+    // selectors have one candidate), this is a single lookup.
+    let compound_keys = build_compound_keys(&candidate_parts);
+
     match value {
         Value::Phrase(phrase) => {
-            let variant_text = variant_lookup(phrase, &compound_key)?;
-            Ok(Value::String(variant_text))
+            for key in &compound_keys {
+                if let Ok(variant_text) = variant_lookup(phrase, key) {
+                    return Ok(Value::String(variant_text));
+                }
+            }
+            // None matched - report error using the first (most specific) key
+            let primary_key = compound_keys
+                .first()
+                .cloned()
+                .unwrap_or_else(|| "?".to_string());
+            variant_lookup(phrase, &primary_key).map(Value::String)
         }
         _ => {
             // Non-phrase values don't have variants
+            let primary_key = compound_keys
+                .first()
+                .cloned()
+                .unwrap_or_else(|| "?".to_string());
             let available: Vec<String> = vec![];
             Err(EvalError::MissingVariant {
                 phrase: value.to_string(),
-                key: compound_key.clone(),
-                suggestions: compute_suggestions(&compound_key, &available),
+                key: primary_key.clone(),
+                suggestions: compute_suggestions(&primary_key, &available),
                 available,
             })
         }
     }
 }
 
-/// Resolve a selector to a key string.
+/// Build compound keys from candidate parts via cartesian product.
 ///
-/// If the selector name matches a parameter:
-/// - Number -> plural_category(lang, n)
-/// - Phrase -> first tag (or error if no tag)
-/// - String -> try parse as number, else use literally
+/// Each position in `parts` may have multiple candidates. This generates
+/// all combinations joined with ".".
+fn build_compound_keys(parts: &[Vec<String>]) -> Vec<String> {
+    if parts.is_empty() {
+        return vec![String::new()];
+    }
+
+    let mut result = vec![String::new()];
+    for candidates in parts {
+        let mut next = Vec::new();
+        for prefix in &result {
+            for candidate in candidates {
+                let key = if prefix.is_empty() {
+                    candidate.clone()
+                } else {
+                    format!("{prefix}.{candidate}")
+                };
+                next.push(key);
+            }
+        }
+        result = next;
+    }
+    result
+}
+
+/// Resolve a selector to candidate key strings.
 ///
-/// Otherwise -> literal key string
-fn resolve_selector(
+/// Returns one or more candidate keys for a selector position:
+/// - Number -> single candidate: plural_category(lang, n)
+/// - Phrase -> all tags as candidates (enables multi-tag languages like Russian)
+/// - String -> single candidate: parsed number or literal
+/// - Literal -> single candidate: the identifier itself
+fn resolve_selector_candidates(
     selector: &Selector,
     ctx: &EvalContext<'_>,
     lang: &str,
-) -> Result<String, EvalError> {
+) -> Result<Vec<String>, EvalError> {
     match selector {
         Selector::Identifier(name) => {
             // Check if this is a parameter reference
             if let Some(value) = ctx.get_param(name) {
                 match value {
-                    Value::Number(n) => Ok(plural_category(lang, *n).to_string()),
-                    Value::Float(f) => {
-                        // For floats, use the integer part for plural category
-                        Ok(plural_category(lang, *f as i64).to_string())
-                    }
+                    Value::Number(n) => Ok(vec![plural_category(lang, *n).to_string()]),
+                    Value::Float(f) => Ok(vec![plural_category(lang, *f as i64).to_string()]),
                     Value::Phrase(phrase) => {
-                        // Use first tag as key
-                        phrase.first_tag().map(ToString::to_string).ok_or_else(|| {
-                            EvalError::MissingTag {
+                        // Use all tags as candidates, preserving order
+                        let tags: Vec<String> =
+                            phrase.tags.iter().map(ToString::to_string).collect();
+                        if tags.is_empty() {
+                            return Err(EvalError::MissingTag {
                                 transform: "selector".to_string(),
                                 expected: vec!["any".to_string()],
                                 phrase: phrase.text.clone(),
-                            }
-                        })
+                            });
+                        }
+                        Ok(tags)
                     }
                     Value::String(s) => {
-                        // Try to parse as number, else use literally
                         if let Ok(n) = s.parse::<i64>() {
-                            Ok(plural_category(lang, n).to_string())
+                            Ok(vec![plural_category(lang, n).to_string()])
                         } else {
-                            Ok(s.clone())
+                            Ok(vec![s.clone()])
                         }
                     }
                 }
             } else {
                 // Not a parameter - use as literal key
-                Ok(name.clone())
+                Ok(vec![name.clone()])
             }
         }
     }

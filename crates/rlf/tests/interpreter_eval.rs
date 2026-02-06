@@ -901,3 +901,846 @@ fn eval_polish_all_seven_cases() {
         "karto"
     );
 }
+
+// =============================================================================
+// Russian Gender Tag Selection
+// =============================================================================
+
+#[test]
+fn eval_russian_gender_tag_selection() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        card = :fem :inan "карта";
+        character = :masc :anim "персонаж";
+        event = :neut :inan "событие";
+
+        another_adj = {
+            masc: "другой",
+            fem: "другая",
+            neut: "другое"
+        };
+
+        another(entity) = "{another_adj:entity} {entity}";
+    "#,
+        )
+        .unwrap();
+
+    // card is :fem -> selects "другая"
+    let card = registry.get_phrase("ru", "card").unwrap();
+    let result = registry
+        .call_phrase("ru", "another", &[Value::Phrase(card)])
+        .unwrap();
+    assert_eq!(result.to_string(), "другая карта");
+
+    // character is :masc -> selects "другой"
+    let character = registry.get_phrase("ru", "character").unwrap();
+    let result = registry
+        .call_phrase("ru", "another", &[Value::Phrase(character)])
+        .unwrap();
+    assert_eq!(result.to_string(), "другой персонаж");
+
+    // event is :neut -> selects "другое"
+    let event = registry.get_phrase("ru", "event").unwrap();
+    let result = registry
+        .call_phrase("ru", "another", &[Value::Phrase(event)])
+        .unwrap();
+    assert_eq!(result.to_string(), "другое событие");
+}
+
+// =============================================================================
+// Russian Animacy Tag Selection
+// =============================================================================
+
+#[test]
+fn eval_russian_animacy_tag_selection() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        character = :masc :anim "персонаж";
+        card = :fem :inan "карта";
+        sword = :masc :inan "меч";
+
+        target_type = {
+            anim: "живая цель",
+            inan: "предмет"
+        };
+
+        describe(entity) = "{entity} - {target_type:entity}";
+    "#,
+        )
+        .unwrap();
+
+    // character is :masc :anim -> tries "masc" first (no match), then "anim" -> "живая цель"
+    let character = registry.get_phrase("ru", "character").unwrap();
+    let result = registry
+        .call_phrase("ru", "describe", &[Value::Phrase(character)])
+        .unwrap();
+    assert_eq!(result.to_string(), "персонаж - живая цель");
+
+    // card is :fem :inan -> tries "fem" first (no match), then "inan" -> "предмет"
+    let card = registry.get_phrase("ru", "card").unwrap();
+    let result = registry
+        .call_phrase("ru", "describe", &[Value::Phrase(card)])
+        .unwrap();
+    assert_eq!(result.to_string(), "карта - предмет");
+
+    // sword is :masc :inan -> tries "masc" first (no match), then "inan" -> "предмет"
+    let sword = registry.get_phrase("ru", "sword").unwrap();
+    let result = registry
+        .call_phrase("ru", "describe", &[Value::Phrase(sword)])
+        .unwrap();
+    assert_eq!(result.to_string(), "меч - предмет");
+}
+
+#[test]
+fn eval_russian_animacy_affects_accusative() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        character = :masc :anim {
+            nom.one: "персонаж",
+            nom: "персонажи",
+            nom.many: "персонажей",
+            acc: "персонажа",
+            acc.many: "персонажей",
+            gen: "персонажа",
+            gen.many: "персонажей"
+        };
+
+        card = :fem :inan {
+            nom: "карта",
+            nom.many: "карт",
+            acc.one: "карту",
+            acc: "карты",
+            acc.many: "карт",
+            gen.one: "карты",
+            gen: "карт"
+        };
+
+        take(n) = "Возьмите {card:acc:n}.";
+        defeat(n) = "Победите {character:acc:n}.";
+    "#,
+        )
+        .unwrap();
+
+    // Animate masculine: acc = gen (персонажа)
+    let one_char = registry
+        .call_phrase("ru", "defeat", &[Value::from(1)])
+        .unwrap();
+    assert_eq!(one_char.to_string(), "Победите персонажа.");
+
+    let five_char = registry
+        .call_phrase("ru", "defeat", &[Value::from(5)])
+        .unwrap();
+    assert_eq!(five_char.to_string(), "Победите персонажей.");
+
+    // Inanimate feminine: acc has distinct forms
+    let one_card = registry
+        .call_phrase("ru", "take", &[Value::from(1)])
+        .unwrap();
+    assert_eq!(one_card.to_string(), "Возьмите карту.");
+
+    let five_card = registry
+        .call_phrase("ru", "take", &[Value::from(5)])
+        .unwrap();
+    assert_eq!(five_card.to_string(), "Возьмите карт.");
+}
+
+// =============================================================================
+// Russian All Six Cases
+// =============================================================================
+
+#[test]
+fn eval_russian_all_six_cases() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        card = :fem :inan {
+            nom: "карта",
+            acc: "карту",
+            gen: "карты",
+            dat: "карте",
+            ins: "картой",
+            prep: "карте"
+        };
+        test_nom = "{card:nom}";
+        test_acc = "{card:acc}";
+        test_gen = "{card:gen}";
+        test_dat = "{card:dat}";
+        test_ins = "{card:ins}";
+        test_prep = "{card:prep}";
+    "#,
+        )
+        .unwrap();
+
+    assert_eq!(
+        registry.get_phrase("ru", "test_nom").unwrap().to_string(),
+        "карта"
+    );
+    assert_eq!(
+        registry.get_phrase("ru", "test_acc").unwrap().to_string(),
+        "карту"
+    );
+    assert_eq!(
+        registry.get_phrase("ru", "test_gen").unwrap().to_string(),
+        "карты"
+    );
+    assert_eq!(
+        registry.get_phrase("ru", "test_dat").unwrap().to_string(),
+        "карте"
+    );
+    assert_eq!(
+        registry.get_phrase("ru", "test_ins").unwrap().to_string(),
+        "картой"
+    );
+    assert_eq!(
+        registry.get_phrase("ru", "test_prep").unwrap().to_string(),
+        "карте"
+    );
+}
+
+#[test]
+fn eval_russian_masculine_all_six_cases() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        ally = :masc :anim {
+            nom.one: "союзник",
+            nom: "союзники",
+            acc: "союзника",
+            gen: "союзника",
+            dat: "союзнику",
+            ins: "союзником",
+            prep: "союзнике"
+        };
+        test_nom = "{ally:nom}";
+        test_acc = "{ally:acc}";
+        test_gen = "{ally:gen}";
+        test_dat = "{ally:dat}";
+        test_ins = "{ally:ins}";
+        test_prep = "{ally:prep}";
+    "#,
+        )
+        .unwrap();
+
+    assert_eq!(
+        registry.get_phrase("ru", "test_nom").unwrap().to_string(),
+        "союзники"
+    );
+    assert_eq!(
+        registry.get_phrase("ru", "test_acc").unwrap().to_string(),
+        "союзника"
+    );
+    assert_eq!(
+        registry.get_phrase("ru", "test_gen").unwrap().to_string(),
+        "союзника"
+    );
+    assert_eq!(
+        registry.get_phrase("ru", "test_dat").unwrap().to_string(),
+        "союзнику"
+    );
+    assert_eq!(
+        registry.get_phrase("ru", "test_ins").unwrap().to_string(),
+        "союзником"
+    );
+    assert_eq!(
+        registry.get_phrase("ru", "test_prep").unwrap().to_string(),
+        "союзнике"
+    );
+}
+
+#[test]
+fn eval_russian_neuter_all_six_cases() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        event = :neut :inan {
+            nom: "событие",
+            acc: "событие",
+            gen: "события",
+            dat: "событию",
+            ins: "событием",
+            prep: "событии"
+        };
+        test_nom = "{event:nom}";
+        test_acc = "{event:acc}";
+        test_gen = "{event:gen}";
+        test_dat = "{event:dat}";
+        test_ins = "{event:ins}";
+        test_prep = "{event:prep}";
+    "#,
+        )
+        .unwrap();
+
+    assert_eq!(
+        registry.get_phrase("ru", "test_nom").unwrap().to_string(),
+        "событие"
+    );
+    assert_eq!(
+        registry.get_phrase("ru", "test_acc").unwrap().to_string(),
+        "событие"
+    );
+    assert_eq!(
+        registry.get_phrase("ru", "test_gen").unwrap().to_string(),
+        "события"
+    );
+    assert_eq!(
+        registry.get_phrase("ru", "test_dat").unwrap().to_string(),
+        "событию"
+    );
+    assert_eq!(
+        registry.get_phrase("ru", "test_ins").unwrap().to_string(),
+        "событием"
+    );
+    assert_eq!(
+        registry.get_phrase("ru", "test_prep").unwrap().to_string(),
+        "событии"
+    );
+}
+
+// =============================================================================
+// Russian Case + Plural Multi-dimensional Variants
+// =============================================================================
+
+#[test]
+fn eval_russian_case_and_plural() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        card = :fem :inan {
+            nom.one: "карта",
+            nom: "карты",
+            nom.many: "карт",
+            acc.one: "карту",
+            acc: "карты",
+            acc.many: "карт",
+            gen.one: "карты",
+            gen: "карт",
+            gen.many: "карт",
+            ins.one: "картой",
+            ins: "картами"
+        };
+        draw(n) = "Возьмите {card:acc:n}.";
+        count(n) = "{n} {card:gen:n}";
+    "#,
+        )
+        .unwrap();
+
+    // acc.one -> "карту"
+    let one = registry
+        .call_phrase("ru", "draw", &[Value::from(1)])
+        .unwrap();
+    assert_eq!(one.to_string(), "Возьмите карту.");
+
+    // acc.few -> falls back to acc -> "карты"
+    let two = registry
+        .call_phrase("ru", "draw", &[Value::from(2)])
+        .unwrap();
+    assert_eq!(two.to_string(), "Возьмите карты.");
+
+    // acc.many -> "карт"
+    let five = registry
+        .call_phrase("ru", "draw", &[Value::from(5)])
+        .unwrap();
+    assert_eq!(five.to_string(), "Возьмите карт.");
+
+    // gen.one -> "карты"
+    let count_one = registry
+        .call_phrase("ru", "count", &[Value::from(1)])
+        .unwrap();
+    assert_eq!(count_one.to_string(), "1 карты");
+
+    // gen.many -> "карт"
+    let count_five = registry
+        .call_phrase("ru", "count", &[Value::from(5)])
+        .unwrap();
+    assert_eq!(count_five.to_string(), "5 карт");
+}
+
+#[test]
+fn eval_russian_animate_masc_case_and_plural() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        ally = :masc :anim {
+            nom.one: "союзник",
+            nom: "союзники",
+            nom.many: "союзников",
+            acc: "союзника",
+            acc.many: "союзников",
+            gen: "союзника",
+            gen.many: "союзников",
+            ins.one: "союзником",
+            ins: "союзниками"
+        };
+        defeat(n) = "Победите {n} {ally:acc:n}.";
+    "#,
+        )
+        .unwrap();
+
+    // acc.one -> falls back to acc -> "союзника"
+    let one = registry
+        .call_phrase("ru", "defeat", &[Value::from(1)])
+        .unwrap();
+    assert_eq!(one.to_string(), "Победите 1 союзника.");
+
+    // acc.few -> falls back to acc -> "союзника"
+    let three = registry
+        .call_phrase("ru", "defeat", &[Value::from(3)])
+        .unwrap();
+    assert_eq!(three.to_string(), "Победите 3 союзника.");
+
+    // acc.many -> "союзников"
+    let five = registry
+        .call_phrase("ru", "defeat", &[Value::from(5)])
+        .unwrap();
+    assert_eq!(five.to_string(), "Победите 5 союзников.");
+}
+
+// =============================================================================
+// Russian Plural Categories
+// =============================================================================
+
+#[test]
+fn eval_russian_plural_categories() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        card = :fem :inan {
+            one: "карта",
+            few: "карты",
+            many: "карт",
+            other: "карты"
+        };
+        draw(n) = "Возьмите {n} {card:n}.";
+    "#,
+        )
+        .unwrap();
+
+    // Russian plural: 1=one, 2-4=few, 5-20=many, 21=one, 22-24=few, 25-30=many
+    let one = registry
+        .call_phrase("ru", "draw", &[Value::from(1)])
+        .unwrap();
+    assert_eq!(one.to_string(), "Возьмите 1 карта.");
+
+    let two = registry
+        .call_phrase("ru", "draw", &[Value::from(2)])
+        .unwrap();
+    assert_eq!(two.to_string(), "Возьмите 2 карты.");
+
+    let five = registry
+        .call_phrase("ru", "draw", &[Value::from(5)])
+        .unwrap();
+    assert_eq!(five.to_string(), "Возьмите 5 карт.");
+
+    let twenty_one = registry
+        .call_phrase("ru", "draw", &[Value::from(21)])
+        .unwrap();
+    assert_eq!(twenty_one.to_string(), "Возьмите 21 карта.");
+
+    let twenty_two = registry
+        .call_phrase("ru", "draw", &[Value::from(22)])
+        .unwrap();
+    assert_eq!(twenty_two.to_string(), "Возьмите 22 карты.");
+
+    let twenty_five = registry
+        .call_phrase("ru", "draw", &[Value::from(25)])
+        .unwrap();
+    assert_eq!(twenty_five.to_string(), "Возьмите 25 карт.");
+}
+
+// =============================================================================
+// Russian Compositional Phrases (Phrase as Parameter)
+// =============================================================================
+
+#[test]
+fn eval_russian_compositional_with_gender_agreement() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        card = :fem :inan {
+            nom.one: "карта",
+            nom: "карты",
+            gen.many: "карт"
+        };
+        character = :masc :anim {
+            nom.one: "персонаж",
+            nom: "персонажи",
+            gen.many: "персонажей"
+        };
+        event = :neut :inan {
+            nom: "событие",
+            gen.many: "событий"
+        };
+
+        allied_adj = {
+            masc: "союзный",
+            fem: "союзная",
+            neut: "союзное"
+        };
+        allied(entity) = "{allied_adj:entity} {entity:nom:one}";
+        allied_plural(entity) = "союзных {entity:gen:many}";
+    "#,
+        )
+        .unwrap();
+
+    // card is :fem -> "союзная карта"
+    let card = registry.get_phrase("ru", "card").unwrap();
+    let result = registry
+        .call_phrase("ru", "allied", &[Value::Phrase(card)])
+        .unwrap();
+    assert_eq!(result.to_string(), "союзная карта");
+
+    // character is :masc -> "союзный персонаж"
+    let character = registry.get_phrase("ru", "character").unwrap();
+    let result = registry
+        .call_phrase("ru", "allied", &[Value::Phrase(character)])
+        .unwrap();
+    assert_eq!(result.to_string(), "союзный персонаж");
+
+    // event is :neut -> "союзное событие"
+    let event = registry.get_phrase("ru", "event").unwrap();
+    let result = registry
+        .call_phrase("ru", "allied", &[Value::Phrase(event)])
+        .unwrap();
+    assert_eq!(result.to_string(), "союзное событие");
+
+    // genitive plural: "союзных персонажей"
+    let character2 = registry.get_phrase("ru", "character").unwrap();
+    let result = registry
+        .call_phrase("ru", "allied_plural", &[Value::Phrase(character2)])
+        .unwrap();
+    assert_eq!(result.to_string(), "союзных персонажей");
+}
+
+#[test]
+fn eval_russian_cost_comparison_pattern() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        character = :masc :anim {
+            nom.one: "персонаж",
+            nom: "персонажи",
+            gen.many: "персонажей"
+        };
+        card = :fem :inan {
+            nom.one: "карта",
+            gen.many: "карт"
+        };
+
+        with_cost_less_than_allied(base, counting) = "{base:nom:one} со стоимостью меньше количества союзных {counting:gen:many}";
+    "#,
+        )
+        .unwrap();
+
+    // Pattern from APPENDIX_RUSSIAN_TRANSLATION.md
+    let base = registry.get_phrase("ru", "character").unwrap();
+    let counting = registry.get_phrase("ru", "character").unwrap();
+    let result = registry
+        .call_phrase(
+            "ru",
+            "with_cost_less_than_allied",
+            &[Value::Phrase(base), Value::Phrase(counting)],
+        )
+        .unwrap();
+    assert_eq!(
+        result.to_string(),
+        "персонаж со стоимостью меньше количества союзных персонажей"
+    );
+
+    // With card as counting base
+    let base2 = registry.get_phrase("ru", "character").unwrap();
+    let counting2 = registry.get_phrase("ru", "card").unwrap();
+    let result = registry
+        .call_phrase(
+            "ru",
+            "with_cost_less_than_allied",
+            &[Value::Phrase(base2), Value::Phrase(counting2)],
+        )
+        .unwrap();
+    assert_eq!(
+        result.to_string(),
+        "персонаж со стоимостью меньше количества союзных карт"
+    );
+}
+
+// =============================================================================
+// Russian Instrumental and Prepositional Case Usage
+// =============================================================================
+
+#[test]
+fn eval_russian_instrumental_case_negation() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        character = :masc :anim {
+            nom.one: "персонаж",
+            ins.one: "персонажем",
+            ins: "персонажами"
+        };
+        card = :fem :inan {
+            nom.one: "карта",
+            ins.one: "картой",
+            ins: "картами"
+        };
+        event = :neut :inan {
+            nom.one: "событие",
+            ins.one: "событием",
+            ins: "событиями"
+        };
+
+        not_a(entity) = "персонаж, который не является {entity:ins:one}";
+    "#,
+        )
+        .unwrap();
+
+    // Instrumental case for negation: "не является картой"
+    let card = registry.get_phrase("ru", "card").unwrap();
+    let result = registry
+        .call_phrase("ru", "not_a", &[Value::Phrase(card)])
+        .unwrap();
+    assert_eq!(result.to_string(), "персонаж, который не является картой");
+
+    // "не является событием"
+    let event = registry.get_phrase("ru", "event").unwrap();
+    let result = registry
+        .call_phrase("ru", "not_a", &[Value::Phrase(event)])
+        .unwrap();
+    assert_eq!(result.to_string(), "персонаж, который не является событием");
+}
+
+#[test]
+fn eval_russian_prepositional_case_location() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        void = :fem :inan {
+            nom: "бездна",
+            prep: "бездне"
+        };
+
+        in_void = "в {void:prep}";
+        in_your_void = "в вашей {void:prep}";
+    "#,
+        )
+        .unwrap();
+
+    let result = registry.get_phrase("ru", "in_void").unwrap();
+    assert_eq!(result.to_string(), "в бездне");
+
+    let result = registry.get_phrase("ru", "in_your_void").unwrap();
+    assert_eq!(result.to_string(), "в вашей бездне");
+}
+
+// =============================================================================
+// Russian Multi-tag Selector Fallback
+// =============================================================================
+
+#[test]
+fn eval_russian_multi_tag_first_tag_matches() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        character = :masc :anim "персонаж";
+
+        adj = {
+            masc: "сильный",
+            fem: "сильная",
+            neut: "сильное"
+        };
+
+        describe(entity) = "{adj:entity} {entity}";
+    "#,
+        )
+        .unwrap();
+
+    // First tag (:masc) matches, so "masc" variant is selected
+    let character = registry.get_phrase("ru", "character").unwrap();
+    let result = registry
+        .call_phrase("ru", "describe", &[Value::Phrase(character)])
+        .unwrap();
+    assert_eq!(result.to_string(), "сильный персонаж");
+}
+
+#[test]
+fn eval_russian_multi_tag_second_tag_matches() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        character = :masc :anim "персонаж";
+        sword = :masc :inan "меч";
+
+        target = {
+            anim: "одушевлённый",
+            inan: "неодушевлённый"
+        };
+
+        classify(entity) = "{entity} - {target:entity}";
+    "#,
+        )
+        .unwrap();
+
+    // character: first tag "masc" doesn't match, second tag "anim" matches
+    let character = registry.get_phrase("ru", "character").unwrap();
+    let result = registry
+        .call_phrase("ru", "classify", &[Value::Phrase(character)])
+        .unwrap();
+    assert_eq!(result.to_string(), "персонаж - одушевлённый");
+
+    // sword: first tag "masc" doesn't match, second tag "inan" matches
+    let sword = registry.get_phrase("ru", "sword").unwrap();
+    let result = registry
+        .call_phrase("ru", "classify", &[Value::Phrase(sword)])
+        .unwrap();
+    assert_eq!(result.to_string(), "меч - неодушевлённый");
+}
+
+// =============================================================================
+// Russian Complex Scenario: Full Translation Pattern
+// =============================================================================
+
+#[test]
+fn eval_russian_full_translation_pattern() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        card = :fem :inan {
+            nom.one: "карта",
+            nom: "карты",
+            nom.many: "карт",
+            acc.one: "карту",
+            acc: "карты",
+            acc.many: "карт",
+            gen.one: "карты",
+            gen: "карт",
+            gen.many: "карт",
+            ins.one: "картой",
+            ins: "картами"
+        };
+
+        character = :masc :anim {
+            nom.one: "персонаж",
+            nom: "персонажи",
+            nom.many: "персонажей",
+            acc: "персонажа",
+            acc.many: "персонажей",
+            gen: "персонажа",
+            gen.many: "персонажей",
+            ins.one: "персонажем",
+            ins: "персонажами"
+        };
+
+        enemy = :masc :anim {
+            nom.one: "враг",
+            nom: "враги",
+            nom.many: "врагов",
+            acc: "врага",
+            acc.many: "врагов",
+            ins.one: "врагом",
+            ins: "врагами"
+        };
+
+        each_adj = {
+            masc: "каждый",
+            fem: "каждая",
+            neut: "каждое"
+        };
+        for_each(entity) = "{each_adj:entity} {entity:nom:one}";
+
+        with_spark(base, spark, op) = "{base:nom:one} с искрой {spark}{op}";
+        or_less = " или меньше";
+
+        in_your_void(things) = "{things} в вашей бездне";
+    "#,
+        )
+        .unwrap();
+
+    // "каждый персонаж"
+    let character = registry.get_phrase("ru", "character").unwrap();
+    let result = registry
+        .call_phrase("ru", "for_each", &[Value::Phrase(character)])
+        .unwrap();
+    assert_eq!(result.to_string(), "каждый персонаж");
+
+    // "каждая карта"
+    let card = registry.get_phrase("ru", "card").unwrap();
+    let result = registry
+        .call_phrase("ru", "for_each", &[Value::Phrase(card)])
+        .unwrap();
+    assert_eq!(result.to_string(), "каждая карта");
+
+    // "персонаж с искрой 3 или меньше"
+    let base = registry.get_phrase("ru", "character").unwrap();
+    let or_less = registry.get_phrase("ru", "or_less").unwrap();
+    let result = registry
+        .call_phrase(
+            "ru",
+            "with_spark",
+            &[Value::Phrase(base), Value::from(3), Value::Phrase(or_less)],
+        )
+        .unwrap();
+    assert_eq!(result.to_string(), "персонаж с искрой 3 или меньше");
+
+    // "враг в вашей бездне" (default text from first variant nom.one)
+    let enemies = registry.get_phrase("ru", "enemy").unwrap();
+    let result = registry
+        .call_phrase("ru", "in_your_void", &[Value::Phrase(enemies)])
+        .unwrap();
+    assert_eq!(result.to_string(), "враг в вашей бездне");
+}
+
+// =============================================================================
+// Russian Dative Case
+// =============================================================================
+
+#[test]
+fn eval_russian_dative_case() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        ally = :masc :anim {
+            nom.one: "союзник",
+            dat.one: "союзнику",
+            dat: "союзникам"
+        };
+        card = :fem :inan {
+            nom.one: "карта",
+            dat.one: "карте",
+            dat: "картам"
+        };
+
+        give_to(entity) = "дать {entity:dat:one}";
+    "#,
+        )
+        .unwrap();
+
+    let ally = registry.get_phrase("ru", "ally").unwrap();
+    let result = registry
+        .call_phrase("ru", "give_to", &[Value::Phrase(ally)])
+        .unwrap();
+    assert_eq!(result.to_string(), "дать союзнику");
+
+    let card = registry.get_phrase("ru", "card").unwrap();
+    let result = registry
+        .call_phrase("ru", "give_to", &[Value::Phrase(card)])
+        .unwrap();
+    assert_eq!(result.to_string(), "дать карте");
+}
