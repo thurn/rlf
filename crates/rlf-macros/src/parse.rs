@@ -24,67 +24,41 @@ impl Parse for MacroInput {
     }
 }
 
+/// Parsed tags and optional :from modifier.
+struct TagsAndFrom {
+    tags: Vec<SpannedIdent>,
+    from_param: Option<SpannedIdent>,
+}
+
+/// Parse optional tags (:tag) and :from(param) modifiers from the input stream.
+///
+/// Stops when it encounters something that isn't `:ident` (e.g., a string
+/// literal, brace block, or identifier without colon prefix).
+fn parse_tags_and_from(input: ParseStream) -> syn::Result<TagsAndFrom> {
+    let mut tags = Vec::new();
+    let mut from_param = None;
+
+    while input.peek(Token![:]) && !input.peek2(Brace) {
+        let colon_span = input.parse::<Token![:]>()?.span;
+        let ident: Ident = input.parse()?;
+
+        if ident == "from" {
+            let content;
+            syn::parenthesized!(content in input);
+            let param: Ident = content.parse()?;
+            from_param = Some(SpannedIdent::new(&param));
+        } else {
+            tags.push(SpannedIdent::from_str(ident.to_string(), colon_span));
+        }
+    }
+
+    Ok(TagsAndFrom { tags, from_param })
+}
+
 impl Parse for PhraseDefinition {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        // Parse optional tags (: followed by ident, but not :from)
-        let mut tags = Vec::new();
-        while input.peek(Token![:]) && !input.peek2(Brace) {
-            // Lookahead to check if it's :from
-            let colon_span = input.parse::<Token![:]>()?.span;
-            let ident: Ident = input.parse()?;
-
-            if ident == "from" {
-                // This is :from(param), handle it separately
-                let content;
-                syn::parenthesized!(content in input);
-                let param: Ident = content.parse()?;
-                // We need to continue parsing tags after :from
-                // Store from_param and continue
-                let from_param = Some(SpannedIdent::new(&param));
-
-                // Continue parsing remaining tags
-                while input.peek(Token![:]) && !input.peek2(Brace) {
-                    input.parse::<Token![:]>()?;
-                    let tag_ident: Ident = input.parse()?;
-                    tags.push(SpannedIdent::new(&tag_ident));
-                }
-
-                // Parse phrase name
-                let name_ident: Ident = input.parse()?;
-                let name = SpannedIdent::new(&name_ident);
-
-                // Parse optional parameters
-                let parameters = if input.peek(Paren) {
-                    let content;
-                    syn::parenthesized!(content in input);
-                    let params: Punctuated<Ident, Token![,]> =
-                        Punctuated::parse_terminated(&content)?;
-                    params.iter().map(SpannedIdent::new).collect()
-                } else {
-                    Vec::new()
-                };
-
-                // Parse =
-                input.parse::<Token![=]>()?;
-
-                // Parse body
-                let body = input.parse()?;
-
-                // Parse ;
-                input.parse::<Token![;]>()?;
-
-                return Ok(PhraseDefinition {
-                    name,
-                    parameters,
-                    tags,
-                    from_param,
-                    body,
-                });
-            } else {
-                // Regular tag
-                tags.push(SpannedIdent::from_str(ident.to_string(), colon_span));
-            }
-        }
+        // Parse optional tags/from BEFORE name (legacy syntax: `:tag name = body`)
+        let pre = parse_tags_and_from(input)?;
 
         // Parse phrase name
         let name_ident: Ident = input.parse()?;
@@ -103,6 +77,16 @@ impl Parse for PhraseDefinition {
         // Parse =
         input.parse::<Token![=]>()?;
 
+        // Parse optional tags/from AFTER = sign (DESIGN.md syntax: `name = :tag body`)
+        let post = parse_tags_and_from(input)?;
+
+        // Merge tags from both positions
+        let mut tags = pre.tags;
+        tags.extend(post.tags);
+
+        // Use from_param from whichever position specified it
+        let from_param = pre.from_param.or(post.from_param);
+
         // Parse body
         let body = input.parse()?;
 
@@ -113,7 +97,7 @@ impl Parse for PhraseDefinition {
             name,
             parameters,
             tags,
-            from_param: None,
+            from_param,
             body,
         })
     }
