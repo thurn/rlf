@@ -315,9 +315,9 @@ pub struct Phrase {
     /// Default text.
     pub text: String,
     /// Variant key → variant text.
-    pub variants: HashMap<String, String>,
+    pub variants: HashMap<VariantKey, String>,
     /// Metadata tags.
-    pub tags: Vec<String>,
+    pub tags: Vec<Tag>,
 }
 
 impl Phrase {
@@ -333,6 +333,8 @@ impl Display for Phrase {
     }
 }
 ```
+
+`VariantKey` and `Tag` are newtype wrappers around `String` with `Deref<Target=str>`, `From<&str>`, and `Display`.
 
 ### Into<Value> Implementations
 
