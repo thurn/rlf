@@ -588,7 +588,8 @@ For data-driven content (templates stored in data files), use `Locale` directly:
 ```rust
 let template = "Draw {cards(n)} for each {target}.";
 let params = params!{ "n" => 2, "target" => strings::ally(&locale) };
-locale.eval_str(template, params)?
+let phrase: Phrase = locale.eval_str(template, params)?;
+phrase.to_string()
 ```
 
 Parameters work identically to phrase parameters. See **APPENDIX_RUNTIME_INTERPRETER.md**.
@@ -632,10 +633,10 @@ rlf! {
 ```
 
 ```
-error: unknown phrase 'cards'
-  --> strings.rlf.rs:2:28
-   |
-   = help: did you mean 'card'?
+error: unknown phrase or parameter 'cards'
+ --> src/main.rs:3:28
+  |
+  = help: did you mean 'card'?
 ```
 
 **Unknown parameter:**
