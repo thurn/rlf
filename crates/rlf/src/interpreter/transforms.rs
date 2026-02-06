@@ -107,6 +107,9 @@ pub enum TransformKind {
     // Turkish inflection transform (Phase 9)
     /// @inflect - Turkish suffix chain with vowel harmony
     TurkishInflect,
+    // Finnish inflection transform
+    /// @inflect - Finnish suffix chain with vowel harmony
+    FinnishInflect,
 }
 
 impl TransformKind {
@@ -178,6 +181,8 @@ impl TransformKind {
             TransformKind::KoreanParticle => korean_particle_transform(value, context),
             // Turkish @inflect needs Value (for tags) and context (for suffix chain)
             TransformKind::TurkishInflect => turkish_inflect_transform(value, context),
+            // Finnish @inflect needs Value (for tags) and context (for suffix chain)
+            TransformKind::FinnishInflect => finnish_inflect_transform(value, context),
         }
     }
 }
@@ -1656,6 +1661,212 @@ fn turkish_inflect_transform(value: &Value, context: Option<&Value>) -> Result<S
     Ok(result)
 }
 
+// =============================================================================
+// Finnish Inflect Transform
+// =============================================================================
+
+/// Finnish vowel harmony type.
+#[derive(Clone, Copy)]
+enum FinnishHarmony {
+    /// Front vowels: ä, ö, y
+    Front,
+    /// Back vowels: a, o, u
+    Back,
+}
+
+/// Finnish suffix types for @inflect transform.
+#[derive(Clone, Copy)]
+enum FinnishSuffix {
+    /// Plural marker: -t (nominative), -i- (other cases)
+    Plural,
+    /// Nominative: no suffix (unmarked case)
+    Nominative,
+    /// Genitive: -n
+    Genitive,
+    /// Partitive: -a/-ä (vowel harmony)
+    Partitive,
+    /// Inessive: -ssa/-ssä (in/inside)
+    Inessive,
+    /// Elative: -sta/-stä (out of)
+    Elative,
+    /// Illative: -Vn (into; V copies the preceding vowel)
+    Illative,
+    /// Adessive: -lla/-llä (on/at)
+    Adessive,
+    /// Ablative: -lta/-ltä (from off)
+    Ablative,
+    /// Allative: -lle (to/onto)
+    Allative,
+    /// Essive: -na/-nä (as/being)
+    Essive,
+    /// Translative: -ksi (becoming/into)
+    Translative,
+    /// Accusative: -n (same as genitive in singular)
+    Accusative,
+    /// Possessive 1st person singular: -ni (my)
+    Poss1Sg,
+    /// Possessive 2nd person singular: -si (your)
+    Poss2Sg,
+    /// Possessive 3rd person singular: -nsa/-nsä (his/her/its)
+    Poss3Sg,
+    /// Possessive 1st person plural: -mme (our)
+    Poss1Pl,
+    /// Possessive 2nd person plural: -nne (your, pl.)
+    Poss2Pl,
+    /// Possessive 3rd person plural: -nsa/-nsä (their)
+    Poss3Pl,
+}
+
+/// Parse suffix chain from context value for Finnish.
+///
+/// Parses dot-separated suffix names: "pl.ine" -> [Plural, Inessive]
+fn parse_finnish_suffix_chain(context: Option<&Value>) -> Vec<FinnishSuffix> {
+    let Some(Value::String(s)) = context else {
+        return Vec::new();
+    };
+
+    s.split('.')
+        .filter_map(|part| match part {
+            "pl" => Some(FinnishSuffix::Plural),
+            "nom" => Some(FinnishSuffix::Nominative),
+            "gen" => Some(FinnishSuffix::Genitive),
+            "par" => Some(FinnishSuffix::Partitive),
+            "ine" => Some(FinnishSuffix::Inessive),
+            "ela" => Some(FinnishSuffix::Elative),
+            "ill" => Some(FinnishSuffix::Illative),
+            "ade" => Some(FinnishSuffix::Adessive),
+            "abl" => Some(FinnishSuffix::Ablative),
+            "all" => Some(FinnishSuffix::Allative),
+            "ess" => Some(FinnishSuffix::Essive),
+            "tra" => Some(FinnishSuffix::Translative),
+            "acc" => Some(FinnishSuffix::Accusative),
+            "poss1sg" => Some(FinnishSuffix::Poss1Sg),
+            "poss2sg" => Some(FinnishSuffix::Poss2Sg),
+            "poss3sg" => Some(FinnishSuffix::Poss3Sg),
+            "poss1pl" => Some(FinnishSuffix::Poss1Pl),
+            "poss2pl" => Some(FinnishSuffix::Poss2Pl),
+            "poss3pl" => Some(FinnishSuffix::Poss3Pl),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Get the suffix text for the given Finnish suffix and harmony class.
+///
+/// Finnish vowel harmony affects suffixes containing a/ä. Suffixes with only
+/// neutral vowels (i, e) or no vowels are invariant across harmony classes.
+fn finnish_suffix_form(suffix: FinnishSuffix, harmony: FinnishHarmony) -> &'static str {
+    match (suffix, harmony) {
+        (FinnishSuffix::Plural, _) => "t",
+        (FinnishSuffix::Nominative, _) => "",
+        (FinnishSuffix::Genitive, _) => "n",
+        (FinnishSuffix::Partitive, FinnishHarmony::Front) => "\u{00e4}",
+        (FinnishSuffix::Partitive, FinnishHarmony::Back) => "a",
+        (FinnishSuffix::Inessive, FinnishHarmony::Front) => "ss\u{00e4}",
+        (FinnishSuffix::Inessive, FinnishHarmony::Back) => "ssa",
+        (FinnishSuffix::Elative, FinnishHarmony::Front) => "st\u{00e4}",
+        (FinnishSuffix::Elative, FinnishHarmony::Back) => "sta",
+        (FinnishSuffix::Illative, _) => "n",
+        (FinnishSuffix::Adessive, FinnishHarmony::Front) => "ll\u{00e4}",
+        (FinnishSuffix::Adessive, FinnishHarmony::Back) => "lla",
+        (FinnishSuffix::Ablative, FinnishHarmony::Front) => "lt\u{00e4}",
+        (FinnishSuffix::Ablative, FinnishHarmony::Back) => "lta",
+        (FinnishSuffix::Allative, _) => "lle",
+        (FinnishSuffix::Essive, FinnishHarmony::Front) => "n\u{00e4}",
+        (FinnishSuffix::Essive, FinnishHarmony::Back) => "na",
+        (FinnishSuffix::Translative, _) => "ksi",
+        (FinnishSuffix::Accusative, _) => "n",
+        (FinnishSuffix::Poss1Sg, _) => "ni",
+        (FinnishSuffix::Poss2Sg, _) => "si",
+        (FinnishSuffix::Poss3Sg, FinnishHarmony::Front) => "ns\u{00e4}",
+        (FinnishSuffix::Poss3Sg, FinnishHarmony::Back) => "nsa",
+        (FinnishSuffix::Poss1Pl, _) => "mme",
+        (FinnishSuffix::Poss2Pl, _) => "nne",
+        (FinnishSuffix::Poss3Pl, FinnishHarmony::Front) => "ns\u{00e4}",
+        (FinnishSuffix::Poss3Pl, FinnishHarmony::Back) => "nsa",
+    }
+}
+
+/// Apply Finnish illative suffix by duplicating the last vowel and appending -n.
+///
+/// The illative case in Finnish works by lengthening the final vowel: talo -> taloon.
+/// If the word ends in a consonant, falls back to appending -Vn where V is the
+/// last vowel found in the word.
+fn apply_finnish_illative(word: &mut String) {
+    let last_vowel = word.chars().rev().find(|c| "aeiouyäöAEIOUYÄÖ".contains(*c));
+    if let Some(v) = last_vowel {
+        if word.ends_with(v) {
+            // Word ends in a vowel: duplicate it, then append 'n'
+            word.push(v);
+            word.push('n');
+        } else {
+            // Word ends in consonant: append the last vowel + 'n'
+            word.push(v);
+            word.push('n');
+        }
+    } else {
+        // No vowel found, just append 'n'
+        word.push('n');
+    }
+}
+
+/// Finnish @inflect transform.
+///
+/// Applies suffix chain with vowel harmony based on :front/:back tag.
+///
+/// Context specifies suffix chain as dot-separated names:
+/// - "pl" -> Plural (-t nominative plural marker)
+/// - "nom" -> Nominative (no suffix)
+/// - "gen" -> Genitive (-n)
+/// - "par" -> Partitive (-a/-ä)
+/// - "ine" -> Inessive (-ssa/-ssä)
+/// - "ela" -> Elative (-sta/-stä)
+/// - "ill" -> Illative (vowel lengthening + -n)
+/// - "ade" -> Adessive (-lla/-llä)
+/// - "abl" -> Ablative (-lta/-ltä)
+/// - "all" -> Allative (-lle)
+/// - "ess" -> Essive (-na/-nä)
+/// - "tra" -> Translative (-ksi)
+/// - "acc" -> Accusative (-n)
+/// - "poss1sg" -> 1st person singular possessive (-ni)
+/// - "poss2sg" -> 2nd person singular possessive (-si)
+/// - "poss3sg" -> 3rd person singular possessive (-nsa/-nsä)
+/// - "poss1pl" -> 1st person plural possessive (-mme)
+/// - "poss2pl" -> 2nd person plural possessive (-nne)
+/// - "poss3pl" -> 3rd person plural possessive (-nsa/-nsä)
+///
+/// Example: "ine" on :front "tyttö" -> "tytössä" (simplified; stem changes are
+/// the responsibility of the .rlf translation author)
+fn finnish_inflect_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
+    let text = value.to_string();
+
+    let harmony = if value.has_tag("front") {
+        FinnishHarmony::Front
+    } else if value.has_tag("back") {
+        FinnishHarmony::Back
+    } else {
+        return Err(EvalError::MissingTag {
+            transform: "inflect".to_string(),
+            expected: vec!["front".to_string(), "back".to_string()],
+            phrase: text,
+        });
+    };
+
+    let suffixes = parse_finnish_suffix_chain(context);
+
+    let mut result = text;
+    for suffix in suffixes {
+        if matches!(suffix, FinnishSuffix::Illative) {
+            apply_finnish_illative(&mut result);
+        } else {
+            let suffix_text = finnish_suffix_form(suffix, harmony);
+            result.push_str(suffix_text);
+        }
+    }
+
+    Ok(result)
+}
+
 /// Registry for transform functions.
 ///
 /// Transforms are registered per-language with universal transforms available to all.
@@ -1744,6 +1955,7 @@ impl TransformRegistry {
             ("id", "plural") => Some(TransformKind::IndonesianPlural),
             ("ko", "particle") => Some(TransformKind::KoreanParticle),
             ("tr", "inflect") => Some(TransformKind::TurkishInflect),
+            ("fi", "inflect") => Some(TransformKind::FinnishInflect),
             _ => None,
         }
     }

@@ -491,6 +491,63 @@ from_my_houses = "{@inflect:abl.poss1sg.pl ev}"; // → "evlerimden"
 
 ---
 
+### Finnish (Suomi)
+
+**Grammatical features**: Vowel harmony, agglutinative, no gender, fifteen cases
+
+**Metadata tags**:
+| Tag | Purpose |
+|-----|---------|
+| `:front` | Front vowels (ä, ö, y) |
+| `:back` | Back vowels (a, o, u) |
+
+**Transforms**:
+| Transform | Aliases | Reads | Effect |
+|-----------|---------|-------|--------|
+| `@inflect` | - | `:front`, `:back` | Suffix chain with vowel harmony |
+
+The `@inflect` transform handles agglutinative suffix chains. See **Advanced
+Transforms** section for details.
+
+**Plural categories**: `one`, `other`
+
+**Available suffixes:**
+
+| Context | Meaning | Front form | Back form |
+|---------|---------|------------|-----------|
+| `pl` | Plural | -t | -t |
+| `nom` | Nominative | (none) | (none) |
+| `gen` | Genitive | -n | -n |
+| `par` | Partitive | -ä | -a |
+| `ine` | Inessive (in) | -ssä | -ssa |
+| `ela` | Elative (out of) | -stä | -sta |
+| `ill` | Illative (into) | -Vn | -Vn |
+| `ade` | Adessive (on/at) | -llä | -lla |
+| `abl` | Ablative (from) | -ltä | -lta |
+| `all` | Allative (to) | -lle | -lle |
+| `ess` | Essive (as) | -nä | -na |
+| `tra` | Translative (becoming) | -ksi | -ksi |
+| `acc` | Accusative | -n | -n |
+| `poss1sg` | My | -ni | -ni |
+| `poss2sg` | Your | -si | -si |
+| `poss3sg` | His/her/its | -nsä | -nsa |
+| `poss1pl` | Our | -mme | -mme |
+| `poss2pl` | Your (pl.) | -nne | -nne |
+| `poss3pl` | Their | -nsä | -nsa |
+
+```rust
+// fi.rlf
+talo = :back "talo";       // house (back vowel)
+pöytä = :front "pöytä";    // table (front vowel)
+
+in_house = "{@inflect:ine talo}";           // → "talossa"
+from_table = "{@inflect:ela pöytä}";        // → "pöytästä"
+into_house = "{@inflect:ill talo}";         // → "taloon"
+my_house_gen = "{@inflect:gen.poss1sg talo}"; // → "talonni"
+```
+
+---
+
 ### Italian (Italiano)
 
 **Grammatical features**: Two genders, articles, contractions, elision
@@ -752,6 +809,7 @@ the_card = "{@def card}";  // → "cartea"
 | Korean | - | - | 1 | `@count`, `@particle` |
 | Vietnamese | - | - | 1 | `@count` |
 | Turkish | - | 6 | 2 | `@inflect` |
+| Finnish | - | 15 | 2 | `@inflect` |
 | Italian | 2 | - | 2 | `@il`, `@un`, `@di`, `@a` |
 | Polish | 3 | 7 | 4 | - |
 | Ukrainian | 3 | 7 | 4 | - |

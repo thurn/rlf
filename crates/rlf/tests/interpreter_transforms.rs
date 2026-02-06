@@ -4962,3 +4962,684 @@ fn turkish_inflect_unknown_suffix_ignored() {
     let result = transform.execute(&value, Some(&context), "tr").unwrap();
     assert_eq!(result, "evlere");
 }
+
+// =============================================================================
+// Finnish @inflect Transform Tests
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Finnish @inflect - Registry
+// -----------------------------------------------------------------------------
+
+#[test]
+fn finnish_inflect_registered() {
+    let registry = TransformRegistry::new();
+    assert!(registry.get("inflect", "fi").is_some());
+    assert_eq!(
+        registry.get("inflect", "fi"),
+        Some(TransformKind::FinnishInflect)
+    );
+}
+
+// -----------------------------------------------------------------------------
+// Finnish @inflect - Nominative (no suffix)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn finnish_inflect_nom_front() {
+    // :front "talo" + :nom -> "talo" (nominative adds no suffix)
+    // Note: "talo" is actually back-vowel, but we test tag-driven behavior
+    let phrase = Phrase::builder()
+        .text("pöytä".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("nom".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "pöytä");
+}
+
+#[test]
+fn finnish_inflect_nom_back() {
+    // :back "talo" + :nom -> "talo"
+    let phrase = Phrase::builder()
+        .text("talo".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("nom".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "talo");
+}
+
+// -----------------------------------------------------------------------------
+// Finnish @inflect - Genitive (-n)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn finnish_inflect_gen_front() {
+    // :front "pöytä" + :gen -> "pöytän"
+    let phrase = Phrase::builder()
+        .text("pöytä".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("gen".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "pöytän");
+}
+
+#[test]
+fn finnish_inflect_gen_back() {
+    // :back "talo" + :gen -> "talon"
+    let phrase = Phrase::builder()
+        .text("talo".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("gen".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "talon");
+}
+
+// -----------------------------------------------------------------------------
+// Finnish @inflect - Partitive (-a/-ä)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn finnish_inflect_par_front() {
+    // :front "pöytä" + :par -> "pöytää" (partitive with front harmony)
+    let phrase = Phrase::builder()
+        .text("pöytä".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("par".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "pöytää");
+}
+
+#[test]
+fn finnish_inflect_par_back() {
+    // :back "talo" + :par -> "taloa"
+    let phrase = Phrase::builder()
+        .text("talo".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("par".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "taloa");
+}
+
+// -----------------------------------------------------------------------------
+// Finnish @inflect - Inessive (-ssa/-ssä)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn finnish_inflect_ine_front() {
+    // :front "pöytä" + :ine -> "pöytässä"
+    let phrase = Phrase::builder()
+        .text("pöytä".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("ine".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "pöytässä");
+}
+
+#[test]
+fn finnish_inflect_ine_back() {
+    // :back "talo" + :ine -> "talossa"
+    let phrase = Phrase::builder()
+        .text("talo".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("ine".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "talossa");
+}
+
+// -----------------------------------------------------------------------------
+// Finnish @inflect - Elative (-sta/-stä)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn finnish_inflect_ela_front() {
+    // :front "pöytä" + :ela -> "pöytästä"
+    let phrase = Phrase::builder()
+        .text("pöytä".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("ela".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "pöytästä");
+}
+
+#[test]
+fn finnish_inflect_ela_back() {
+    // :back "talo" + :ela -> "talosta"
+    let phrase = Phrase::builder()
+        .text("talo".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("ela".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "talosta");
+}
+
+// -----------------------------------------------------------------------------
+// Finnish @inflect - Illative (vowel lengthening + -n)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn finnish_inflect_ill_back() {
+    // :back "talo" + :ill -> "taloon" (last vowel duplicated + n)
+    let phrase = Phrase::builder()
+        .text("talo".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("ill".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "taloon");
+}
+
+#[test]
+fn finnish_inflect_ill_front() {
+    // :front "pöytä" + :ill -> "pöytään"
+    let phrase = Phrase::builder()
+        .text("pöytä".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("ill".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "pöytään");
+}
+
+// -----------------------------------------------------------------------------
+// Finnish @inflect - Adessive (-lla/-llä)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn finnish_inflect_ade_front() {
+    // :front "pöytä" + :ade -> "pöytällä"
+    let phrase = Phrase::builder()
+        .text("pöytä".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("ade".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "pöytällä");
+}
+
+#[test]
+fn finnish_inflect_ade_back() {
+    // :back "talo" + :ade -> "talolla"
+    let phrase = Phrase::builder()
+        .text("talo".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("ade".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "talolla");
+}
+
+// -----------------------------------------------------------------------------
+// Finnish @inflect - Ablative (-lta/-ltä)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn finnish_inflect_abl_front() {
+    // :front "pöytä" + :abl -> "pöytältä"
+    let phrase = Phrase::builder()
+        .text("pöytä".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("abl".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "pöytältä");
+}
+
+#[test]
+fn finnish_inflect_abl_back() {
+    // :back "talo" + :abl -> "talolta"
+    let phrase = Phrase::builder()
+        .text("talo".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("abl".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "talolta");
+}
+
+// -----------------------------------------------------------------------------
+// Finnish @inflect - Allative (-lle)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn finnish_inflect_all_front() {
+    // :front "pöytä" + :all -> "pöytälle"
+    let phrase = Phrase::builder()
+        .text("pöytä".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("all".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "pöytälle");
+}
+
+#[test]
+fn finnish_inflect_all_back() {
+    // :back "talo" + :all -> "talolle"
+    let phrase = Phrase::builder()
+        .text("talo".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("all".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "talolle");
+}
+
+// -----------------------------------------------------------------------------
+// Finnish @inflect - Essive (-na/-nä)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn finnish_inflect_ess_front() {
+    // :front "pöytä" + :ess -> "pöytänä"
+    let phrase = Phrase::builder()
+        .text("pöytä".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("ess".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "pöytänä");
+}
+
+#[test]
+fn finnish_inflect_ess_back() {
+    // :back "talo" + :ess -> "talona"
+    let phrase = Phrase::builder()
+        .text("talo".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("ess".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "talona");
+}
+
+// -----------------------------------------------------------------------------
+// Finnish @inflect - Translative (-ksi)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn finnish_inflect_tra_front() {
+    // :front "pöytä" + :tra -> "pöytäksi"
+    let phrase = Phrase::builder()
+        .text("pöytä".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("tra".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "pöytäksi");
+}
+
+#[test]
+fn finnish_inflect_tra_back() {
+    // :back "talo" + :tra -> "taloksi"
+    let phrase = Phrase::builder()
+        .text("talo".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("tra".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "taloksi");
+}
+
+// -----------------------------------------------------------------------------
+// Finnish @inflect - Accusative (-n)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn finnish_inflect_acc_back() {
+    // :back "talo" + :acc -> "talon"
+    let phrase = Phrase::builder()
+        .text("talo".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("acc".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "talon");
+}
+
+// -----------------------------------------------------------------------------
+// Finnish @inflect - Plural marker
+// -----------------------------------------------------------------------------
+
+#[test]
+fn finnish_inflect_pl_back() {
+    // :back "talo" + :pl -> "talot" (nominative plural)
+    let phrase = Phrase::builder()
+        .text("talo".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("pl".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "talot");
+}
+
+#[test]
+fn finnish_inflect_pl_front() {
+    // :front "pöytä" + :pl -> "pöytät"
+    let phrase = Phrase::builder()
+        .text("pöytä".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("pl".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "pöytät");
+}
+
+// -----------------------------------------------------------------------------
+// Finnish @inflect - Possessive suffixes
+// -----------------------------------------------------------------------------
+
+#[test]
+fn finnish_inflect_poss1sg() {
+    // :back "talo" + :poss1sg -> "taloni"
+    let phrase = Phrase::builder()
+        .text("talo".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("poss1sg".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "taloni");
+}
+
+#[test]
+fn finnish_inflect_poss2sg() {
+    // :back "talo" + :poss2sg -> "talosi"
+    let phrase = Phrase::builder()
+        .text("talo".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("poss2sg".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "talosi");
+}
+
+#[test]
+fn finnish_inflect_poss3sg_back() {
+    // :back "talo" + :poss3sg -> "talonsa"
+    let phrase = Phrase::builder()
+        .text("talo".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("poss3sg".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "talonsa");
+}
+
+#[test]
+fn finnish_inflect_poss3sg_front() {
+    // :front "pöytä" + :poss3sg -> "pöytänsä"
+    let phrase = Phrase::builder()
+        .text("pöytä".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("poss3sg".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "pöytänsä");
+}
+
+#[test]
+fn finnish_inflect_poss1pl() {
+    // :back "talo" + :poss1pl -> "talomme"
+    let phrase = Phrase::builder()
+        .text("talo".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("poss1pl".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "talomme");
+}
+
+#[test]
+fn finnish_inflect_poss2pl() {
+    // :back "talo" + :poss2pl -> "talonne"
+    let phrase = Phrase::builder()
+        .text("talo".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("poss2pl".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "talonne");
+}
+
+#[test]
+fn finnish_inflect_poss3pl_back() {
+    // :back "talo" + :poss3pl -> "talonsa"
+    let phrase = Phrase::builder()
+        .text("talo".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("poss3pl".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "talonsa");
+}
+
+#[test]
+fn finnish_inflect_poss3pl_front() {
+    // :front "pöytä" + :poss3pl -> "pöytänsä"
+    let phrase = Phrase::builder()
+        .text("pöytä".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("poss3pl".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "pöytänsä");
+}
+
+// -----------------------------------------------------------------------------
+// Finnish @inflect - Suffix chains
+// -----------------------------------------------------------------------------
+
+#[test]
+fn finnish_inflect_pl_ine_back() {
+    // :back "talo" + :pl.ine -> "talotssa" (plural + inessive)
+    let phrase = Phrase::builder()
+        .text("talo".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("pl.ine".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "talotssa");
+}
+
+#[test]
+fn finnish_inflect_gen_poss1sg() {
+    // :back "talo" + :gen.poss1sg -> "talonni"
+    let phrase = Phrase::builder()
+        .text("talo".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("gen.poss1sg".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "talonni");
+}
+
+#[test]
+fn finnish_inflect_ela_poss3sg_back() {
+    // :back "talo" + :ela.poss3sg -> "talostansa"
+    let phrase = Phrase::builder()
+        .text("talo".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("ela.poss3sg".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "talostansa");
+}
+
+#[test]
+fn finnish_inflect_ela_poss3sg_front() {
+    // :front "pöytä" + :ela.poss3sg -> "pöytästänsä"
+    let phrase = Phrase::builder()
+        .text("pöytä".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("ela.poss3sg".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "pöytästänsä");
+}
+
+#[test]
+fn finnish_inflect_ill_poss1sg_back() {
+    // :back "talo" + :ill.poss1sg -> "taloonni" (illative then possessive)
+    let phrase = Phrase::builder()
+        .text("talo".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("ill.poss1sg".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "taloonni");
+}
+
+// -----------------------------------------------------------------------------
+// Finnish @inflect - Error cases
+// -----------------------------------------------------------------------------
+
+#[test]
+fn finnish_inflect_missing_harmony() {
+    // Phrase without :front/:back returns MissingTag error
+    let phrase = Phrase::builder().text("talo".to_string()).build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("gen".to_string());
+    let result = transform.execute(&value, Some(&context), "fi");
+    assert!(matches!(result, Err(EvalError::MissingTag { .. })));
+}
+
+#[test]
+fn finnish_inflect_no_context() {
+    // No context -> no suffixes, returns original word
+    let phrase = Phrase::builder()
+        .text("talo".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let result = transform.execute(&value, None, "fi").unwrap();
+    assert_eq!(result, "talo");
+}
+
+#[test]
+fn finnish_inflect_unknown_suffix_ignored() {
+    // Unknown suffixes in chain are silently ignored
+    let phrase = Phrase::builder()
+        .text("talo".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("gen.invalid.ine".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "talonssa");
+}
+
+// -----------------------------------------------------------------------------
+// Finnish @inflect - Not registered for other languages
+// -----------------------------------------------------------------------------
+
+#[test]
+fn finnish_inflect_not_registered_for_english() {
+    let registry = TransformRegistry::new();
+    assert!(registry.get("inflect", "en").is_none());
+}
+
+// -----------------------------------------------------------------------------
+// Finnish @inflect - Illative with consonant ending
+// -----------------------------------------------------------------------------
+
+#[test]
+fn finnish_inflect_ill_consonant_ending() {
+    // Word ending in consonant: append last vowel + n
+    let phrase = Phrase::builder()
+        .text("maan".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::FinnishInflect;
+    let context = Value::String("ill".to_string());
+    let result = transform.execute(&value, Some(&context), "fi").unwrap();
+    assert_eq!(result, "maanan");
+}
