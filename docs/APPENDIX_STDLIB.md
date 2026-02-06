@@ -371,6 +371,10 @@ ally = :masc :anim {
 | Transform | Aliases | Reads | Effect |
 |-----------|---------|-------|--------|
 | `@count` | - | counter tags | Number + counter |
+| `@particle` | - | - | Context-sensitive particle (が, を, は, etc.) |
+
+The `@particle` transform appends the appropriate Japanese particle based on context.
+See **Advanced Transforms** section for details.
 
 **Plural categories**: `other` (no plural distinction)
 
@@ -380,6 +384,7 @@ card = :mai "カード";
 character = :nin "キャラクター";
 
 draw(n) = "{@count:n card}を引く";  // n=3 → "3枚カードを引く"
+thing_exists(thing) = "{thing}{@particle:subj thing} ある";
 ```
 
 ---
@@ -457,8 +462,8 @@ The `@particle` transform inspects the final sound of the preceding word. See
 card = :jang "카드";
 character = :myeong "캐릭터";
 
-// @count produces "카드 3장", @particle adds correct object particle based on final sound
-draw(n) = "{@count:n card}{@particle:obj card} 뽑는다";  // n=3 → "카드 3장을 뽑는다"
+// @count produces "3장카드", @particle adds correct object particle based on final sound
+draw(n) = "{@count:n card}{@particle:obj card} 뽑는다";  // n=3 → "3장카드를 뽑는다"
 thing_exists(thing) = "{thing}{@particle:subj thing} 있다";
 ```
 
@@ -894,7 +899,7 @@ the_card = "{@def card}";  // → "cartea"
 | Bengali | - | - | 2 | `@count` |
 | Portuguese | 2 | - | 2 | `@o`, `@um`, `@de`, `@em` |
 | Russian | 3 | 6 | 4 | - |
-| Japanese | - | - | 1 | `@count` |
+| Japanese | - | - | 1 | `@count`, `@particle` |
 | German | 3 | 4 | 2 | `@der`, `@ein` |
 | Korean | - | - | 1 | `@count`, `@particle` |
 | Vietnamese | - | - | 1 | `@count` |
@@ -944,8 +949,33 @@ thing_is(thing) = "{thing}{@particle:subj thing} 있다";
 | `:obj` | 를 (reul) | 을 (eul) |
 | `:topic` | 는 (neun) | 은 (eun) |
 
-The transform cannot use tags because any phrase might end in any sound depending
-on its variant form. It must inspect rendered text at runtime.
+The Korean transform cannot use tags because any phrase might end in any sound
+depending on its variant form. It must inspect rendered text at runtime.
+
+**Japanese** particles are context-selected but do not vary based on phonology.
+The transform simply appends the correct particle for the given context type.
+
+```rust
+// ja.rlf
+card = "カード";
+
+thing_exists(thing) = "{thing}{@particle:subj thing} ある";
+// → "カードが ある"
+```
+
+| Context | Particle |
+|---------|----------|
+| `:subj` | が (ga) |
+| `:obj` | を (wo) |
+| `:topic` | は (wa) |
+| `:loc` | に (ni) |
+| `:place` | で (de) |
+| `:dir` | へ (e) |
+| `:from` | から (kara) |
+| `:until` | まで (made) |
+
+If no context is provided or the context is unrecognized, the transform defaults
+to the subject particle が.
 
 ---
 
