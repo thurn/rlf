@@ -135,3 +135,50 @@ fn plural_japanese() {
     assert_eq!(plural_category("ja", 1), "other");
     assert_eq!(plural_category("ja", 100), "other");
 }
+
+#[test]
+fn plural_cached_repeated_calls() {
+    // First call populates the cache, subsequent calls use it.
+    assert_eq!(plural_category("en", 1), "one");
+    assert_eq!(plural_category("en", 1), "one");
+    assert_eq!(plural_category("en", 2), "other");
+    assert_eq!(plural_category("en", 2), "other");
+    assert_eq!(plural_category("ru", 5), "many");
+    assert_eq!(plural_category("ru", 5), "many");
+}
+
+#[test]
+fn plural_unknown_language_falls_back_to_english() {
+    // Unknown language codes should fall back to English rules
+    assert_eq!(plural_category("xx", 1), "one");
+    assert_eq!(plural_category("xx", 2), "other");
+    assert_eq!(plural_category("zz", 0), "other");
+}
+
+#[test]
+fn plural_multiple_languages_interleaved() {
+    // Exercises cache with multiple languages being used alternately
+    assert_eq!(plural_category("en", 1), "one");
+    assert_eq!(plural_category("ru", 2), "few");
+    assert_eq!(plural_category("ar", 2), "two");
+    assert_eq!(plural_category("en", 5), "other");
+    assert_eq!(plural_category("ru", 1), "one");
+    assert_eq!(plural_category("ar", 0), "zero");
+}
+
+#[test]
+fn plural_all_supported_languages() {
+    // Verify every supported language produces a valid category
+    let languages = [
+        "ar", "bn", "de", "el", "en", "es", "fa", "fr", "he", "hi", "id", "it", "ja", "ko", "nl",
+        "pl", "pt", "ro", "ru", "th", "tr", "uk", "vi", "zh",
+    ];
+    let valid_categories = ["zero", "one", "two", "few", "many", "other"];
+    for lang in languages {
+        let cat = plural_category(lang, 1);
+        assert!(
+            valid_categories.contains(&cat),
+            "Language {lang} returned invalid category {cat:?}"
+        );
+    }
+}
