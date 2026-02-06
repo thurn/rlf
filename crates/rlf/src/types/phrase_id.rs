@@ -3,7 +3,8 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 use const_fnv1a_hash::fnv1a_hash_str_64;
 use serde::{Deserialize, Serialize};
 
-use crate::interpreter::{EvalError, PhraseRegistry};
+use crate::interpreter::{EvalError, Locale, PhraseRegistry};
+use crate::types::Value;
 
 /// A compact, serializable identifier for an RLF phrase.
 ///
@@ -13,28 +14,22 @@ use crate::interpreter::{EvalError, PhraseRegistry};
 /// - **Serializability**: Works with JSON, bincode, protobuf, etc.
 /// - **Const construction**: `from_name()` is a `const fn`
 ///
+/// Use `resolve()` for parameterless phrases (returns `Phrase` with variants
+/// and tags) and `call()` for phrases with parameters (returns the evaluated
+/// `Phrase`).
+///
 /// # Example
 ///
 /// ```
-/// use rlf::PhraseId;
+/// use rlf::{Locale, PhraseId};
 ///
-/// // Create at compile time
-/// const CARD_ID: PhraseId = PhraseId::from_name("card");
+/// const HELLO: PhraseId = PhraseId::from_name("hello");
 ///
-/// // Create at runtime
-/// let draw_id = PhraseId::from_name("draw");
-///
-/// // Use as HashMap key
-/// use std::collections::HashMap;
-/// let mut phrases: HashMap<PhraseId, &str> = HashMap::new();
-/// phrases.insert(CARD_ID, "card phrase");
+/// let mut locale = Locale::new();
+/// locale.load_translations_str("en", r#"hello = "Hello!";"#).unwrap();
+/// let phrase = HELLO.resolve(&locale).unwrap();
+/// assert_eq!(phrase.to_string(), "Hello!");
 /// ```
-///
-/// # Resolution
-///
-/// Use `resolve_with_registry()` and `call_with_registry()` to evaluate
-/// phrases by id. For typical usage, prefer calling `locale.get_phrase(name)`
-/// or `locale.call_phrase(name, args)` on `Locale` directly.
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct PhraseId(u64);
 
@@ -66,17 +61,105 @@ impl Display for PhraseId {
     }
 }
 
-// Resolution methods using PhraseRegistry directly
+// =========================================================================
+// Locale-Based Resolution
+// =========================================================================
 
 impl PhraseId {
-    /// Resolve using a registry directly (for use before Locale exists).
+    /// Resolve a parameterless phrase to its Phrase value.
     ///
-    /// This evaluates a parameterless phrase identified by this PhraseId.
+    /// Looks up the phrase in the locale's current language and evaluates it.
+    /// Returns the full Phrase with text, variants, and tags.
     ///
-    /// # Arguments
+    /// # Example
     ///
-    /// * `registry` - The phrase registry containing the phrase definition
-    /// * `lang` - Language code for plural rules
+    /// ```
+    /// use rlf::{Locale, PhraseId};
+    ///
+    /// let mut locale = Locale::new();
+    /// locale.load_translations_str("en", r#"
+    ///     card = { one: "card", other: "cards" };
+    /// "#).unwrap();
+    ///
+    /// let id = PhraseId::from_name("card");
+    /// let phrase = id.resolve(&locale).unwrap();
+    /// assert_eq!(phrase.to_string(), "card");
+    /// assert_eq!(phrase.variant("other"), "cards");
+    /// ```
+    pub fn resolve(&self, locale: &Locale) -> Result<crate::Phrase, EvalError> {
+        locale.get_phrase_by_id(self.0)
+    }
+
+    /// Call a phrase with positional arguments.
+    ///
+    /// Looks up the phrase in the locale's current language, binds arguments
+    /// to parameters, and evaluates the phrase.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rlf::{Locale, PhraseId, Value};
+    ///
+    /// let mut locale = Locale::new();
+    /// locale.load_translations_str("en", r#"
+    ///     greet(name) = "Hello, {name}!";
+    /// "#).unwrap();
+    ///
+    /// let id = PhraseId::from_name("greet");
+    /// let phrase = id.call(&locale, &[Value::from("World")]).unwrap();
+    /// assert_eq!(phrase.to_string(), "Hello, World!");
+    /// ```
+    pub fn call(&self, locale: &Locale, args: &[Value]) -> Result<crate::Phrase, EvalError> {
+        locale.call_phrase_by_id(self.0, args)
+    }
+
+    /// Get the phrase name for debugging.
+    ///
+    /// Looks up the name in the locale's current language registry.
+    /// Returns None if the phrase is not registered.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rlf::{Locale, PhraseId};
+    ///
+    /// let mut locale = Locale::new();
+    /// locale.load_translations_str("en", r#"hello = "Hello!";"#).unwrap();
+    ///
+    /// let id = PhraseId::from_name("hello");
+    /// assert_eq!(id.name(&locale), Some("hello"));
+    ///
+    /// let unknown = PhraseId::from_name("nonexistent");
+    /// assert_eq!(unknown.name(&locale), None);
+    /// ```
+    pub fn name<'a>(&self, locale: &'a Locale) -> Option<&'a str> {
+        locale.name_for_id(self.0)
+    }
+
+    /// Check if this phrase has parameters.
+    ///
+    /// Returns false if the phrase is not found.
+    pub fn has_parameters(&self, locale: &Locale) -> bool {
+        locale.phrase_parameter_count(self.0) > 0
+    }
+
+    /// Get the number of parameters this phrase expects.
+    ///
+    /// Returns 0 if the phrase is not found.
+    pub fn parameter_count(&self, locale: &Locale) -> usize {
+        locale.phrase_parameter_count(self.0)
+    }
+}
+
+// =========================================================================
+// Registry-Based Resolution
+// =========================================================================
+
+impl PhraseId {
+    /// Resolve using a PhraseRegistry directly.
+    ///
+    /// This is a lower-level method that bypasses Locale. Prefer `resolve()`
+    /// when a Locale is available.
     ///
     /// # Example
     ///
@@ -98,15 +181,10 @@ impl PhraseId {
         registry.get_phrase_by_id(self.0, lang)
     }
 
-    /// Call using a registry directly (for use before Locale exists).
+    /// Call using a PhraseRegistry directly.
     ///
-    /// This evaluates a phrase with arguments identified by this PhraseId.
-    ///
-    /// # Arguments
-    ///
-    /// * `registry` - The phrase registry containing the phrase definition
-    /// * `lang` - Language code for plural rules
-    /// * `args` - Positional arguments for the phrase
+    /// This is a lower-level method that bypasses Locale. Prefer `call()`
+    /// when a Locale is available.
     ///
     /// # Example
     ///
@@ -124,7 +202,7 @@ impl PhraseId {
         &self,
         registry: &PhraseRegistry,
         lang: &str,
-        args: &[crate::Value],
+        args: &[Value],
     ) -> Result<crate::Phrase, EvalError> {
         registry.call_phrase_by_id(self.0, lang, args)
     }

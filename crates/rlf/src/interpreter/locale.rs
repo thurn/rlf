@@ -370,6 +370,57 @@ impl Locale {
         Ok(result)
     }
 
+    /// Get a parameterless phrase by PhraseId in the current language.
+    ///
+    /// Returns the full Phrase with text, variants, and tags.
+    pub fn get_phrase_by_id(&self, id: u64) -> Result<Phrase, EvalError> {
+        let registry = self
+            .registries
+            .get(&self.language)
+            .ok_or(EvalError::PhraseNotFoundById { id })?;
+
+        let name = registry
+            .name_for_id(id)
+            .ok_or(EvalError::PhraseNotFoundById { id })?;
+
+        self.get_phrase(name)
+    }
+
+    /// Call a phrase by PhraseId with arguments in the current language.
+    ///
+    /// Returns the evaluated Phrase.
+    pub fn call_phrase_by_id(&self, id: u64, args: &[Value]) -> Result<Phrase, EvalError> {
+        let registry = self
+            .registries
+            .get(&self.language)
+            .ok_or(EvalError::PhraseNotFoundById { id })?;
+
+        let name = registry
+            .name_for_id(id)
+            .ok_or(EvalError::PhraseNotFoundById { id })?;
+
+        self.call_phrase(name, args)
+    }
+
+    /// Look up the phrase name for a PhraseId hash in the current language.
+    ///
+    /// Returns None if no phrase with that hash is registered.
+    pub fn name_for_id(&self, id: u64) -> Option<&str> {
+        self.registries
+            .get(&self.language)
+            .and_then(|registry| registry.name_for_id(id))
+    }
+
+    /// Get the parameter count for a phrase by PhraseId in the current language.
+    ///
+    /// Returns 0 if the phrase is not found.
+    pub fn phrase_parameter_count(&self, id: u64) -> usize {
+        self.registries
+            .get(&self.language)
+            .map(|registry| registry.phrase_parameter_count(id))
+            .unwrap_or(0)
+    }
+
     /// Evaluate a template string with parameters.
     ///
     /// Uses the current language for plural rules.

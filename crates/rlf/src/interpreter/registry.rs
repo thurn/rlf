@@ -282,4 +282,11 @@ impl PhraseRegistry {
             .map(|def| def.parameters.len())
             .unwrap_or(0)
     }
+
+    /// Look up the phrase name for a PhraseId hash.
+    ///
+    /// Returns None if no phrase with that hash is registered.
+    pub fn name_for_id(&self, id: u64) -> Option<&str> {
+        self.id_to_name.get(&id).map(String::as_str)
+    }
 }
