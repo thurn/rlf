@@ -235,18 +235,48 @@ fn cap_transform(text: &str, locale: &LanguageIdentifier) -> Result<String, Eval
         return Ok(String::new());
     }
 
+    // Find the first visible (non-markup) text position, skipping <...> tags
+    let first_text_pos = find_first_visible_char(text);
+    let Some(pos) = first_text_pos else {
+        return Ok(text.to_string());
+    };
+
     let cm = CaseMapper::new();
-    let mut graphemes = text.graphemes(true);
+    let prefix = &text[..pos];
+    let rest_from_pos = &text[pos..];
+    let mut graphemes = rest_from_pos.graphemes(true);
 
     match graphemes.next() {
         Some(first) => {
-            let rest: String = graphemes.collect();
-            // Uppercase the first grapheme (handles multi-codepoint graphemes)
+            let suffix: String = graphemes.collect();
             let capitalized = cm.uppercase_to_string(first, locale);
-            Ok(format!("{capitalized}{rest}"))
+            Ok(format!("{prefix}{capitalized}{suffix}"))
         }
-        None => Ok(String::new()),
+        None => Ok(text.to_string()),
     }
+}
+
+/// Find the byte offset of the first visible (non-markup) character in text.
+///
+/// Skips over `<...>` markup tags to find actual content that should be capitalized.
+/// Returns `None` if the text contains only markup with no visible characters.
+fn find_first_visible_char(text: &str) -> Option<usize> {
+    let mut i = 0;
+    let bytes = text.as_bytes();
+    while i < bytes.len() {
+        if bytes[i] == b'<' {
+            // Skip the entire tag
+            while i < bytes.len() && bytes[i] != b'>' {
+                i += 1;
+            }
+            if i < bytes.len() {
+                i += 1; // skip the '>'
+            }
+        } else {
+            return Some(i);
+        }
+    }
+    None
 }
 
 /// Convert entire string to uppercase.

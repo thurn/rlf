@@ -85,6 +85,62 @@ fn test_lower_empty() {
 }
 
 // =============================================================================
+// @cap with Markup Tags
+// =============================================================================
+
+#[test]
+fn test_cap_skips_markup_tags() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"dissolve = "<color=#AA00FF><b>dissolve</b></color>";
+            cap_dissolve = "{@cap dissolve}";"#,
+        )
+        .unwrap();
+    let result = registry.get_phrase("en", "cap_dissolve").unwrap();
+    assert_eq!(result.to_string(), "<color=#AA00FF><b>Dissolve</b></color>");
+}
+
+#[test]
+fn test_cap_skips_single_markup_tag() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"bold_word = "<b>hello</b>";
+            cap_bold = "{@cap bold_word}";"#,
+        )
+        .unwrap();
+    let result = registry.get_phrase("en", "cap_bold").unwrap();
+    assert_eq!(result.to_string(), "<b>Hello</b>");
+}
+
+#[test]
+fn test_cap_no_markup_unchanged() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"plain = "hello";
+            cap_plain = "{@cap plain}";"#,
+        )
+        .unwrap();
+    let result = registry.get_phrase("en", "cap_plain").unwrap();
+    assert_eq!(result.to_string(), "Hello");
+}
+
+#[test]
+fn test_cap_markup_only() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"empty_markup = "<br/>";
+            cap_empty_markup = "{@cap empty_markup}";"#,
+        )
+        .unwrap();
+    let result = registry.get_phrase("en", "cap_empty_markup").unwrap();
+    assert_eq!(result.to_string(), "<br/>");
+}
+
+// =============================================================================
 // Unicode and Grapheme Handling
 // =============================================================================
 
