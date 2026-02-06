@@ -30,11 +30,11 @@ use crate::interpreter::{EvalError, PhraseRegistry};
 /// phrases.insert(CARD_ID, "card phrase");
 /// ```
 ///
-/// # Note
+/// # Resolution
 ///
-/// The `resolve()` and `call()` methods require a `Locale` which is
-/// implemented in Phase 4. For now, `PhraseId` provides identification
-/// and storage capabilities.
+/// Use `resolve_with_registry()` and `call_with_registry()` to evaluate
+/// phrases by id. For typical usage, prefer calling `locale.get_phrase(name)`
+/// or `locale.call_phrase(name, args)` on `Locale` directly.
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct PhraseId(u64);
 
@@ -67,13 +67,11 @@ impl Display for PhraseId {
 }
 
 // Resolution methods using PhraseRegistry directly
-// Full resolve(&Locale) and call(&Locale, &[Value]) methods will be added in Phase 4
 
 impl PhraseId {
     /// Resolve using a registry directly (for use before Locale exists).
     ///
     /// This evaluates a parameterless phrase identified by this PhraseId.
-    /// Full `resolve(&Locale)` method will be added in Phase 4.
     ///
     /// # Arguments
     ///
@@ -103,7 +101,6 @@ impl PhraseId {
     /// Call using a registry directly (for use before Locale exists).
     ///
     /// This evaluates a phrase with arguments identified by this PhraseId.
-    /// Full `call(&Locale, &[Value])` method will be added in Phase 4.
     ///
     /// # Arguments
     ///

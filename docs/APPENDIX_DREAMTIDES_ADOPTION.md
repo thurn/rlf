@@ -180,9 +180,8 @@ rlf! {
 For runtime templates, `eval_str` params work like phrase parameters:
 
 ```rust
-interpreter.eval_str(
+locale.eval_str(
     "Draw {cards(draw_count)}. Discard {cards(discard_count)}.",
-    "en",
     params!{ "draw_count" => 2, "discard_count" => 1 }
 )?
 // → "Draw 2 cards. Discard a card."
@@ -286,14 +285,14 @@ strings::dissolve_target(locale, formatted)
 ```
 
 For data-driven templates (card TOML), the serializer resolves names before
-calling the interpreter:
+evaluating via `Locale`:
 
 ```rust
 // Card data: variables = "s: ancient"
 let s_key = card.variables.get("s")?;  // "ancient" (String)
-let s_phrase = locale.interpreter().get_phrase(locale.language(), s_key)?;  // Phrase
+let s_phrase = locale.get_phrase(s_key)?;  // Phrase
 let params = params!{ "s" => s_phrase };
-locale.interpreter().eval_str(&card.rules_text, locale.language(), params)?
+locale.eval_str(&card.rules_text, params)?
 ```
 
 **Reduction:** ~80 Fluent definitions → ~21 RLF definitions (20 subtypes + 1 function)
@@ -351,7 +350,7 @@ pub fn serialize_standard_effect(effect: &StandardEffect, bindings: &mut Variabl
 
 ### RLF Migration Options
 
-**Option A: Keep templates, use interpreter**
+**Option A: Keep templates, use Locale**
 
 Minimal change—serializers still produce template strings, but use RLF syntax:
 
@@ -367,7 +366,7 @@ pub fn serialize_standard_effect(effect: &StandardEffect, bindings: &mut Variabl
 }
 
 // At display time
-let result = locale.interpreter().eval_str(&template, locale.language(), bindings)?;
+let result = locale.eval_str(&template, bindings)?;
 ```
 
 **Option B: Return phrase calls**
@@ -448,7 +447,7 @@ tabula.strings.format_display_string(&serialized.text, StringContext::CardText, 
 ```rust
 let serialized = ability_serializer::serialize_ability(ability);
 let params = to_rlf_params(&serialized.variables);
-locale.interpreter().eval_str(&serialized.text, locale.language(), params)?
+locale.eval_str(&serialized.text, params)?
 ```
 
 ---
@@ -458,8 +457,8 @@ locale.interpreter().eval_str(&serialized.text, locale.language(), params)?
 All Dreamtides patterns are supported:
 
 - **Static UI strings** → `rlf!` macro with typed functions
-- **Runtime templates** → `interpreter.eval_str()` (params work like phrase parameters)
-- **Dynamic phrase lookup** → `interpreter.get_phrase(lang, name)`
+- **Runtime templates** → `locale.eval_str()` (params work like phrase parameters)
+- **Dynamic phrase lookup** → `locale.get_phrase(name)`
 - **Auto-capitalization** → uppercase phrase reference (e.g., `{Card}` → `{@cap card}`)
 - **Multiple phrase instances** → `{cards(n1)}... {cards(n2)}` with different param names
 - **Phrase transformation** → `:from(param)` for metadata inheritance (subtypes, figments)
@@ -503,9 +502,9 @@ Current `format_display_string` returns `Result`, and errors are often `.unwrap_
 tabula.strings.format_display_string(&text, ...).unwrap_or_default()
 ```
 
-RLF's generated functions panic on error. For data-driven content, the interpreter
-returns `Result`. Migration should preserve graceful degradation for user-generated
-or data-file content.
+RLF's generated functions panic on error. For data-driven content, `Locale`
+methods like `eval_str` return `Result`. Migration should preserve graceful
+degradation for user-generated or data-file content.
 
 ---
 
@@ -520,9 +519,9 @@ or data-file content.
 
 ### Phase 2: Interpreter Migration
 
-1. Implement/extend RLF interpreter for runtime template evaluation
+1. Implement/extend RLF runtime evaluation via `Locale`
 2. Convert serializer output from Fluent syntax to RLF syntax
-3. Replace `format_display_string` calls with interpreter calls
+3. Replace `format_display_string` calls with `locale.eval_str()` calls
 4. Validate card text rendering matches previous output
 
 ### Phase 3: Full Migration

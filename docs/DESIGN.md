@@ -315,7 +315,7 @@ strings::dissolve_subtype(locale, ancient)
 
 // For data-driven templates, resolve the name first
 let key = "ancient";  // from card data
-let phrase = locale.interpreter().get_phrase(locale.language(), key)?;
+let phrase = locale.get_phrase(key)?;
 strings::dissolve_subtype(locale, phrase)
 ```
 
@@ -458,7 +458,7 @@ The `Locale` object manages language selection and translation data:
 ```rust
 fn setup_localization() -> Locale {
     let mut locale = Locale::new();
-    strings::register_source_phrases(locale.interpreter_mut());
+    strings::register_source_phrases(&mut locale);
     locale.load_translations("ru", "assets/localization/ru.rlf")?;
     locale.load_translations("es", "assets/localization/es.rlf")?;
     locale.set_language(&user_preferences.language);
@@ -489,22 +489,20 @@ RLF generates:
 
 /// Returns the "card" phrase.
 pub fn card(locale: &Locale) -> Phrase {
-    locale.interpreter()
-        .get_phrase(locale.language(), "card")
+    locale.get_phrase("card")
         .expect("phrase 'card' should exist")
 }
 
 /// Evaluates the "draw" phrase with parameter n.
 pub fn draw(locale: &Locale, n: impl Into<Value>) -> Phrase {
-    locale.interpreter()
-        .call_phrase(locale.language(), "draw", &[n.into()])
+    locale.call_phrase("draw", &[n.into()])
         .expect("phrase 'draw' should exist")
 }
 
-/// Registers source language phrases with the interpreter.
+/// Registers source language phrases with the locale.
 /// Call once at startup.
-pub fn register_source_phrases(interpreter: &mut RlfInterpreter) {
-    interpreter.load_phrases("en", SOURCE_PHRASES)
+pub fn register_source_phrases(locale: &mut Locale) {
+    locale.load_translations_str("en", SOURCE_PHRASES)
         .expect("source phrases should parse successfully");
 }
 
@@ -534,12 +532,12 @@ behaving like a simple string.
 
 ## Runtime Templates
 
-For data-driven content (templates stored in data files), use the interpreter directly:
+For data-driven content (templates stored in data files), use `Locale` directly:
 
 ```rust
 let template = "Draw {cards(n)} for each {target}.";
 let params = hashmap!{ "n" => 2, "target" => strings::ally(&locale) };
-locale.interpreter().eval_str(template, locale.language(), params)?
+locale.eval_str(template, params)?
 ```
 
 Parameters work identically to phrase parameters. See **APPENDIX_RUNTIME_INTERPRETER.md**.
@@ -625,14 +623,14 @@ These are for static phrases where errors indicate programming mistakes:
 strings::draw(&locale, 3);  // Panics if "draw" phrase is missing or malformed
 ```
 
-**Interpreter methods** return `Result` for data-driven content where errors
-may come from external data:
+**Locale methods** return `Result` for data-driven content where errors may come
+from external data:
 
 ```rust
-locale.interpreter().eval_str(template, lang, params)?;  // Returns Result
+locale.eval_str(template, params)?;  // Returns Result
 ```
 
-Use the interpreter API directly when evaluating templates from TOML, JSON, or
+Use the `Locale` API directly when evaluating templates from TOML, JSON, or
 other data files. This lets you handle errors gracefully rather than panicking.
 
 **No language fallback:** If a phrase exists in English but not in Russian,

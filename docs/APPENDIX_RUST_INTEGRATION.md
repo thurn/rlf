@@ -373,22 +373,23 @@ impl PhraseId {
         Self(const_fnv1a_64(name))
     }
 
-    /// Resolve a parameterless phrase to its Phrase value.
-    pub fn resolve(&self, locale: &Locale) -> Result<Phrase, EvalError> {
-        locale.interpreter().get_phrase_by_id(self.0, locale.language())
+    /// Resolve a parameterless phrase using a registry directly.
+    pub fn resolve_with_registry(
+        &self,
+        registry: &PhraseRegistry,
+        lang: &str,
+    ) -> Result<Phrase, EvalError> {
+        registry.get_phrase_by_id(self.0, lang)
     }
 
-    /// Call a phrase with positional arguments.
-    pub fn call(&self, locale: &Locale, args: &[Value]) -> Result<String, EvalError> {
-        locale.interpreter()
-            .call_phrase_by_id(self.0, locale.language(), args)
-            .map(|p| p.to_string())
-    }
-
-    /// Get the phrase name for debugging.
-    /// Returns None if the phrase isn't registered.
-    pub fn name(&self) -> Option<&'static str> {
-        PHRASE_ID_REGISTRY.get(&self.0).copied()
+    /// Call a phrase with arguments using a registry directly.
+    pub fn call_with_registry(
+        &self,
+        registry: &PhraseRegistry,
+        lang: &str,
+        args: &[Value],
+    ) -> Result<Phrase, EvalError> {
+        registry.call_phrase_by_id(self.0, lang, args)
     }
 
     /// Get the raw hash value.
@@ -396,19 +397,12 @@ impl PhraseId {
         self.0
     }
 }
-
-impl PhraseId {
-    /// Check if this phrase has parameters.
-    pub fn has_parameters(&self, locale: &Locale) -> bool {
-        locale.interpreter().phrase_parameter_count(self.0) > 0
-    }
-
-    /// Get the number of parameters this phrase expects.
-    pub fn parameter_count(&self, locale: &Locale) -> usize {
-        locale.interpreter().phrase_parameter_count(self.0)
-    }
-}
 ```
+
+**Note:** The `resolve_with_registry` and `call_with_registry` methods operate
+on `PhraseRegistry` directly. For typical usage, call `locale.get_phrase(name)`
+or `locale.call_phrase(name, args)` on `Locale` instead, which handles language
+selection and fallback automatically.
 
 ### Hash Function
 
@@ -435,42 +429,48 @@ const fn const_fnv1a_64(s: &str) -> u64 {
 ### Collision Detection
 
 Hash collisions are theoretically possible but practically negligible with
-64-bit hashes. The interpreter detects collisions when phrases are registered:
+64-bit hashes. `PhraseRegistry` detects collisions when phrases are inserted:
 
 ```rust
-impl RlfInterpreter {
-    pub fn load_phrases(&mut self, language: &str, content: &str) -> Result<usize, LoadError> {
-        for phrase in parse_phrases(content)? {
-            let id = PhraseId::from_name(&phrase.name);
-            if let Some(existing) = self.phrase_ids.get(&id.0) {
-                if existing != &phrase.name {
-                    panic!(
-                        "PhraseId collision: '{}' and '{}' have the same hash",
-                        existing, phrase.name
-                    );
-                }
-            }
-            self.phrase_ids.insert(id.0, phrase.name.clone());
-            // ... register phrase
+impl PhraseRegistry {
+    pub fn insert(&mut self, def: PhraseDefinition) -> Result<(), EvalError> {
+        let name = def.name.clone();
+        let id = PhraseId::from_name(&name);
+        let hash = id.as_u64();
+
+        // Check for hash collision (different name but same hash)
+        if let Some(existing_name) = self.id_to_name.get(&hash)
+            && existing_name != &name
+        {
+            return Err(EvalError::PhraseNotFound {
+                name: format!(
+                    "hash collision: '{}' and '{}' produce same hash",
+                    existing_name, name
+                ),
+            });
         }
-        Ok(count)
+
+        self.id_to_name.insert(hash, name.clone());
+        self.phrases.insert(name, def);
+        Ok(())
     }
 }
 ```
 
 ### Name Registry
 
-The interpreter maintains a reverse mapping from hash to name for debugging:
+`PhraseRegistry` maintains a reverse mapping from hash to name for id-based
+lookup:
 
 ```rust
-struct RlfInterpreter {
-    // ... other fields
-    phrase_id_names: HashMap<u64, &'static str>,
+struct PhraseRegistry {
+    phrases: HashMap<String, PhraseDefinition>,
+    id_to_name: HashMap<u64, String>,
 }
 ```
 
-This registry is populated when source phrases are registered at startup. The
-`PhraseId::name()` method queries this registry.
+This mapping is populated when phrases are loaded via `load_translations_str`
+or `load_translations` on `Locale`.
 
 ---
 
@@ -512,24 +512,32 @@ pub mod phrase_ids {
 
 ### Resolving vs Calling
 
-Use `resolve()` for parameterless phrases (returns a `Phrase` with variants and
-tags). Use `call()` for phrases with parameters (returns the evaluated `String`):
+For most use cases, call phrase functions directly or use `Locale` methods:
 
 ```rust
-// Parameterless: use resolve()
-let card = strings::phrase_ids::CARD.resolve(&locale)?;
+// Via generated functions (preferred for static phrases)
+let card = strings::card(&locale);
 println!("{}", card);                    // "card"
 println!("{}", card.variant("other"));   // "cards"
 
-// With parameters: use call()
-let text = strings::phrase_ids::DRAW.call(&locale, &[3.into()])?;
+let text = strings::draw(&locale, 3);
 println!("{}", text);  // "Draw 3 cards."
+
+// Via Locale methods (for dynamic lookup by name)
+let card = locale.get_phrase("card")?;
+let text = locale.call_phrase("draw", &[3.into()])?;
 ```
 
-You can also use `call()` on parameterless phrases—it just takes an empty slice:
+`PhraseId` is useful when you need to store phrase references in serializable
+data structures. Use `resolve_with_registry` for parameterless phrases and
+`call_with_registry` for phrases with parameters:
 
 ```rust
-let text = strings::phrase_ids::HELLO.call(&locale, &[])?;  // "Hello, world!"
+let registry = locale.registry().expect("language loaded");
+let lang = locale.language();
+
+let card = strings::phrase_ids::CARD.resolve_with_registry(registry, lang)?;
+let text = strings::phrase_ids::DRAW.call_with_registry(registry, lang, &[3.into()])?;
 ```
 
 ---
@@ -559,7 +567,9 @@ let json = serde_json::to_string(&card)?;
 
 // Later, resolve to localized text
 fn render_card(card: &CardDefinition, locale: &Locale) -> String {
-    let name = card.name.resolve(locale)
+    let registry = locale.registry().expect("language loaded");
+    let lang = locale.language();
+    let name = card.name.resolve_with_registry(registry, lang)
         .map(|p| p.to_string())
         .unwrap_or_else(|_| "[missing]".to_string());
     format!("{} (Cost: {})", name, card.cost)
@@ -584,16 +594,20 @@ enum PromptLabel {
 
 impl PromptLabel {
     fn resolve(&self, locale: &Locale) -> Result<String, EvalError> {
+        let registry = locale.registry().expect("language loaded");
+        let lang = locale.language();
         match self {
             PromptLabel::Simple(id) => {
-                id.call(locale, &[])
+                id.call_with_registry(registry, lang, &[]).map(|p| p.to_string())
             }
             PromptLabel::WithEnergy { phrase, energy } => {
-                phrase.call(locale, &[(*energy).into()])
+                phrase.call_with_registry(registry, lang, &[(*energy).into()])
+                    .map(|p| p.to_string())
             }
             PromptLabel::WithCard { phrase, card } => {
-                let card_phrase = card.resolve(locale)?;
-                phrase.call(locale, &[card_phrase.into()])
+                let card_phrase = card.resolve_with_registry(registry, lang)?;
+                phrase.call_with_registry(registry, lang, &[card_phrase.into()])
+                    .map(|p| p.to_string())
             }
         }
     }
@@ -620,7 +634,10 @@ struct DynamicPhrase {
 
 impl DynamicPhrase {
     fn resolve(&self, locale: &Locale) -> Option<String> {
-        self.id.call(locale, &self.args)
+        let registry = locale.registry()?;
+        self.id.call_with_registry(registry, locale.language(), &self.args)
+            .map(|p| p.to_string())
+            .ok()
     }
 }
 ```
@@ -644,15 +661,12 @@ if seen.contains(&strings::phrase_ids::CARD) {
 
 ### Debugging
 
-Use `name()` to get the phrase name for logging:
+Use `Display` formatting or `as_u64()` for logging:
 
 ```rust
 fn debug_phrase(id: PhraseId) {
-    if let Some(name) = id.name() {
-        println!("Phrase: {} (hash: {:016x})", name, id.as_u64());
-    } else {
-        println!("Unknown phrase (hash: {:016x})", id.as_u64());
-    }
+    println!("{id}");  // "PhraseId(0123456789abcdef)"
+    println!("Hash: {:016x}", id.as_u64());
 }
 ```
 
@@ -690,15 +704,13 @@ rlf! {
 
 /// Returns the "card" phrase.
 pub fn card(locale: &Locale) -> Phrase {
-    locale.interpreter()
-        .get_phrase(locale.language(), "card")
+    locale.get_phrase("card")
         .expect("phrase 'card' should exist")
 }
 
 /// Evaluates the "draw" phrase.
 pub fn draw(locale: &Locale, n: impl Into<Value>) -> Phrase {
-    locale.interpreter()
-        .call_phrase(locale.language(), "draw", &[n.into()])
+    locale.call_phrase("draw", &[n.into()])
         .expect("phrase 'draw' should exist")
 }
 
@@ -708,9 +720,9 @@ const SOURCE_PHRASES: &str = r#"
     draw(n) = "Draw {n} {card:n}.";
 "#;
 
-/// Registers source language phrases with the interpreter. Call once at startup.
-pub fn register_source_phrases(interpreter: &mut RlfInterpreter) {
-    interpreter.load_phrases("en", SOURCE_PHRASES)
+/// Registers source language phrases with the locale. Call once at startup.
+pub fn register_source_phrases(locale: &mut Locale) {
+    locale.load_translations_str("en", SOURCE_PHRASES)
         .expect("source phrases should parse successfully");
 }
 ```
