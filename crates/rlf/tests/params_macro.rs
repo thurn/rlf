@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use rlf::{Phrase, Value, params};
 
 #[test]
@@ -106,4 +108,19 @@ fn expression_values() {
     let count = 2 + 3;
     let p = params! { "total" => count };
     assert_eq!(p["total"].as_number(), Some(5));
+}
+
+#[test]
+fn mixed_value_types() {
+    let phrase = Phrase::builder().text("sword".to_string()).build();
+    let p: HashMap<String, Value> = params! {
+        "count" => 5_i32,
+        "name" => "Alice",
+        "weapon" => phrase,
+    };
+    assert_eq!(p.len(), 3);
+    assert_eq!(p["count"].as_number(), Some(5));
+    assert_eq!(p["name"].as_string(), Some("Alice"));
+    assert!(p["weapon"].as_phrase().is_some());
+    assert_eq!(p["weapon"].to_string(), "sword");
 }

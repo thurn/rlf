@@ -587,7 +587,7 @@ For data-driven content (templates stored in data files), use `Locale` directly:
 
 ```rust
 let template = "Draw {cards(n)} for each {target}.";
-let params = hashmap!{ "n" => 2, "target" => strings::ally(&locale) };
+let params = params!{ "n" => 2, "target" => strings::ally(&locale) };
 locale.eval_str(template, params)?
 ```
 
