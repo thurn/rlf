@@ -274,17 +274,35 @@ fn interpolation(input: &mut &str) -> ModalResult<Segment> {
     delimited('{', interpolation_content, '}').parse_next(input)
 }
 
+/// A parsed reference with an auto-capitalization flag.
+struct ParsedReference {
+    reference: Reference,
+    auto_cap: bool,
+}
+
 /// Parse interpolation content.
 fn interpolation_content(input: &mut &str) -> ModalResult<Segment> {
     ws(input)?;
-    let transforms: Vec<Transform> = repeat(0.., terminated(transform, ws)).parse_next(input)?;
-    let reference = reference(input)?;
+    let mut transforms: Vec<Transform> =
+        repeat(0.., terminated(transform, ws)).parse_next(input)?;
+    let parsed_ref = reference(input)?;
     let selectors: Vec<Selector> = repeat(0.., selector).parse_next(input)?;
     ws(input)?;
 
+    // If auto-capitalization was triggered, prepend @cap transform
+    if parsed_ref.auto_cap {
+        transforms.insert(
+            0,
+            Transform {
+                name: "cap".to_string(),
+                context: None,
+            },
+        );
+    }
+
     Ok(Segment::Interpolation {
         transforms,
-        reference,
+        reference: parsed_ref.reference,
         selectors,
     })
 }
@@ -310,7 +328,10 @@ fn transform(input: &mut &str) -> ModalResult<Transform> {
 }
 
 /// Parse a reference in an interpolation.
-fn reference(input: &mut &str) -> ModalResult<Reference> {
+///
+/// Returns the reference and a flag indicating if auto-capitalization should
+/// be applied (uppercase first letter triggers @cap).
+fn reference(input: &mut &str) -> ModalResult<ParsedReference> {
     let first_char = any.parse_next(input)?;
 
     if !is_ident_start(first_char) {
@@ -322,12 +343,14 @@ fn reference(input: &mut &str) -> ModalResult<Reference> {
     name.push(first_char);
     name.push_str(rest);
 
-    // Check for auto-capitalization
-    let is_auto_cap = first_char.is_ascii_uppercase();
-    let actual_name = if is_auto_cap {
-        let mut lowered = name.clone();
-        let first = lowered.remove(0).to_ascii_lowercase();
-        lowered.insert(0, first);
+    // Check for auto-capitalization: if first letter is uppercase, add @cap
+    let auto_cap = first_char.is_ascii_uppercase();
+    let actual_name = if auto_cap {
+        let mut chars = name.chars();
+        let first = chars.next().unwrap().to_ascii_lowercase();
+        let mut lowered = String::with_capacity(name.len());
+        lowered.push(first);
+        lowered.extend(chars);
         lowered
     } else {
         name
@@ -336,23 +359,18 @@ fn reference(input: &mut &str) -> ModalResult<Reference> {
     // Check for phrase call: identifier(args)
     let args_opt: Option<Vec<Reference>> = opt(phrase_call_args).parse_next(input)?;
 
-    let base_ref = match args_opt {
+    let reference = match args_opt {
         Some(args) => Reference::PhraseCall {
-            name: actual_name.clone(),
+            name: actual_name,
             args,
         },
-        None => Reference::Identifier(actual_name.clone()),
+        None => Reference::Identifier(actual_name),
     };
 
-    // If auto-capitalization was triggered, we need to handle it at the AST level
-    // The interpreter will handle @cap transformation based on uppercase reference
-    if is_auto_cap {
-        // For now, just return the reference with lowercase name
-        // The auto-cap handling should be done via transforms in the AST
-        Ok(base_ref)
-    } else {
-        Ok(base_ref)
-    }
+    Ok(ParsedReference {
+        reference,
+        auto_cap,
+    })
 }
 
 /// Parse phrase call arguments.

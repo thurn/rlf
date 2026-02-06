@@ -1,6 +1,6 @@
 //! Integration tests for .rlf file parsing
 
-use rlf::parser::{PhraseBody, Segment, parse_file};
+use rlf::parser::{PhraseBody, Reference, Segment, parse_file};
 use rlf::types::Tag;
 
 #[test]
@@ -425,4 +425,95 @@ fn test_whitespace_flexibility() {
     )
     .unwrap();
     assert_eq!(phrases.len(), 2);
+}
+
+#[test]
+fn test_auto_capitalization_adds_cap_transform() {
+    let phrases = parse_file(r#"draw = "Draw {Card}.";"#).unwrap();
+    match &phrases[0].body {
+        PhraseBody::Simple(t) => {
+            let interp = t
+                .segments
+                .iter()
+                .find(|s| matches!(s, Segment::Interpolation { .. }))
+                .expect("expected interpolation");
+            match interp {
+                Segment::Interpolation {
+                    transforms,
+                    reference,
+                    ..
+                } => {
+                    assert_eq!(transforms.len(), 1);
+                    assert_eq!(transforms[0].name, "cap");
+                    assert!(transforms[0].context.is_none());
+                    assert_eq!(*reference, Reference::Identifier("card".into()));
+                }
+                Segment::Literal(_) => panic!("expected interpolation"),
+            }
+        }
+        PhraseBody::Variants(_) => panic!("expected simple body"),
+    }
+}
+
+#[test]
+fn test_auto_capitalization_with_existing_transforms() {
+    let phrases = parse_file(r#"draw = "{@a Card}";"#).unwrap();
+    match &phrases[0].body {
+        PhraseBody::Simple(t) => match &t.segments[0] {
+            Segment::Interpolation {
+                transforms,
+                reference,
+                ..
+            } => {
+                assert_eq!(transforms.len(), 2);
+                assert_eq!(transforms[0].name, "cap");
+                assert_eq!(transforms[1].name, "a");
+                assert_eq!(*reference, Reference::Identifier("card".into()));
+            }
+            Segment::Literal(_) => panic!("expected interpolation"),
+        },
+        PhraseBody::Variants(_) => panic!("expected simple body"),
+    }
+}
+
+#[test]
+fn test_auto_capitalization_with_selector() {
+    let phrases = parse_file(r#"draw(n) = "{Card:n}";"#).unwrap();
+    match &phrases[0].body {
+        PhraseBody::Simple(t) => match &t.segments[0] {
+            Segment::Interpolation {
+                transforms,
+                reference,
+                selectors,
+            } => {
+                assert_eq!(transforms.len(), 1);
+                assert_eq!(transforms[0].name, "cap");
+                assert_eq!(*reference, Reference::Identifier("card".into()));
+                assert_eq!(selectors.len(), 1);
+            }
+            Segment::Literal(_) => panic!("expected interpolation"),
+        },
+        PhraseBody::Variants(_) => panic!("expected simple body"),
+    }
+}
+
+#[test]
+fn test_no_auto_capitalization_for_lowercase() {
+    let phrases = parse_file(r#"draw = "Draw {card}.";"#).unwrap();
+    match &phrases[0].body {
+        PhraseBody::Simple(t) => {
+            let interp = t
+                .segments
+                .iter()
+                .find(|s| matches!(s, Segment::Interpolation { .. }))
+                .expect("expected interpolation");
+            match interp {
+                Segment::Interpolation { transforms, .. } => {
+                    assert!(transforms.is_empty());
+                }
+                Segment::Literal(_) => panic!("expected interpolation"),
+            }
+        }
+        PhraseBody::Variants(_) => panic!("expected simple body"),
+    }
 }

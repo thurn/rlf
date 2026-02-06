@@ -485,3 +485,44 @@ fn eval_str_cache_produces_correct_results_with_different_params() {
     // Only one cached template despite many calls
     assert_eq!(locale.template_cache_len(), 1);
 }
+
+// =========================================================================
+// Auto-capitalization in .rlf files
+// =========================================================================
+
+#[test]
+fn auto_capitalization_in_rlf_file_simple() {
+    let mut locale = Locale::new();
+    locale
+        .load_translations_str(
+            "en",
+            r#"
+        card = "card";
+        heading = "{Card}";
+    "#,
+        )
+        .unwrap();
+
+    let phrase = locale.get_phrase("heading").unwrap();
+    assert_eq!(phrase.to_string(), "Card");
+}
+
+#[test]
+fn auto_capitalization_in_rlf_file_with_variants() {
+    let mut locale = Locale::new();
+    locale
+        .load_translations_str(
+            "en",
+            r#"
+        card = { one: "card", other: "cards" };
+        draw(n) = "Draw {n} {Card:n}.";
+    "#,
+        )
+        .unwrap();
+
+    let phrase = locale.call_phrase("draw", &[Value::from(1)]).unwrap();
+    assert_eq!(phrase.to_string(), "Draw 1 Card.");
+
+    let phrase = locale.call_phrase("draw", &[Value::from(3)]).unwrap();
+    assert_eq!(phrase.to_string(), "Draw 3 Cards.");
+}
