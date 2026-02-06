@@ -871,10 +871,17 @@ the_card = "{@def card}";  // → "cartea"
 **Transforms**:
 | Transform | Aliases | Reads | Effect |
 |-----------|---------|-------|--------|
-| `@o` | `@i`, `@to` | gender + case | Definite article (ο/η/το/τον/την/του/της/οι/τα...) |
-| `@enas` | `@mia`, `@ena` | gender + case | Indefinite article |
+| `@o` | `@i`, `@to` | gender + case + plural | Definite article (ο/η/το/τον/την/του/της/οι/τα...) |
+| `@enas` | `@mia`, `@ena` | gender + case | Indefinite article (singular only) |
 
 **Plural categories**: `one`, `other`
+
+**Case variants**: `nom`, `acc`, `gen`, `dat`
+
+**Compound context**: The `@o` transform supports compound context with dot notation
+to specify both case and plural simultaneously. The format is `@o:case.plural`, e.g.,
+`@o:gen.other` for genitive plural ("των"). Single-dimension contexts remain supported:
+`@o:gen` for genitive singular, `@o:other` for nominative plural.
 
 ---
 

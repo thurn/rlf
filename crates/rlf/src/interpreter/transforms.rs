@@ -1054,17 +1054,50 @@ fn parse_greek_gender(value: &Value, transform: &str) -> Result<GreekGender, Eva
     }
 }
 
+/// Match a string segment to a Greek case.
+fn match_greek_case(s: &str) -> Option<GreekCase> {
+    match s {
+        "acc" => Some(GreekCase::Accusative),
+        "gen" => Some(GreekCase::Genitive),
+        "dat" => Some(GreekCase::Dative),
+        "nom" => Some(GreekCase::Nominative),
+        _ => None,
+    }
+}
+
 /// Parse case from context value.
-/// Defaults to nominative if no context or unknown case string.
+///
+/// Supports compound context like `"gen.other"` where the first segment
+/// is the case. Also supports single-segment contexts like `"gen"` or
+/// `"acc"`. Defaults to nominative if no case is found.
 fn parse_greek_case(context: Option<&Value>) -> GreekCase {
-    match context {
-        Some(Value::String(s)) => match s.as_str() {
-            "acc" => GreekCase::Accusative,
-            "gen" => GreekCase::Genitive,
-            "dat" => GreekCase::Dative,
-            _ => GreekCase::Nominative,
-        },
-        _ => GreekCase::Nominative,
+    let Some(Value::String(s)) = context else {
+        return GreekCase::Nominative;
+    };
+    if let Some((first, _)) = s.split_once('.') {
+        return match_greek_case(first).unwrap_or(GreekCase::Nominative);
+    }
+    match_greek_case(s).unwrap_or(GreekCase::Nominative)
+}
+
+/// Parse plural category from context value for Greek transforms.
+///
+/// Supports compound context like `"gen.other"` where the second segment
+/// is the plural category. Also supports single-segment `"other"` for
+/// backwards compatibility. Defaults to singular (One).
+fn parse_greek_plural(context: Option<&Value>) -> RomancePlural {
+    let Some(Value::String(s)) = context else {
+        return RomancePlural::One;
+    };
+    if let Some((_, second)) = s.split_once('.') {
+        return match second {
+            "other" => RomancePlural::Other,
+            _ => RomancePlural::One,
+        };
+    }
+    match s.as_str() {
+        "other" => RomancePlural::Other,
+        _ => RomancePlural::One,
     }
 }
 
@@ -1137,12 +1170,13 @@ fn greek_indefinite_article(gender: GreekGender, case: GreekCase) -> &'static st
 /// Greek definite article transform (@o/@i/@to).
 ///
 /// Reads :masc/:fem/:neut tag from Value to determine gender.
-/// Uses context for case (defaults to nominative) and plural.
+/// Uses context for case and plural, supporting compound context like
+/// `@o:gen.other` for combined case + plural specification.
 fn greek_o_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
     let text = resolve_text_with_context(value, context);
     let gender = parse_greek_gender(value, "o")?;
     let case = parse_greek_case(context);
-    let plural = parse_romance_plural(context);
+    let plural = parse_greek_plural(context);
 
     let article = if plural == RomancePlural::One {
         greek_definite_article_singular(gender, case)

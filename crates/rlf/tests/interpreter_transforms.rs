@@ -3067,21 +3067,132 @@ fn greek_o_plural_neuter() {
 
 #[test]
 fn greek_o_plural_genitive() {
-    // All genders plural genitive: των
+    // Masculine plural genitive: των
     let phrase = Phrase::builder()
         .text("φίλων".to_string())
         .tags(vec![Tag::new("masc")])
         .build();
     let value = Value::Phrase(phrase);
-    // Note: Current context system uses single string for either case OR plural.
-    // When context is "gen", it's parsed as genitive case (singular by default).
-    // When context is "other", it's parsed as plural (nominative case by default).
-    // To test plural genitive, we'd need a combined context mechanism.
-    // For now, test singular genitive:
+    let context = Value::String("gen.other".to_string());
+    let transform = TransformKind::GreekO;
+    let result = transform.execute(&value, Some(&context), "el").unwrap();
+    assert_eq!(result, "των φίλων");
+}
+
+#[test]
+fn greek_o_plural_accusative() {
+    // Masculine plural accusative: τους
+    let phrase = Phrase::builder()
+        .text("φίλους".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("acc.other".to_string());
+    let transform = TransformKind::GreekO;
+    let result = transform.execute(&value, Some(&context), "el").unwrap();
+    assert_eq!(result, "τους φίλους");
+}
+
+#[test]
+fn greek_o_plural_dative() {
+    // Feminine plural dative: ταις
+    let phrase = Phrase::builder()
+        .text("κάρταις".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("dat.other".to_string());
+    let transform = TransformKind::GreekO;
+    let result = transform.execute(&value, Some(&context), "el").unwrap();
+    assert_eq!(result, "ταις κάρταις");
+}
+
+#[test]
+fn greek_o_singular_case_only_still_works() {
+    // Backwards compatible: "gen" alone means genitive singular
+    let phrase = Phrase::builder()
+        .text("φίλου".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
     let context = Value::String("gen".to_string());
     let transform = TransformKind::GreekO;
     let result = transform.execute(&value, Some(&context), "el").unwrap();
-    assert_eq!(result, "του φίλων");
+    assert_eq!(result, "του φίλου");
+}
+
+#[test]
+fn greek_o_plural_only_still_works() {
+    // Backwards compatible: "other" alone means nominative plural
+    let phrase = Phrase::builder()
+        .text("φίλοι".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("other".to_string());
+    let transform = TransformKind::GreekO;
+    let result = transform.execute(&value, Some(&context), "el").unwrap();
+    assert_eq!(result, "οι φίλοι");
+}
+
+#[test]
+fn greek_o_compound_nominative_singular() {
+    // Explicit nominative singular via compound context
+    let phrase = Phrase::builder()
+        .text("φίλος".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("nom.one".to_string());
+    let transform = TransformKind::GreekO;
+    let result = transform.execute(&value, Some(&context), "el").unwrap();
+    assert_eq!(result, "ο φίλος");
+}
+
+#[test]
+fn greek_o_compound_with_variants() {
+    // Compound context selects correct variant AND article
+    let phrase = Phrase::builder()
+        .text("φίλος".to_string())
+        .tags(vec![Tag::new("masc")])
+        .variants(HashMap::from([(
+            VariantKey::new("gen.other"),
+            "φίλων".to_string(),
+        )]))
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("gen.other".to_string());
+    let transform = TransformKind::GreekO;
+    let result = transform.execute(&value, Some(&context), "el").unwrap();
+    assert_eq!(result, "των φίλων");
+}
+
+#[test]
+fn greek_o_neuter_plural_genitive() {
+    // Neuter plural genitive: των (same as masc/fem)
+    let phrase = Phrase::builder()
+        .text("βιβλίων".to_string())
+        .tags(vec![Tag::new("neut")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("gen.other".to_string());
+    let transform = TransformKind::GreekO;
+    let result = transform.execute(&value, Some(&context), "el").unwrap();
+    assert_eq!(result, "των βιβλίων");
+}
+
+#[test]
+fn greek_o_feminine_plural_accusative() {
+    // Feminine plural accusative: τις
+    let phrase = Phrase::builder()
+        .text("κάρτες".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("acc.other".to_string());
+    let transform = TransformKind::GreekO;
+    let result = transform.execute(&value, Some(&context), "el").unwrap();
+    assert_eq!(result, "τις κάρτες");
 }
 
 #[test]
