@@ -4146,7 +4146,7 @@ fn korean_count_string_context() {
 
 #[test]
 fn vietnamese_count_cai() {
-    // :cai "ban" (table) with context 3 -> "3 cai ban"
+    // :cai "ban" (table) with context 3 -> "3 cái ban"
     let phrase = Phrase::builder()
         .text("ban".to_string())
         .tags(vec![Tag::new("cai")])
@@ -4155,7 +4155,7 @@ fn vietnamese_count_cai() {
     let transform = TransformKind::VietnameseCount;
     let context = Value::Number(3);
     let result = transform.execute(&value, Some(&context), "vi").unwrap();
-    assert_eq!(result, "3 cai ban");
+    assert_eq!(result, "3 cái ban");
 }
 
 #[test]
@@ -4174,7 +4174,7 @@ fn vietnamese_count_con() {
 
 #[test]
 fn vietnamese_count_nguoi() {
-    // :nguoi "ban" (friend) with context 5 -> "5 nguoi ban"
+    // :nguoi "ban" (friend) with context 5 -> "5 người ban"
     let phrase = Phrase::builder()
         .text("ban".to_string())
         .tags(vec![Tag::new("nguoi")])
@@ -4183,7 +4183,35 @@ fn vietnamese_count_nguoi() {
     let transform = TransformKind::VietnameseCount;
     let context = Value::Number(5);
     let result = transform.execute(&value, Some(&context), "vi").unwrap();
-    assert_eq!(result, "5 nguoi ban");
+    assert_eq!(result, "5 người ban");
+}
+
+#[test]
+fn vietnamese_count_chiec() {
+    // :chiec "xe" (vehicle) with context 4 -> "4 chiếc xe"
+    let phrase = Phrase::builder()
+        .text("xe".to_string())
+        .tags(vec![Tag::new("chiec")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::VietnameseCount;
+    let context = Value::Number(4);
+    let result = transform.execute(&value, Some(&context), "vi").unwrap();
+    assert_eq!(result, "4 chiếc xe");
+}
+
+#[test]
+fn vietnamese_count_to() {
+    // :to "giay" (paper) with context 6 -> "6 tờ giay"
+    let phrase = Phrase::builder()
+        .text("giay".to_string())
+        .tags(vec![Tag::new("to")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::VietnameseCount;
+    let context = Value::Number(6);
+    let result = transform.execute(&value, Some(&context), "vi").unwrap();
+    assert_eq!(result, "6 tờ giay");
 }
 
 #[test]
@@ -4399,7 +4427,7 @@ fn sea_count_default_to_one() {
     let value = Value::Phrase(phrase);
     let transform = TransformKind::VietnameseCount;
     let result = transform.execute(&value, None, "vi").unwrap();
-    assert_eq!(result, "1 cai ban");
+    assert_eq!(result, "1 cái ban");
 }
 
 // =============================================================================

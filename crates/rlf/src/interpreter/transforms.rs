@@ -1352,11 +1352,11 @@ const KOREAN_COUNTERS: &[(&str, &str)] = &[
 /// Vietnamese classifiers.
 /// Tag name -> classifier word (Vietnamese uses Latin script).
 const VIETNAMESE_CLASSIFIERS: &[(&str, &str)] = &[
-    ("cai", "cai"),     // General objects (cái)
+    ("cai", "cái"),     // General objects
     ("con", "con"),     // Animals, some objects
-    ("nguoi", "nguoi"), // People (người)
-    ("chiec", "chiec"), // Vehicles, single items (chiếc)
-    ("to", "to"),       // Flat paper items (tờ)
+    ("nguoi", "người"), // People
+    ("chiec", "chiếc"), // Vehicles, single items
+    ("to", "tờ"),       // Flat paper items
 ];
 
 /// Thai classifiers.
