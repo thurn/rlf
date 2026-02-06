@@ -402,7 +402,7 @@ impl PhraseId {
 **Note:** The `resolve_with_registry` and `call_with_registry` methods operate
 on `PhraseRegistry` directly. For typical usage, call `locale.get_phrase(name)`
 or `locale.call_phrase(name, args)` on `Locale` instead, which handles language
-selection and fallback automatically.
+selection automatically.
 
 ### Hash Function
 
