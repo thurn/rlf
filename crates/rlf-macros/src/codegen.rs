@@ -48,15 +48,23 @@ fn generate_functions(input: &MacroInput) -> TokenStream {
 
 /// Generate a single phrase function.
 ///
-/// Parameterless phrases: `pub fn name(locale: &::rlf::Locale) -> ::rlf::Phrase`
-/// With parameters: `pub fn name(locale: &::rlf::Locale, p1: impl Into<::rlf::Value>, ...) -> ::rlf::Phrase`
+/// With `global-locale`: no `locale` parameter, uses global locale.
+/// Without: `pub fn name(locale: &::rlf::Locale, ...) -> ::rlf::Phrase`
 fn generate_function(phrase: &PhraseDefinition) -> TokenStream {
+    if cfg!(feature = "global-locale") {
+        generate_function_global(phrase)
+    } else {
+        generate_function_explicit(phrase)
+    }
+}
+
+/// Generate a phrase function that takes an explicit `locale` parameter.
+fn generate_function_explicit(phrase: &PhraseDefinition) -> TokenStream {
     let fn_name = format_ident!("{}", phrase.name.name);
     let phrase_name = &phrase.name.name;
     let doc = format!("Returns the \"{}\" phrase.", phrase_name);
 
     if phrase.parameters.is_empty() {
-        // Parameterless phrase
         quote! {
             #[doc = #doc]
             pub fn #fn_name(locale: &::rlf::Locale) -> ::rlf::Phrase {
@@ -65,7 +73,6 @@ fn generate_function(phrase: &PhraseDefinition) -> TokenStream {
             }
         }
     } else {
-        // Phrase with parameters
         let param_names: Vec<_> = phrase
             .parameters
             .iter()
@@ -92,32 +99,110 @@ fn generate_function(phrase: &PhraseDefinition) -> TokenStream {
     }
 }
 
+/// Generate a phrase function that uses the global locale (no `locale` parameter).
+fn generate_function_global(phrase: &PhraseDefinition) -> TokenStream {
+    let fn_name = format_ident!("{}", phrase.name.name);
+    let phrase_name = &phrase.name.name;
+    let doc = format!("Returns the \"{}\" phrase.", phrase_name);
+
+    if phrase.parameters.is_empty() {
+        quote! {
+            #[doc = #doc]
+            pub fn #fn_name() -> ::rlf::Phrase {
+                __RLF_REGISTER.call_once(|| {
+                    ::rlf::with_locale_mut(|locale| {
+                        locale.load_translations_str("en", SOURCE_PHRASES)
+                            .expect("source phrases should parse successfully");
+                    });
+                });
+                ::rlf::with_locale(|locale| {
+                    locale.get_phrase(#phrase_name)
+                        .expect(concat!("phrase '", #phrase_name, "' should exist"))
+                })
+            }
+        }
+    } else {
+        let param_names: Vec<_> = phrase
+            .parameters
+            .iter()
+            .map(|p| format_ident!("{}", p.name))
+            .collect();
+
+        let param_decls: Vec<TokenStream> = param_names
+            .iter()
+            .map(|name| quote! { #name: impl Into<::rlf::Value> })
+            .collect();
+
+        let param_conversions: Vec<TokenStream> = param_names
+            .iter()
+            .map(|name| quote! { #name.into() })
+            .collect();
+
+        quote! {
+            #[doc = #doc]
+            pub fn #fn_name(#(#param_decls),*) -> ::rlf::Phrase {
+                __RLF_REGISTER.call_once(|| {
+                    ::rlf::with_locale_mut(|locale| {
+                        locale.load_translations_str("en", SOURCE_PHRASES)
+                            .expect("source phrases should parse successfully");
+                    });
+                });
+                ::rlf::with_locale(|locale| {
+                    locale.call_phrase(#phrase_name, &[#(#param_conversions),*])
+                        .expect(concat!("phrase '", #phrase_name, "' should exist"))
+                })
+            }
+        }
+    }
+}
+
 // =============================================================================
 // SOURCE_PHRASES and register_source_phrases Generation
 // =============================================================================
 
 /// Generate SOURCE_PHRASES const and register_source_phrases function.
 fn generate_source_phrases(input: &MacroInput) -> TokenStream {
-    // Reconstruct phrase definitions as RLF source text
     let source = reconstruct_source(input);
 
-    quote! {
-        /// Source language phrases embedded as data.
-        /// Parsed by the interpreter at runtime.
-        const SOURCE_PHRASES: &str = #source;
+    if cfg!(feature = "global-locale") {
+        quote! {
+            /// Source language phrases embedded as data.
+            const SOURCE_PHRASES: &str = #source;
 
-        /// Registers source language phrases with the locale.
-        /// Call once at startup before using phrase functions.
-        ///
-        /// # Example
-        ///
-        /// ```ignore
-        /// let mut locale = Locale::new();
-        /// register_source_phrases(&mut locale);
-        /// ```
-        pub fn register_source_phrases(locale: &mut ::rlf::Locale) {
-            locale.load_translations_str("en", SOURCE_PHRASES)
-                .expect("source phrases should parse successfully");
+            static __RLF_REGISTER: ::std::sync::Once = ::std::sync::Once::new();
+
+            /// Registers source language phrases with the global locale.
+            ///
+            /// This is called automatically on first use of any phrase function,
+            /// but can be called explicitly to ensure registration is complete.
+            pub fn register_source_phrases() {
+                __RLF_REGISTER.call_once(|| {
+                    ::rlf::with_locale_mut(|locale| {
+                        locale.load_translations_str("en", SOURCE_PHRASES)
+                            .expect("source phrases should parse successfully");
+                    });
+                });
+            }
+        }
+    } else {
+        quote! {
+            /// Source language phrases embedded as data.
+            /// Parsed by the interpreter at runtime.
+            const SOURCE_PHRASES: &str = #source;
+
+            /// Registers source language phrases with the locale.
+            /// Call once at startup before using phrase functions.
+            ///
+            /// # Example
+            ///
+            /// ```ignore
+            /// let mut locale = Locale::new();
+            /// register_source_phrases(&mut locale);
+            /// ```
+            pub fn register_source_phrases(locale: &mut ::rlf::Locale) {
+                locale.load_translations_str("en", SOURCE_PHRASES)
+                    .expect("source phrases should parse successfully");
+            }
         }
     }
 }

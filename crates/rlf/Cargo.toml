@@ -17,6 +17,9 @@ strsim = "0.11"
 hangeul = "0.4"
 rlf-macros = { path = "../rlf-macros" }
 
+[features]
+global-locale = ["rlf-macros/global-locale"]
+
 [dev-dependencies]
 insta = "1.42"
 tempfile = "3"

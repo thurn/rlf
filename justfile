@@ -2,7 +2,7 @@ set positional-arguments
 
 # RLF - Rust Localization Framework
 
-review: check-format no-inline-tests check clippy test
+review: check-format no-inline-tests check check-global clippy clippy-global test test-global
 
 # Check that no #[test] attributes exist in src/
 # Exception: rlf-macros (proc-macro crates can't have external integration tests)
@@ -93,6 +93,39 @@ check-format:
 # Check formatting (verbose)
 check-format-verbose:
     cargo +nightly fmt --all -- --check
+
+# Check workspace with global-locale feature (quiet on success)
+check-global:
+    #!/usr/bin/env bash
+    output=$(cargo check --workspace --features rlf/global-locale 2>&1)
+    if [ $? -eq 0 ]; then
+        echo "Check-global passed"
+    else
+        echo "$output"
+        exit 1
+    fi
+
+# Run clippy with global-locale feature (quiet on success)
+clippy-global:
+    #!/usr/bin/env bash
+    output=$(cargo clippy --workspace --features rlf/global-locale -- -D warnings -D clippy::all 2>&1)
+    if [ $? -eq 0 ]; then
+        echo "Clippy-global passed"
+    else
+        echo "$output"
+        exit 1
+    fi
+
+# Run tests with global-locale feature (quiet on success)
+test-global:
+    #!/usr/bin/env bash
+    output=$(cargo test -p rlf --features global-locale 2>&1)
+    if [ $? -eq 0 ]; then
+        echo "Tests-global passed"
+    else
+        echo "$output"
+        exit 1
+    fi
 
 # Clean build artifacts
 clean:

@@ -152,6 +152,30 @@ impl PhraseId {
 }
 
 // =========================================================================
+// Global Locale Resolution
+// =========================================================================
+
+#[cfg(feature = "global-locale")]
+impl PhraseId {
+    /// Resolve a parameterless phrase using the global locale.
+    pub fn resolve_global(&self) -> Result<crate::Phrase, EvalError> {
+        crate::with_locale(|locale| locale.get_phrase_by_id(self.0))
+    }
+
+    /// Call a phrase with positional arguments using the global locale.
+    pub fn call_global(&self, args: &[Value]) -> Result<crate::Phrase, EvalError> {
+        crate::with_locale(|locale| locale.call_phrase_by_id(self.0, args))
+    }
+
+    /// Get the phrase name using the global locale.
+    ///
+    /// Returns an owned `String` because the lock cannot outlive the call.
+    pub fn name_global(&self) -> Option<String> {
+        crate::with_locale(|locale| locale.name_for_id(self.0).map(str::to_owned))
+    }
+}
+
+// =========================================================================
 // Registry-Based Resolution
 // =========================================================================
 

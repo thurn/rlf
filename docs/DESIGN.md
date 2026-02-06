@@ -470,6 +470,57 @@ See **APPENDIX_RUNTIME_INTERPRETER.md** for complete API documentation.
 
 ---
 
+## Global Locale
+
+The `global-locale` Cargo feature stores the locale in global state, removing
+the `locale` parameter from all generated phrase functions and auto-registering
+source phrases on first use.
+
+Enable it in `Cargo.toml`:
+
+```toml
+[dependencies]
+rlf = { version = "0.1", features = ["global-locale"] }
+```
+
+With `global-locale`, generated functions take no `locale` parameter:
+
+```rust
+// Without global-locale:
+let text = strings::card(&locale);
+
+// With global-locale:
+let text = strings::card();
+```
+
+Source phrases are registered automatically on first call. To switch languages
+or load translations, use the global locale API:
+
+```rust
+// At startup
+rlf::set_language("ru");
+rlf::with_locale_mut(|locale| {
+    locale.load_translations("ru", "assets/localization/ru.rlf")?;
+    Ok(())
+});
+
+// Usage — no locale parameter needed
+let text = strings::draw(3);
+
+// Switch language at runtime
+rlf::set_language("es");
+```
+
+The four public functions are:
+- `set_language(lang)` — sets the current language
+- `language()` — returns the current language
+- `with_locale(|locale| ...)` — read access to the global `Locale`
+- `with_locale_mut(|locale| ...)` — write access to the global `Locale`
+
+See **APPENDIX_RUST_INTEGRATION.md** for complete API documentation.
+
+---
+
 ## Generated API
 
 Given:

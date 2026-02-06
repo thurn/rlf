@@ -404,6 +404,24 @@ on `PhraseRegistry` directly. For typical usage, call `locale.get_phrase(name)`
 or `locale.call_phrase(name, args)` on `Locale` instead, which handles language
 selection automatically.
 
+### Global Locale Methods (requires `global-locale` feature)
+
+When the `global-locale` feature is enabled, `PhraseId` gains methods that
+operate on the global locale without requiring a `&Locale` parameter:
+
+```rust
+impl PhraseId {
+    /// Resolve a parameterless phrase using the global locale.
+    pub fn resolve_global(&self) -> Result<Phrase, EvalError>;
+
+    /// Call a phrase with positional arguments using the global locale.
+    pub fn call_global(&self, args: &[Value]) -> Result<Phrase, EvalError>;
+
+    /// Get the phrase name using the global locale (returns owned String).
+    pub fn name_global(&self) -> Option<String>;
+}
+```
+
 ### Hash Function
 
 RLF uses FNV-1a for phrase name hashing because it's simple, fast, and
@@ -576,6 +594,20 @@ fn render_card(card: &CardDefinition, locale: &Locale) -> String {
 }
 ```
 
+### Global Locale Usage (requires `global-locale` feature)
+
+With the `global-locale` feature, `PhraseId` methods can resolve without a
+`&Locale` parameter:
+
+```rust
+fn render_card(card: &CardDefinition) -> String {
+    let name = card.name.resolve_global()
+        .map(|p| p.to_string())
+        .unwrap_or_else(|_| "[missing]".to_string());
+    format!("{} (Cost: {})", name, card.cost)
+}
+```
+
 ### Storing Phrases with Runtime Parameters
 
 A common pattern is storing a `PhraseId` alongside the values needed to resolve
@@ -726,6 +758,45 @@ pub fn register_source_phrases(locale: &mut Locale) {
         .expect("source phrases should parse successfully");
 }
 ```
+
+### Global Locale Variant (requires `global-locale` feature)
+
+When the `global-locale` feature is enabled, the generated code changes:
+
+```rust
+// strings.rs (generated with global-locale)
+
+static __RLF_REGISTER: std::sync::Once = std::sync::Once::new();
+
+/// Returns the "card" phrase.
+pub fn card() -> Phrase {
+    __RLF_REGISTER.call_once(|| { /* load SOURCE_PHRASES */ });
+    rlf::with_locale(|locale| {
+        locale.get_phrase("card")
+            .expect("phrase 'card' should exist")
+    })
+}
+
+/// Evaluates the "draw" phrase.
+pub fn draw(n: impl Into<Value>) -> Phrase {
+    __RLF_REGISTER.call_once(|| { /* load SOURCE_PHRASES */ });
+    rlf::with_locale(|locale| {
+        locale.call_phrase("draw", &[n.into()])
+            .expect("phrase 'draw' should exist")
+    })
+}
+
+/// Registers source language phrases with the global locale.
+/// Called automatically on first use of any phrase function.
+pub fn register_source_phrases() {
+    __RLF_REGISTER.call_once(|| { /* load SOURCE_PHRASES */ });
+}
+```
+
+Key differences:
+- Functions take no `locale` parameter
+- A `std::sync::Once` guard auto-registers source phrases on first call
+- `register_source_phrases()` takes no arguments
 
 ### Key Design Points
 
@@ -1093,6 +1164,70 @@ Because RLF uses proc-macros, rust-analyzer provides:
 - **Autocomplete**: Phrase functions appear immediately
 - **Go-to-definition**: Navigate to the macro invocation
 - **Error highlighting**: Syntax errors and undefined references
+
+---
+
+## Global Locale API
+
+The `global-locale` Cargo feature stores the locale in global state, removing
+the `locale` parameter from generated phrase functions and enabling automatic
+source phrase registration.
+
+### Feature Flag Setup
+
+```toml
+# Cargo.toml
+[dependencies]
+rlf = { version = "0.1", features = ["global-locale"] }
+```
+
+### Public Functions
+
+```rust
+/// Read access to the global locale.
+pub fn with_locale<T>(f: impl FnOnce(&Locale) -> T) -> T;
+
+/// Write access to the global locale.
+pub fn with_locale_mut<T>(f: impl FnOnce(&mut Locale) -> T) -> T;
+
+/// Set the current language.
+pub fn set_language(language: impl Into<String>);
+
+/// Get the current language (returns owned String).
+pub fn language() -> String;
+```
+
+### Thread Safety
+
+The global locale uses `LazyLock<RwLock<Locale>>`:
+- `with_locale` acquires a read lock (multiple concurrent readers)
+- `with_locale_mut` acquires a write lock (exclusive access)
+- `set_language` uses write access internally
+
+### Initialization and Auto-Registration
+
+The global locale is initialized with `Locale::new()` (English, empty). Source
+phrases are registered automatically on first call to any generated phrase
+function via a `std::sync::Once` guard.
+
+### Migration from Explicit Locale
+
+```rust
+// Before (explicit locale):
+let mut locale = Locale::new();
+strings::register_source_phrases(&mut locale);
+locale.load_translations_str("ru", RU_PHRASES).unwrap();
+locale.set_language("ru");
+let text = strings::card(&locale);
+
+// After (global locale):
+strings::register_source_phrases(); // optional, happens automatically
+rlf::with_locale_mut(|locale| {
+    locale.load_translations_str("ru", RU_PHRASES).unwrap();
+});
+rlf::set_language("ru");
+let text = strings::card();
+```
 
 ---
 
