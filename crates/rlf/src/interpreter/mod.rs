@@ -7,6 +7,7 @@
 mod context;
 mod error;
 mod evaluator;
+pub mod language_meta;
 mod locale;
 mod plural;
 mod registry;

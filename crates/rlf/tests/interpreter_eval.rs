@@ -686,3 +686,218 @@ fn eval_str_cache_parse_error_not_cached() {
     assert!(result.is_err());
     assert_eq!(registry.template_cache_len(), 0);
 }
+
+// =============================================================================
+// Polish Gender Tag Selection
+// =============================================================================
+
+#[test]
+fn eval_polish_gender_tag_selection() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        card = :fem "karta";
+        enemy = :masc_anim "wróg";
+        sword = :masc_inan "miecz";
+        kingdom = :neut "królestwo";
+
+        destroyed = {
+            masc_anim: "pokonany",
+            masc_inan: "zniszczony",
+            fem: "zniszczona",
+            neut: "zniszczone"
+        };
+
+        destroy(thing) = "{thing} - {destroyed:thing}";
+    "#,
+        )
+        .unwrap();
+
+    let card = registry.get_phrase("pl", "card").unwrap();
+    let result = registry
+        .call_phrase("pl", "destroy", &[Value::Phrase(card)])
+        .unwrap();
+    assert_eq!(result.to_string(), "karta - zniszczona");
+
+    let enemy = registry.get_phrase("pl", "enemy").unwrap();
+    let result = registry
+        .call_phrase("pl", "destroy", &[Value::Phrase(enemy)])
+        .unwrap();
+    assert_eq!(result.to_string(), "wróg - pokonany");
+
+    let sword = registry.get_phrase("pl", "sword").unwrap();
+    let result = registry
+        .call_phrase("pl", "destroy", &[Value::Phrase(sword)])
+        .unwrap();
+    assert_eq!(result.to_string(), "miecz - zniszczony");
+
+    let kingdom = registry.get_phrase("pl", "kingdom").unwrap();
+    let result = registry
+        .call_phrase("pl", "destroy", &[Value::Phrase(kingdom)])
+        .unwrap();
+    assert_eq!(result.to_string(), "królestwo - zniszczone");
+}
+
+#[test]
+fn eval_polish_case_variants() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        card = :fem {
+            nom: "karta",
+            nom.many: "kart",
+            acc: "kartę",
+            acc.many: "kart",
+            gen: "karty",
+            gen.many: "kart",
+            dat: "karcie",
+            ins: "kartą",
+            loc: "karcie",
+            voc: "karto"
+        };
+        take(n) = "Weź {card:acc:n}.";
+    "#,
+        )
+        .unwrap();
+
+    let one = registry
+        .call_phrase("pl", "take", &[Value::from(1)])
+        .unwrap();
+    assert_eq!(one.to_string(), "Weź kartę.");
+
+    let five = registry
+        .call_phrase("pl", "take", &[Value::from(5)])
+        .unwrap();
+    assert_eq!(five.to_string(), "Weź kart.");
+}
+
+#[test]
+fn eval_polish_plural_categories() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        card = :fem {
+            one: "karta",
+            few: "karty",
+            many: "kart",
+            other: "karty"
+        };
+        draw(n) = "Dobierz {n} {card:n}.";
+    "#,
+        )
+        .unwrap();
+
+    // Polish plural: 1=one, 2-4=few, 5-21=many (for 5-20), 22-24=few, etc.
+    let one = registry
+        .call_phrase("pl", "draw", &[Value::from(1)])
+        .unwrap();
+    assert_eq!(one.to_string(), "Dobierz 1 karta.");
+
+    let three = registry
+        .call_phrase("pl", "draw", &[Value::from(3)])
+        .unwrap();
+    assert_eq!(three.to_string(), "Dobierz 3 karty.");
+
+    let five = registry
+        .call_phrase("pl", "draw", &[Value::from(5)])
+        .unwrap();
+    assert_eq!(five.to_string(), "Dobierz 5 kart.");
+
+    let twenty_two = registry
+        .call_phrase("pl", "draw", &[Value::from(22)])
+        .unwrap();
+    assert_eq!(twenty_two.to_string(), "Dobierz 22 karty.");
+}
+
+#[test]
+fn eval_polish_masc_anim_case_and_plural() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        enemy = :masc_anim {
+            nom.one: "wróg",
+            nom: "wrogowie",
+            nom.many: "wrogów",
+            acc: "wroga",
+            acc.many: "wrogów"
+        };
+        defeat(n) = "Pokonaj {n} {enemy:acc:n}.";
+    "#,
+        )
+        .unwrap();
+
+    let one = registry
+        .call_phrase("pl", "defeat", &[Value::from(1)])
+        .unwrap();
+    assert_eq!(one.to_string(), "Pokonaj 1 wroga.");
+
+    let five = registry
+        .call_phrase("pl", "defeat", &[Value::from(5)])
+        .unwrap();
+    assert_eq!(five.to_string(), "Pokonaj 5 wrogów.");
+
+    let three = registry
+        .call_phrase("pl", "defeat", &[Value::from(3)])
+        .unwrap();
+    assert_eq!(three.to_string(), "Pokonaj 3 wroga.");
+}
+
+#[test]
+fn eval_polish_all_seven_cases() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        card = :fem {
+            nom: "karta",
+            gen: "karty",
+            dat: "karcie",
+            acc: "kartę",
+            ins: "kartą",
+            loc: "karcie",
+            voc: "karto"
+        };
+        test_nom = "{card:nom}";
+        test_gen = "{card:gen}";
+        test_dat = "{card:dat}";
+        test_acc = "{card:acc}";
+        test_ins = "{card:ins}";
+        test_loc = "{card:loc}";
+        test_voc = "{card:voc}";
+    "#,
+        )
+        .unwrap();
+
+    assert_eq!(
+        registry.get_phrase("pl", "test_nom").unwrap().to_string(),
+        "karta"
+    );
+    assert_eq!(
+        registry.get_phrase("pl", "test_gen").unwrap().to_string(),
+        "karty"
+    );
+    assert_eq!(
+        registry.get_phrase("pl", "test_dat").unwrap().to_string(),
+        "karcie"
+    );
+    assert_eq!(
+        registry.get_phrase("pl", "test_acc").unwrap().to_string(),
+        "kartę"
+    );
+    assert_eq!(
+        registry.get_phrase("pl", "test_ins").unwrap().to_string(),
+        "kartą"
+    );
+    assert_eq!(
+        registry.get_phrase("pl", "test_loc").unwrap().to_string(),
+        "karcie"
+    );
+    assert_eq!(
+        registry.get_phrase("pl", "test_voc").unwrap().to_string(),
+        "karto"
+    );
+}

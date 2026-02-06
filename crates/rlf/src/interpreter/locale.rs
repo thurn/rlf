@@ -11,10 +11,11 @@ use std::path::{Path, PathBuf};
 use bon::Builder;
 
 use crate::interpreter::error::{LoadError, LoadWarning};
+use crate::interpreter::language_meta;
 use crate::interpreter::registry::PhraseRegistry;
 use crate::interpreter::transforms::TransformRegistry;
 use crate::interpreter::{EvalContext, EvalError, eval_phrase_def, eval_template};
-use crate::parser::ast::Template;
+use crate::parser::ast::{PhraseBody, Template};
 use crate::parser::{ParseError, parse_file, parse_template};
 use crate::types::{Phrase, Value};
 
@@ -289,6 +290,8 @@ impl Locale {
     /// Checks for:
     /// - Phrases in the target language that do not exist in the source language
     /// - Phrases with a different parameter count than the source
+    /// - Metadata tags not recognized for the target language
+    /// - Variant key components not recognized for the target language
     ///
     /// Both the source and target languages must already be loaded. Returns an
     /// empty vector if no warnings are found or if either language is not loaded.
@@ -343,6 +346,57 @@ impl Locale {
                     name: name.to_string(),
                     language: target_language.to_string(),
                 });
+            }
+        }
+
+        // Language-specific tag validation
+        if let Some(valid_tags) = language_meta::valid_tags(target_language) {
+            let mut all_names: Vec<&str> = target_registry.phrase_names().collect();
+            all_names.sort();
+            for name in all_names {
+                let def = target_registry
+                    .get(name)
+                    .expect("name came from this registry");
+                for tag in &def.tags {
+                    if !valid_tags.contains(&tag.as_str()) {
+                        warnings.push(LoadWarning::InvalidTag {
+                            name: name.to_string(),
+                            language: target_language.to_string(),
+                            tag: tag.to_string(),
+                            valid_tags: valid_tags.iter().map(ToString::to_string).collect(),
+                        });
+                    }
+                }
+            }
+        }
+
+        // Language-specific variant key validation
+        if let Some(valid_keys) = language_meta::valid_variant_keys(target_language) {
+            let mut all_names: Vec<&str> = target_registry.phrase_names().collect();
+            all_names.sort();
+            for name in all_names {
+                let def = target_registry
+                    .get(name)
+                    .expect("name came from this registry");
+                if let PhraseBody::Variants(entries) = &def.body {
+                    for entry in entries {
+                        for key in &entry.keys {
+                            for component in key.split('.') {
+                                if !valid_keys.contains(&component) {
+                                    warnings.push(LoadWarning::InvalidVariantKey {
+                                        name: name.to_string(),
+                                        language: target_language.to_string(),
+                                        key: component.to_string(),
+                                        valid_keys: valid_keys
+                                            .iter()
+                                            .map(ToString::to_string)
+                                            .collect(),
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 

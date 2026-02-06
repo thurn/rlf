@@ -88,6 +88,28 @@ pub enum LoadWarning {
         /// Number of parameters in the translation phrase.
         translation_count: usize,
     },
+    /// Phrase uses a metadata tag not recognized for this language.
+    InvalidTag {
+        /// Name of the phrase.
+        name: String,
+        /// Language code of the translation.
+        language: String,
+        /// The invalid tag value.
+        tag: String,
+        /// Valid tags for this language.
+        valid_tags: Vec<String>,
+    },
+    /// Phrase uses a variant key component not recognized for this language.
+    InvalidVariantKey {
+        /// Name of the phrase.
+        name: String,
+        /// Language code of the translation.
+        language: String,
+        /// The invalid variant key component.
+        key: String,
+        /// Valid variant key components for this language.
+        valid_keys: Vec<String>,
+    },
 }
 
 impl fmt::Display for LoadWarning {
@@ -108,6 +130,30 @@ impl fmt::Display for LoadWarning {
                 write!(
                     f,
                     "warning: phrase '{name}' in '{language}' has {translation_count} parameter(s), but source has {source_count}"
+                )
+            }
+            LoadWarning::InvalidTag {
+                name,
+                language,
+                tag,
+                valid_tags,
+            } => {
+                write!(
+                    f,
+                    "warning: phrase '{name}' in '{language}' has unrecognized tag ':{tag}'; valid tags: {}",
+                    valid_tags.join(", ")
+                )
+            }
+            LoadWarning::InvalidVariantKey {
+                name,
+                language,
+                key,
+                valid_keys,
+            } => {
+                write!(
+                    f,
+                    "warning: phrase '{name}' in '{language}' has unrecognized variant key '{key}'; valid keys: {}",
+                    valid_keys.join(", ")
                 )
             }
         }
