@@ -1,15 +1,15 @@
-// Test :tag syntax
+// Test :tag syntax after = sign
 use rlf::{rlf, Locale};
 
 rlf! {
-    // Single tag
-    :masc sword = "sword";
+    // Single tag after =
+    sword = :masc "sword";
 
-    // Multiple tags
-    :fem :inanimate shield = "shield";
+    // Multiple tags after =
+    shield = :fem :inanimate "shield";
 
-    // Tags on variant phrases
-    :neut creature = {
+    // Tags on variant phrases after =
+    creature = :neut {
         one: "creature",
         other: "creatures"
     };

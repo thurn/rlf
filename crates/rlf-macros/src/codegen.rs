@@ -544,7 +544,7 @@ mod tests {
     #[test]
     fn test_reconstruct_phrase_with_tags() {
         let input = parse_input(parse_quote! {
-            :masc item = "item";
+            item = :masc "item";
         });
         let source = reconstruct_source(&input);
         // Tags should come after = sign in the file format
@@ -554,7 +554,7 @@ mod tests {
     #[test]
     fn test_reconstruct_phrase_with_from_modifier() {
         let input = parse_input(parse_quote! {
-            :from(s) subtype(s) = "<b>{s}</b>";
+            subtype(s) = :from(s) "<b>{s}</b>";
         });
         let source = reconstruct_source(&input);
         assert!(
@@ -568,7 +568,7 @@ mod tests {
     #[test]
     fn test_reconstruct_phrase_with_tags_and_from() {
         let input = parse_input(parse_quote! {
-            :an :from(s) subtype(s) = "<b>{s}</b>";
+            subtype(s) = :an :from(s) "<b>{s}</b>";
         });
         let source = reconstruct_source(&input);
         assert!(

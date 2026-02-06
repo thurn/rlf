@@ -3,16 +3,16 @@ use rlf::{rlf, Locale, Value};
 
 rlf! {
     // Source phrase with tags and variants
-    :an ancient = {
+    ancient = :an {
         one: "Ancient",
         other: "Ancients"
     };
 
     // :from modifier inherits tags and variants from parameter
-    :from(s) subtype(s) = "<b>{s}</b>";
+    subtype(s) = :from(s) "<b>{s}</b>";
 
     // :from with explicit tags
-    :masc :from(s) decorated(s) = "[{s}]";
+    decorated(s) = :masc :from(s) "[{s}]";
 }
 
 fn main() {

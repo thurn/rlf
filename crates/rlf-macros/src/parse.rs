@@ -57,9 +57,6 @@ fn parse_tags_and_from(input: ParseStream) -> syn::Result<TagsAndFrom> {
 
 impl Parse for PhraseDefinition {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        // Parse optional tags/from BEFORE name (legacy syntax: `:tag name = body`)
-        let pre = parse_tags_and_from(input)?;
-
         // Parse phrase name
         let name_ident: Ident = input.parse()?;
         let name = SpannedIdent::new(&name_ident);
@@ -78,14 +75,7 @@ impl Parse for PhraseDefinition {
         input.parse::<Token![=]>()?;
 
         // Parse optional tags/from AFTER = sign (DESIGN.md syntax: `name = :tag body`)
-        let post = parse_tags_and_from(input)?;
-
-        // Merge tags from both positions
-        let mut tags = pre.tags;
-        tags.extend(post.tags);
-
-        // Use from_param from whichever position specified it
-        let from_param = pre.from_param.or(post.from_param);
+        let TagsAndFrom { tags, from_param } = parse_tags_and_from(input)?;
 
         // Parse body
         let body = input.parse()?;

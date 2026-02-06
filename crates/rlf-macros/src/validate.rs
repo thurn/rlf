@@ -537,7 +537,7 @@ mod tests {
     #[test]
     fn test_context_phrase_with_tags() {
         let input = parse_input(parse_quote! {
-            :masc :inanimate item = "item";
+            item = :masc :inanimate "item";
         });
         let ctx = ValidationContext::from_input(&input);
 

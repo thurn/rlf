@@ -1,0 +1,5 @@
+error: expected identifier
+ --> tests/fail/tags_before_name.rs:4:5
+  |
+4 |     :masc sword = "sword";
+  |     ^
