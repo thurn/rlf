@@ -1585,6 +1585,44 @@ fn spanish_el_with_plural_context() {
 }
 
 #[test]
+fn spanish_el_context_selects_variant_from_phrase() {
+    // Test: @el:other should select both the plural article AND the :other variant of the phrase
+    let source = r#"
+        carta = :fem { one: "carta", other: "cartas" };
+        return_all(t) = "devuelve {@el:other t}";
+    "#;
+
+    let mut locale = Locale::builder().language("es").build();
+    locale.load_translations_str("es", source).unwrap();
+
+    let card = locale.get_phrase("carta").unwrap();
+    let result = locale
+        .call_phrase("return_all", &[Value::Phrase(card)])
+        .unwrap();
+    // @el:other should produce "las cartas", not "las carta"
+    assert_eq!(result.to_string(), "devuelve las cartas");
+}
+
+#[test]
+fn spanish_un_context_selects_variant_from_phrase() {
+    // Test: @un:other should select both the plural article AND the :other variant of the phrase
+    let source = r#"
+        enemigo = :masc { one: "enemigo", other: "enemigos" };
+        some_enemies(t) = "algunos {@un:other t}";
+    "#;
+
+    let mut locale = Locale::builder().language("es").build();
+    locale.load_translations_str("es", source).unwrap();
+
+    let enemy = locale.get_phrase("enemigo").unwrap();
+    let result = locale
+        .call_phrase("some_enemies", &[Value::Phrase(enemy)])
+        .unwrap();
+    // @un:other should produce "unos enemigos", not "unos enemigo"
+    assert_eq!(result.to_string(), "algunos unos enemigos");
+}
+
+#[test]
 fn spanish_un_in_template() {
     let source = r#"
         carta = :fem "carta";

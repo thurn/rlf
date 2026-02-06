@@ -9,7 +9,7 @@ use icu_locale_core::{LanguageIdentifier, langid};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::interpreter::EvalError;
-use crate::types::Value;
+use crate::types::{Value, VariantKey};
 
 /// Transform types for static dispatch.
 ///
@@ -393,7 +393,7 @@ fn german_indefinite_article(gender: GermanGender, case: GermanCase) -> &'static
 /// Reads :masc/:fem/:neut tag from Value to determine gender.
 /// Uses context for case (defaults to nominative).
 fn german_der_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
-    let text = value.to_string();
+    let text = resolve_text_with_context(value, context);
     let gender = parse_german_gender(value).ok_or_else(|| EvalError::MissingTag {
         transform: "der".to_string(),
         expected: vec!["masc".to_string(), "fem".to_string(), "neut".to_string()],
@@ -409,7 +409,7 @@ fn german_der_transform(value: &Value, context: Option<&Value>) -> Result<String
 /// Reads :masc/:fem/:neut tag from Value to determine gender.
 /// Uses context for case (defaults to nominative).
 fn german_ein_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
-    let text = value.to_string();
+    let text = resolve_text_with_context(value, context);
     let gender = parse_german_gender(value).ok_or_else(|| EvalError::MissingTag {
         transform: "ein".to_string(),
         expected: vec!["masc".to_string(), "fem".to_string(), "neut".to_string()],
@@ -508,6 +508,29 @@ fn parse_romance_plural(context: Option<&Value>) -> RomancePlural {
     }
 }
 
+/// Resolve the display text for a Value, using context for variant selection.
+///
+/// When the value is a Phrase with variants and context provides a variant key
+/// (e.g., "other"), this selects that variant instead of returning the default
+/// text. This ensures transforms like `@el:other` produce the correct noun form
+/// alongside the correct article form.
+fn resolve_text_with_context(value: &Value, context: Option<&Value>) -> String {
+    let Some(Value::String(ctx_key)) = context else {
+        return value.to_string();
+    };
+    let Value::Phrase(phrase) = value else {
+        return value.to_string();
+    };
+    if phrase.variants.is_empty() {
+        return value.to_string();
+    }
+    phrase
+        .variants
+        .get(&VariantKey::new(ctx_key))
+        .cloned()
+        .unwrap_or_else(|| value.to_string())
+}
+
 // =============================================================================
 // Spanish Transforms (Phase 7)
 // =============================================================================
@@ -536,7 +559,7 @@ fn spanish_indefinite_article(gender: RomanceGender, plural: RomancePlural) -> &
 
 /// Spanish definite article transform (@el/@la).
 fn spanish_el_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
-    let text = value.to_string();
+    let text = resolve_text_with_context(value, context);
     let gender = parse_romance_gender(value, "el")?;
     let plural = parse_romance_plural(context);
     let article = spanish_definite_article(gender, plural);
@@ -545,7 +568,7 @@ fn spanish_el_transform(value: &Value, context: Option<&Value>) -> Result<String
 
 /// Spanish indefinite article transform (@un/@una).
 fn spanish_un_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
-    let text = value.to_string();
+    let text = resolve_text_with_context(value, context);
     let gender = parse_romance_gender(value, "un")?;
     let plural = parse_romance_plural(context);
     let article = spanish_indefinite_article(gender, plural);
@@ -600,7 +623,7 @@ fn portuguese_em_contraction(gender: RomanceGender, plural: RomancePlural) -> &'
 
 /// Portuguese definite article transform (@o/@a).
 fn portuguese_o_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
-    let text = value.to_string();
+    let text = resolve_text_with_context(value, context);
     let gender = parse_romance_gender(value, "o")?;
     let plural = parse_romance_plural(context);
     let article = portuguese_definite_article(gender, plural);
@@ -617,7 +640,7 @@ fn portuguese_um_transform(value: &Value) -> Result<String, EvalError> {
 
 /// Portuguese "de" + article contraction transform (@de).
 fn portuguese_de_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
-    let text = value.to_string();
+    let text = resolve_text_with_context(value, context);
     let gender = parse_romance_gender(value, "de")?;
     let plural = parse_romance_plural(context);
     let contracted = portuguese_de_contraction(gender, plural);
@@ -626,7 +649,7 @@ fn portuguese_de_transform(value: &Value, context: Option<&Value>) -> Result<Str
 
 /// Portuguese "em" + article contraction transform (@em).
 fn portuguese_em_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
-    let text = value.to_string();
+    let text = resolve_text_with_context(value, context);
     let gender = parse_romance_gender(value, "em")?;
     let plural = parse_romance_plural(context);
     let contracted = portuguese_em_contraction(gender, plural);
@@ -708,7 +731,7 @@ fn french_au_contraction(
 /// French definite article transform (@le/@la).
 /// Handles elision before vowels via :vowel tag.
 fn french_le_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
-    let text = value.to_string();
+    let text = resolve_text_with_context(value, context);
     let gender = parse_romance_gender(value, "le")?;
     let has_vowel = value.has_tag("vowel");
     let plural = parse_romance_plural(context);
@@ -732,7 +755,7 @@ fn french_un_transform(value: &Value) -> Result<String, EvalError> {
 
 /// French "de" + article contraction transform (@de).
 fn french_de_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
-    let text = value.to_string();
+    let text = resolve_text_with_context(value, context);
     let gender = parse_romance_gender(value, "de")?;
     let has_vowel = value.has_tag("vowel");
     let plural = parse_romance_plural(context);
@@ -748,7 +771,7 @@ fn french_de_transform(value: &Value, context: Option<&Value>) -> Result<String,
 
 /// French "a" + article contraction transform (@au).
 fn french_au_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
-    let text = value.to_string();
+    let text = resolve_text_with_context(value, context);
     let gender = parse_romance_gender(value, "au")?;
     let has_vowel = value.has_tag("vowel");
     let plural = parse_romance_plural(context);
@@ -767,8 +790,6 @@ fn french_au_transform(value: &Value, context: Option<&Value>) -> Result<String,
 /// The input value should have variants "standard" and "vowel".
 /// Output is just the selected variant - context is only used to determine selection.
 fn french_liaison_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
-    use crate::types::VariantKey;
-
     // Context should be a phrase with :vowel tag (or not)
     let has_vowel = match context {
         Some(v) => v.has_tag("vowel"),
@@ -905,7 +926,7 @@ fn italian_a_contraction(
 
 /// Italian definite article transform (@il/@lo/@la).
 fn italian_il_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
-    let text = value.to_string();
+    let text = resolve_text_with_context(value, context);
     let gender = parse_romance_gender(value, "il")?;
     let sound = parse_italian_sound(value);
     let plural = parse_romance_plural(context);
@@ -936,7 +957,7 @@ fn italian_un_transform(value: &Value) -> Result<String, EvalError> {
 
 /// Italian "di" + article contraction transform (@di).
 fn italian_di_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
-    let text = value.to_string();
+    let text = resolve_text_with_context(value, context);
     let gender = parse_romance_gender(value, "di")?;
     let sound = parse_italian_sound(value);
     let plural = parse_romance_plural(context);
@@ -951,7 +972,7 @@ fn italian_di_transform(value: &Value, context: Option<&Value>) -> Result<String
 
 /// Italian "a" + article contraction transform (@a).
 fn italian_a_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
-    let text = value.to_string();
+    let text = resolve_text_with_context(value, context);
     let gender = parse_romance_gender(value, "a")?;
     let sound = parse_italian_sound(value);
     let plural = parse_romance_plural(context);
@@ -1088,7 +1109,7 @@ fn greek_indefinite_article(gender: GreekGender, case: GreekCase) -> &'static st
 /// Reads :masc/:fem/:neut tag from Value to determine gender.
 /// Uses context for case (defaults to nominative) and plural.
 fn greek_o_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
-    let text = value.to_string();
+    let text = resolve_text_with_context(value, context);
     let gender = parse_greek_gender(value, "o")?;
     let case = parse_greek_case(context);
     let plural = parse_romance_plural(context);
@@ -1108,7 +1129,7 @@ fn greek_o_transform(value: &Value, context: Option<&Value>) -> Result<String, E
 /// Uses context for case (defaults to nominative).
 /// Note: Greek indefinite articles exist only in singular form.
 fn greek_enas_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
-    let text = value.to_string();
+    let text = resolve_text_with_context(value, context);
     let gender = parse_greek_gender(value, "enas")?;
     let case = parse_greek_case(context);
     let article = greek_indefinite_article(gender, case);
@@ -1168,7 +1189,7 @@ fn romanian_definite_suffix(gender: RomanianGender, plural: RomancePlural) -> &'
 /// APPENDS article suffix to word (unique among Romance languages).
 /// Per CONTEXT.md: neuter singular -> masculine suffix, neuter plural -> feminine suffix.
 fn romanian_def_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
-    let text = value.to_string();
+    let text = resolve_text_with_context(value, context);
     let gender = parse_romanian_gender(value, "def")?;
     let plural = parse_romance_plural(context);
     let suffix = romanian_definite_suffix(gender, plural);
