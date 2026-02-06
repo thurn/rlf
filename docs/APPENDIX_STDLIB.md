@@ -14,13 +14,17 @@ RLF provides three categories of transforms:
 
 ## Universal Transforms
 
-These transforms work identically in all languages:
+These transforms are available in all languages. Note that case mapping is
+locale-sensitive (e.g., Turkish "istanbul" uppercases to "İSTANBUL" with a
+dotted capital I, rather than the standard "ISTANBUL").
 
 | Transform | Effect | Example |
 |-----------|--------|---------|
-| `@cap` | Capitalize first letter | "card" → "Card" |
+| `@cap` | Capitalize first character | "card" → "Card" |
 | `@upper` | All uppercase | "card" → "CARD" |
 | `@lower` | All lowercase | "Card" → "card" |
+
+The `@cap` transform skips leading HTML-like markup tags (e.g., `<b>`, `<color=#AA00FF>`) to find the first visible character to capitalize.
 
 ---
 
