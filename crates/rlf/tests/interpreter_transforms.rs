@@ -687,21 +687,39 @@ fn english_a_with_variant_phrase() {
 }
 
 #[test]
-fn english_a_after_selector_fails() {
-    // When selector is applied, we get a String (losing tags), so @a fails
+fn english_a_with_selector_preserves_tags() {
+    // Tags should be preserved through variant selection so @a can still read them
     let source = r#"
         card = :a { one: "card", other: "cards" };
         draw_n(n) = "Draw {@a card:n}.";
+        draw_one = "Draw {@a card:one}.";
     "#;
 
     let mut locale = Locale::builder().language("en").build();
     locale.load_translations_str("en", source).unwrap();
 
-    // After :n selector, card:one returns "card" as String, losing the :a tag
-    let result = locale.call_phrase("draw_n", &[Value::from(1)]);
-    assert!(
-        matches!(result, Err(EvalError::MissingTag { .. })),
-        "Expected MissingTag error when selector strips tags"
+    // :one selector → "card", @a reads :a tag → "a card"
+    assert_eq!(
+        locale.get_phrase("draw_one").unwrap().to_string(),
+        "Draw a card."
+    );
+
+    // :n with n=1 → "card" (one), @a reads :a tag → "a card"
+    assert_eq!(
+        locale
+            .call_phrase("draw_n", &[Value::from(1)])
+            .unwrap()
+            .to_string(),
+        "Draw a card."
+    );
+
+    // :n with n=3 → "cards" (other), @a reads :a tag → "a cards"
+    assert_eq!(
+        locale
+            .call_phrase("draw_n", &[Value::from(3)])
+            .unwrap()
+            .to_string(),
+        "Draw a cards."
     );
 }
 

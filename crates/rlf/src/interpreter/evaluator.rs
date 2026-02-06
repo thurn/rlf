@@ -318,7 +318,14 @@ fn apply_selectors(
         Value::Phrase(phrase) => {
             for key in &compound_keys {
                 if let Ok(variant_text) = variant_lookup(phrase, key) {
-                    return Ok(Value::String(variant_text));
+                    // Preserve tags through variant selection so transforms can
+                    // still access metadata (e.g., @a needs :a tag after :n selector)
+                    return Ok(Value::Phrase(
+                        Phrase::builder()
+                            .text(variant_text)
+                            .tags(phrase.tags.clone())
+                            .build(),
+                    ));
                 }
             }
             // None matched - report error using the first (most specific) key
@@ -326,7 +333,14 @@ fn apply_selectors(
                 .first()
                 .cloned()
                 .unwrap_or_else(|| "?".to_string());
-            variant_lookup(phrase, &primary_key).map(Value::String)
+            variant_lookup(phrase, &primary_key).map(|text| {
+                Value::Phrase(
+                    Phrase::builder()
+                        .text(text)
+                        .tags(phrase.tags.clone())
+                        .build(),
+                )
+            })
         }
         _ => {
             // Non-phrase values don't have variants
