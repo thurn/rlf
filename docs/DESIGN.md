@@ -815,21 +815,6 @@ catch type mismatches. Translators don't need Rust types.
 2. Reload in development (if hot-reload enabled) or restart
 3. Changes take effect without recompilation
 
-### Command-Line Tools
-
-The `rlf` binary provides utilities for working with translation files:
-
-```bash
-# Validate syntax
-rlf check assets/localization/ru.rlf
-
-# Check coverage against source
-rlf coverage --source strings.rlf.rs --lang ru,es,zh_cn
-
-# Evaluate a template interactively
-rlf eval --lang ru --param n=3 --template "Draw {n} {card:n}."
-```
-
 ---
 
 ## Summary

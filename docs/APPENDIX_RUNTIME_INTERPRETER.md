@@ -522,45 +522,6 @@ returned as owned strings.
 
 ---
 
-## Command Line Tool
-
-The `rlf` binary provides utilities for working with RLF files:
-
-### rlf check
-
-Validates `.rlf` files for syntax errors:
-
-```bash
-rlf check assets/localization/ru.rlf
-rlf check --strict assets/localization/*.rlf
-```
-
-With `--strict`, also checks for missing phrases compared to source.
-
-### rlf eval
-
-Evaluates a template with given parameters:
-
-```bash
-rlf eval --lang ru --param n=3 --template "Возьмите {n} {card:n}."
-rlf eval --lang en --phrases strings.rlf.rs --template "{draw(3)}"
-```
-
-### rlf coverage
-
-Shows translation coverage:
-
-```bash
-rlf coverage --source strings.rlf.rs --lang ru,es,zh_cn
-
-Language  Phrases  Translated  Missing
-ru        150      145         5
-es        150      150         0
-zh_cn     150      120         30
-```
-
----
-
 ## Summary
 
 The runtime interpreter evaluates all RLF phrases, including the source language:
