@@ -48,6 +48,14 @@ pub struct Locale {
     #[builder(default = "en".to_string())]
     language: String,
 
+    /// Optional string context for format variant selection.
+    ///
+    /// When set, variant phrases prefer the variant matching this context
+    /// as their default text. For example, with `string_context = "card_text"`,
+    /// a phrase `{ interface: "X", card_text: "<b>X</b>" }` produces
+    /// `"<b>X</b>"` as its default text.
+    string_context: Option<String>,
+
     /// Per-language phrase registries.
     /// Each language has its own PhraseRegistry, enabling:
     /// - Clean "replace" semantics when reloading a language
@@ -106,6 +114,39 @@ impl Locale {
     /// translations loaded via `load_translations` or `load_translations_str`.
     pub fn set_language(&mut self, language: impl Into<String>) {
         self.language = language.into();
+    }
+
+    /// Get the current string context, if any.
+    pub fn string_context(&self) -> Option<&str> {
+        self.string_context.as_deref()
+    }
+
+    /// Set the string context for format variant selection.
+    ///
+    /// When set, variant phrases prefer the variant matching this context
+    /// as their default text. Pass `None` to clear the context.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rlf::Locale;
+    ///
+    /// let mut locale = Locale::new();
+    /// locale.load_translations_str("en", r#"
+    ///     energy = { interface: "E", card_text: "<b>E</b>" };
+    /// "#).unwrap();
+    ///
+    /// // Without context: default text is first variant
+    /// let phrase = locale.get_phrase("energy").unwrap();
+    /// assert_eq!(phrase.to_string(), "E");
+    ///
+    /// // With context: default text matches the context variant
+    /// locale.set_string_context(Some("card_text"));
+    /// let phrase = locale.get_phrase("energy").unwrap();
+    /// assert_eq!(phrase.to_string(), "<b>E</b>");
+    /// ```
+    pub fn set_string_context(&mut self, context: Option<impl Into<String>>) {
+        self.string_context = context.map(Into::into);
     }
 
     // =========================================================================
@@ -397,7 +438,7 @@ impl Locale {
         }
 
         let params = HashMap::new();
-        let mut ctx = EvalContext::new(&params);
+        let mut ctx = EvalContext::with_string_context(&params, self.string_context.clone());
         ctx.push_call(name)?;
         let result = eval_phrase_def(def, &mut ctx, registry, &self.transforms, &self.language)?;
         ctx.pop_call();
@@ -437,7 +478,7 @@ impl Locale {
             .map(|(name, value)| (name.clone(), value.clone()))
             .collect();
 
-        let mut ctx = EvalContext::new(&params);
+        let mut ctx = EvalContext::with_string_context(&params, self.string_context.clone());
         ctx.push_call(name)?;
         let result = eval_phrase_def(def, &mut ctx, registry, &self.transforms, &self.language)?;
         ctx.pop_call();
@@ -512,7 +553,7 @@ impl Locale {
                 })?;
 
         let template = self.cached_template(template_str)?;
-        let mut ctx = EvalContext::new(&params);
+        let mut ctx = EvalContext::with_string_context(&params, self.string_context.clone());
         let text = eval_template(
             &template,
             &mut ctx,

@@ -138,8 +138,12 @@ fn resolve_reference(
                 .map(|(name, value)| (name.clone(), value))
                 .collect();
 
-            // Create child context (no scope inheritance per RESEARCH.md)
-            let mut child_ctx = EvalContext::new(&params);
+            // Create child context (no scope inheritance per RESEARCH.md,
+            // but string_context propagates for consistent format selection)
+            let mut child_ctx = EvalContext::with_string_context(
+                &params,
+                ctx.string_context().map(ToString::to_string),
+            );
             child_ctx.push_call(name)?;
             let result = eval_phrase_def(def, &mut child_ctx, registry, transform_registry, lang)?;
             child_ctx.pop_call();
@@ -248,7 +252,10 @@ fn eval_with_from_modifier(
                 [(from_param.to_string(), Value::String(variant_text.clone()))]
                     .into_iter()
                     .collect();
-            let mut variant_ctx = EvalContext::new(&simple_params);
+            let mut variant_ctx = EvalContext::with_string_context(
+                &simple_params,
+                ctx.string_context().map(ToString::to_string),
+            );
 
             let variant_result = eval_template(
                 template,
@@ -463,7 +470,8 @@ fn apply_transforms(
 /// Build a Phrase from variant entries.
 ///
 /// Evaluates each variant template and populates the variants HashMap.
-/// Uses the first entry's text as the default.
+/// When a string context is set, uses the context-matching variant as the
+/// default text. Otherwise, uses the first entry's text.
 fn build_phrase_from_variants(
     entries: &[VariantEntry],
     ctx: &mut EvalContext<'_>,
@@ -473,6 +481,7 @@ fn build_phrase_from_variants(
 ) -> Result<(String, HashMap<VariantKey, String>), EvalError> {
     let mut variants = HashMap::new();
     let mut default_text = String::new();
+    let mut context_text: Option<String> = None;
 
     for (i, entry) in entries.iter().enumerate() {
         let text = eval_template(&entry.template, ctx, registry, transform_registry, lang)?;
@@ -482,10 +491,27 @@ fn build_phrase_from_variants(
             default_text = text.clone();
         }
 
+        // Check if any key matches the string context
+        if let Some(string_ctx) = ctx.string_context()
+            && context_text.is_none()
+        {
+            for key in &entry.keys {
+                if key == string_ctx {
+                    context_text = Some(text.clone());
+                    break;
+                }
+            }
+        }
+
         // Add to variants map for each key
         for key in &entry.keys {
             variants.insert(VariantKey::new(key.clone()), text.clone());
         }
+    }
+
+    // Prefer context-matching variant as default text
+    if let Some(ctx_text) = context_text {
+        default_text = ctx_text;
     }
 
     Ok((default_text, variants))

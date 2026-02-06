@@ -11,6 +11,7 @@ use crate::types::Value;
 /// - Parameters available during evaluation
 /// - Call stack for cycle detection
 /// - Recursion depth for limiting deep recursion
+/// - Optional string context for format variant selection
 pub struct EvalContext<'a> {
     /// Parameters available during evaluation.
     params: &'a HashMap<String, Value>,
@@ -20,6 +21,13 @@ pub struct EvalContext<'a> {
     depth: usize,
     /// Maximum allowed depth (default 64).
     max_depth: usize,
+    /// Optional string context for selecting format-specific variants.
+    ///
+    /// When set, variant phrases prefer the variant matching this context
+    /// as their default text. For example, with `string_context = "card_text"`,
+    /// a phrase with variants `{ interface: "X", card_text: "<b>X</b>" }`
+    /// produces `"<b>X</b>"` as its default text.
+    string_context: Option<String>,
 }
 
 impl<'a> EvalContext<'a> {
@@ -30,6 +38,7 @@ impl<'a> EvalContext<'a> {
             call_stack: Vec::new(),
             depth: 0,
             max_depth: 64,
+            string_context: None,
         }
     }
 
@@ -40,6 +49,21 @@ impl<'a> EvalContext<'a> {
             call_stack: Vec::new(),
             depth: 0,
             max_depth,
+            string_context: None,
+        }
+    }
+
+    /// Create context with a string context for format variant selection.
+    pub fn with_string_context(
+        params: &'a HashMap<String, Value>,
+        string_context: Option<String>,
+    ) -> Self {
+        Self {
+            params,
+            call_stack: Vec::new(),
+            depth: 0,
+            max_depth: 64,
+            string_context,
         }
     }
 
@@ -88,5 +112,10 @@ impl<'a> EvalContext<'a> {
     /// Get the call stack for error reporting.
     pub fn call_stack(&self) -> &[String] {
         &self.call_stack
+    }
+
+    /// Get the current string context, if any.
+    pub fn string_context(&self) -> Option<&str> {
+        self.string_context.as_deref()
     }
 }
