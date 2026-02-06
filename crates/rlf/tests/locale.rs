@@ -296,75 +296,43 @@ fn eval_str_evaluates_template() {
 }
 
 // =========================================================================
-// Fallback Language
+// Missing Translations Are Errors (No Language Fallback)
 // =========================================================================
 
 #[test]
-fn fallback_language_used_when_primary_missing() {
-    let mut locale = Locale::builder()
-        .language("ru")
-        .fallback_language("en".to_string())
-        .build();
-
-    // Load English only
-    locale
-        .load_translations_str("en", r#"hello = "Hello!";"#)
-        .unwrap();
-
-    // Russian phrase lookup should fall back to English
-    let phrase = locale.get_phrase("hello").unwrap();
-    assert_eq!(phrase.to_string(), "Hello!");
-}
-
-#[test]
-fn fallback_not_used_when_primary_has_phrase() {
-    let mut locale = Locale::builder()
-        .language("ru")
-        .fallback_language("en".to_string())
-        .build();
-
-    locale
-        .load_translations_str("en", r#"hello = "Hello!";"#)
-        .unwrap();
-    locale
-        .load_translations_str("ru", r#"hello = "Привет!";"#)
-        .unwrap();
-
-    // Should use Russian, not fallback to English
-    let phrase = locale.get_phrase("hello").unwrap();
-    assert_eq!(phrase.to_string(), "Привет!");
-}
-
-#[test]
-fn no_fallback_by_default() {
+fn missing_phrase_in_current_language_returns_error() {
     let mut locale = Locale::builder().language("ru").build();
 
-    // Load English only (no fallback configured)
+    // Load English phrases, but current language is Russian
     locale
         .load_translations_str("en", r#"hello = "Hello!";"#)
         .unwrap();
 
-    // Russian phrase lookup should fail (no fallback)
+    // Russian phrase lookup should fail, not silently fall back to English
     let result = locale.get_phrase("hello");
     assert!(result.is_err());
+    assert!(matches!(
+        result.unwrap_err(),
+        EvalError::PhraseNotFound { .. }
+    ));
 }
 
 #[test]
-fn fallback_works_for_call_phrase() {
-    let mut locale = Locale::builder()
-        .language("ru")
-        .fallback_language("en".to_string())
-        .build();
+fn missing_phrase_call_in_current_language_returns_error() {
+    let mut locale = Locale::builder().language("ru").build();
 
+    // Load English phrases, but current language is Russian
     locale
         .load_translations_str("en", r#"greet(name) = "Hello, {name}!";"#)
         .unwrap();
 
-    // Should fall back to English
-    let phrase = locale
-        .call_phrase("greet", &[Value::from("World")])
-        .unwrap();
-    assert_eq!(phrase.to_string(), "Hello, World!");
+    // Russian call_phrase should fail, not silently fall back to English
+    let result = locale.call_phrase("greet", &[Value::from("World")]);
+    assert!(result.is_err());
+    assert!(matches!(
+        result.unwrap_err(),
+        EvalError::PhraseNotFound { .. }
+    ));
 }
 
 // =========================================================================

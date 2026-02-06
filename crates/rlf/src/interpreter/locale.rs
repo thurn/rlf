@@ -19,7 +19,8 @@ use crate::types::{Phrase, Value};
 /// User-facing locale management for RLF translations.
 ///
 /// Locale owns per-language phrase registries and a shared transform registry.
-/// This design provides:
+/// Missing translations are errors, not silently papered over with fallback
+/// behavior. This design provides:
 /// - Language-scoped phrase storage (each language has its own registry)
 /// - Shared transforms across all languages
 /// - Clean replacement semantics (loading same language replaces all phrases)
@@ -44,11 +45,6 @@ pub struct Locale {
     /// Current language code (e.g., "en", "ru", "de").
     #[builder(default = "en".to_string())]
     language: String,
-
-    /// Optional fallback language for missing phrases.
-    /// If set, phrases not found in the primary language will be looked up here.
-    /// Default is None (no fallback - missing phrases return error).
-    fallback_language: Option<String>,
 
     /// Per-language phrase registries.
     /// Each language has its own PhraseRegistry, enabling:
@@ -76,7 +72,7 @@ impl Default for Locale {
 }
 
 impl Locale {
-    /// Create a new Locale with default settings (English, no fallback).
+    /// Create a new Locale with default settings (English).
     pub fn new() -> Self {
         Self::default()
     }
@@ -297,37 +293,20 @@ impl Locale {
     }
 
     // =========================================================================
-    // Phrase Evaluation (with fallback support)
+    // Phrase Evaluation
     // =========================================================================
 
-    /// Get a parameterless phrase.
+    /// Get a parameterless phrase in the current language.
     ///
-    /// If the phrase is not found in the current language and a fallback
-    /// language is configured, the fallback is tried.
+    /// Returns an error if the phrase is not found. Missing translations are
+    /// treated as errors to be caught during development or by CI tooling.
     pub fn get_phrase(&self, name: &str) -> Result<Phrase, EvalError> {
-        // Try primary language
-        match self.get_phrase_for_language(&self.language, name) {
-            Ok(phrase) => Ok(phrase),
-            Err(e) => {
-                // Try fallback if configured
-                if let Some(fallback) = &self.fallback_language
-                    && fallback != &self.language
-                {
-                    return self.get_phrase_for_language(fallback, name);
-                }
-                Err(e)
-            }
-        }
-    }
-
-    /// Get a parameterless phrase for a specific language.
-    fn get_phrase_for_language(&self, language: &str, name: &str) -> Result<Phrase, EvalError> {
-        let registry = self
-            .registries
-            .get(language)
-            .ok_or_else(|| EvalError::PhraseNotFound {
-                name: name.to_string(),
-            })?;
+        let registry =
+            self.registries
+                .get(&self.language)
+                .ok_or_else(|| EvalError::PhraseNotFound {
+                    name: name.to_string(),
+                })?;
 
         let def = registry
             .get(name)
@@ -346,44 +325,22 @@ impl Locale {
         let params = HashMap::new();
         let mut ctx = EvalContext::new(&params);
         ctx.push_call(name)?;
-        let result = eval_phrase_def(def, &mut ctx, registry, &self.transforms, language)?;
+        let result = eval_phrase_def(def, &mut ctx, registry, &self.transforms, &self.language)?;
         ctx.pop_call();
         Ok(result)
     }
 
-    /// Call a phrase with arguments.
+    /// Call a phrase with arguments in the current language.
     ///
-    /// If the phrase is not found in the current language and a fallback
-    /// language is configured, the fallback is tried.
+    /// Returns an error if the phrase is not found. Missing translations are
+    /// treated as errors to be caught during development or by CI tooling.
     pub fn call_phrase(&self, name: &str, args: &[Value]) -> Result<Phrase, EvalError> {
-        // Try primary language
-        match self.call_phrase_for_language(&self.language, name, args) {
-            Ok(phrase) => Ok(phrase),
-            Err(e) => {
-                // Try fallback if configured
-                if let Some(fallback) = &self.fallback_language
-                    && fallback != &self.language
-                {
-                    return self.call_phrase_for_language(fallback, name, args);
-                }
-                Err(e)
-            }
-        }
-    }
-
-    /// Call a phrase for a specific language.
-    fn call_phrase_for_language(
-        &self,
-        language: &str,
-        name: &str,
-        args: &[Value],
-    ) -> Result<Phrase, EvalError> {
-        let registry = self
-            .registries
-            .get(language)
-            .ok_or_else(|| EvalError::PhraseNotFound {
-                name: name.to_string(),
-            })?;
+        let registry =
+            self.registries
+                .get(&self.language)
+                .ok_or_else(|| EvalError::PhraseNotFound {
+                    name: name.to_string(),
+                })?;
 
         let def = registry
             .get(name)
@@ -391,7 +348,6 @@ impl Locale {
                 name: name.to_string(),
             })?;
 
-        // Check argument count
         if def.parameters.len() != args.len() {
             return Err(EvalError::ArgumentCount {
                 phrase: name.to_string(),
@@ -400,7 +356,6 @@ impl Locale {
             });
         }
 
-        // Build param map
         let params: HashMap<String, Value> = def
             .parameters
             .iter()
@@ -410,7 +365,7 @@ impl Locale {
 
         let mut ctx = EvalContext::new(&params);
         ctx.push_call(name)?;
-        let result = eval_phrase_def(def, &mut ctx, registry, &self.transforms, language)?;
+        let result = eval_phrase_def(def, &mut ctx, registry, &self.transforms, &self.language)?;
         ctx.pop_call();
         Ok(result)
     }
