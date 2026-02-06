@@ -1799,3 +1799,43 @@ fn eval_parameterized_phrase_selector_auto_forward_with_multiple_params() {
         .unwrap();
     assert_eq!(five.to_string(), "Take cards.");
 }
+
+// =============================================================================
+// Multi-tag Selector Candidates
+// =============================================================================
+
+#[test]
+fn eval_multi_tag_selector_uses_all_tags() {
+    // Verifies that selector resolution considers ALL tags on a phrase,
+    // not just the first one. The "animacy" variants only match the second
+    // tag (:anim or :inan), so this test would fail if only the first tag
+    // (:masc) were used.
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        hero = :masc :anim "герой";
+        rock = :masc :inan "камень";
+
+        animacy = {
+            anim: "живой",
+            inan: "неживой"
+        };
+
+        describe(thing) = "{thing} — {animacy:thing}";
+    "#,
+        )
+        .unwrap();
+
+    let hero = registry.get_phrase("ru", "hero").unwrap();
+    let result = registry
+        .call_phrase("ru", "describe", &[Value::Phrase(hero)])
+        .unwrap();
+    assert_eq!(result.to_string(), "герой — живой");
+
+    let rock = registry.get_phrase("ru", "rock").unwrap();
+    let result = registry
+        .call_phrase("ru", "describe", &[Value::Phrase(rock)])
+        .unwrap();
+    assert_eq!(result.to_string(), "камень — неживой");
+}

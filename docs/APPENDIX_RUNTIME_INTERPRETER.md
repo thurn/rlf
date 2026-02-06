@@ -150,14 +150,16 @@ struct Transform {
 }
 
 enum Reference {
-    Parameter(String),
-    Phrase(String),
+    /// At parse time we don't distinguish parameters from phrases.
+    /// Resolution happens at evaluation time.
+    Identifier(String),
     PhraseCall { name: String, args: Vec<Reference> },
 }
 
 enum Selector {
-    Literal(String),
-    Parameter(String),
+    /// At parse time we don't distinguish literal selectors from
+    /// parameter selectors. Resolution happens at evaluation time.
+    Identifier(String),
 }
 ```
 
@@ -222,7 +224,7 @@ Variant selection follows fallback logic:
 For parameter-based selectors:
 
 - **Numbers**: Map to CLDR plural category via `icu_plurals`
-- **Phrases**: Use the phrase's first metadata tag
+- **Phrases**: Use the phrase's metadata tags (all tags are tried as selector candidates)
 - **Strings**: Parse as number if possible, otherwise use literally
 
 ### Cycle Detection
