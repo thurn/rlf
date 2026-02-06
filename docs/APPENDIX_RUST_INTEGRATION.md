@@ -303,9 +303,7 @@ pub struct Phrase {
 
 impl Phrase {
     /// Get a specific variant by key, with fallback resolution. Panics if not found.
-    pub fn variant(&self, key: &str) -> &str {
-        resolve_variant(&self.variants, key)
-    }
+    pub fn variant(&self, key: &str) -> &str;
 
     /// Check if this phrase has a specific tag.
     pub fn has_tag(&self, tag: &str) -> bool;

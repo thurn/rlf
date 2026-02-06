@@ -305,18 +305,11 @@ The `@a` transform reads the inherited `:an` tag; the `:other` selector accesses
 the inherited variant. This enables composition without losing grammatical
 information.
 
-**Caller responsibility:** Per the "Pass Phrase, not String" principle, callers
-must pass actual `Phrase` values, not string keys:
+Per the "Pass Phrase, not String" principle, callers must pass `Phrase` values:
 
 ```rust
-// Correct: pass Phrase
 let ancient = strings::ancient(locale);
 strings::dissolve_subtype(locale, ancient)
-
-// For data-driven templates, resolve the name first
-let key = "ancient";  // from card data
-let phrase = locale.get_phrase(key)?;
-strings::dissolve_subtype(locale, phrase)
 ```
 
 ---
@@ -405,20 +398,24 @@ rlf! {
 The `@a` transform reads the `:a` or `:an` tag. Missing tags produce runtime
 errors—no phonetic guessing.
 
-Standard transforms per language:
+Representative transforms (subset—RLF supports 20+ languages):
 
 | Transform   | Languages              | Reads Tags                   | Effect                     |
 | ----------- | ---------------------- | ---------------------------- | -------------------------- |
 | `@a`        | English                | `:a`, `:an`                  | Indefinite article         |
+| `@the`      | English                | —                            | Definite article           |
 | `@der`      | German                 | `:masc`, `:fem`, `:neut`     | Definite article + case    |
+| `@ein`      | German                 | `:masc`, `:fem`, `:neut`     | Indefinite article + case  |
 | `@el`       | Spanish                | `:masc`, `:fem`              | Definite article           |
 | `@le`       | French                 | `:masc`, `:fem`, `:vowel`    | Definite article           |
-| `@un`       | Romance                | `:masc`, `:fem`              | Indefinite article         |
-| `@count`    | CJK                    | measure word tags            | Measure word insertion     |
+| `@un`       | Spanish, French, Italian | `:masc`, `:fem`            | Indefinite article         |
+| `@o`        | Portuguese, Greek      | `:masc`, `:fem`              | Definite article           |
+| `@count`    | CJK, Vietnamese, etc.  | measure word tags            | Measure word / classifier  |
+| `@inflect`  | Turkish, Finnish, Hungarian | vowel harmony tags      | Agglutinative suffix chain |
 
-**Transform aliases:** `@an` → `@a`, `@die` → `@der`, `@la` → `@el`, etc.
-
-See **APPENDIX_STDLIB.md** for complete documentation.
+Each language has its own implementation. Aliases map alternative names to the
+canonical form: `@an` → `@a`, `@die` → `@der`, `@la` → `@el`, etc. See
+**APPENDIX_STDLIB.md** for complete per-language documentation.
 
 ---
 
@@ -453,7 +450,8 @@ draw(n) = "Возьмите {n} {card:n}.";
 
 ## The Locale Object
 
-The `Locale` object manages language selection and translation data:
+The `Locale` object manages language selection and translation data. Create with
+`Locale::new()` (defaults to English) or `Locale::with_language("ru")`:
 
 ```rust
 fn setup_localization() -> Locale {
@@ -465,6 +463,10 @@ fn setup_localization() -> Locale {
     locale
 }
 ```
+
+`Locale::builder()` offers additional options like `string_context` (see
+**APPENDIX_RUST_INTEGRATION.md**). Loaded translations can be validated with
+`validate_translations()` and hot-reloaded with `reload_translations()`.
 
 See **APPENDIX_RUNTIME_INTERPRETER.md** for complete API documentation.
 
@@ -512,7 +514,7 @@ rlf::set_language("es");
 
 The four public functions are:
 - `set_language(lang)` — sets the current language
-- `language()` — returns the current language
+- `language() -> String` — returns the current language
 - `with_locale(|locale| ...)` — read access to the global `Locale`
 - `with_locale_mut(|locale| ...)` — write access to the global `Locale`
 
@@ -613,7 +615,7 @@ strings::destroy(&locale, strings::card(&locale));  // phrase
 | `{x}`                  | Any             | Display the value                           |
 | `{card:x}` (selection) | Number          | Select plural category                      |
 | `{card:x}` (selection) | Float           | Convert to integer, select plural category  |
-| `{card:x}` (selection) | String          | Parse as number, or error                   |
+| `{card:x}` (selection) | String          | Parse as number, or use as literal key      |
 | `{card:x}` (selection) | Phrase          | Look up matching tag                        |
 | `{@a x}`               | Phrase with tag | Use the tag                                 |
 | `{@a x}`               | Other           | **Runtime error**                           |
@@ -659,8 +661,7 @@ error: unknown parameter 'count'
 - **Cyclic references**: Phrases that reference each other in a cycle are rejected
 - **Parameter shadowing**: A parameter cannot have the same name as a phrase
 
-**Translation files** are validated at load time, not compile time. Load errors
-include the file path and line number.
+Translation files are validated at load time, not compile time.
 
 ---
 
@@ -846,5 +847,4 @@ catch type mismatches. Translators don't need Rust types.
 | Source language  | Full validation           | Interpreter evaluation              |
 | Translations     | (optional strict check)   | Interpreter evaluation              |
 
-Four primitives, one macro, Rust-compatible syntax, compile-time checking for
-the source language, runtime loading for translations, immediate IDE support.
+Four primitives, one macro, compile-time source checking, runtime translations.

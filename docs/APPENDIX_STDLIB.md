@@ -20,7 +20,7 @@ dotted capital I, rather than the standard "ISTANBUL").
 
 | Transform | Effect | Example |
 |-----------|--------|---------|
-| `@cap` | Capitalize first character | "card" → "Card" |
+| `@cap` | Capitalize first grapheme cluster | "card" → "Card" |
 | `@upper` | All uppercase | "card" → "CARD" |
 | `@lower` | All lowercase | "Card" → "card" |
 
