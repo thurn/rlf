@@ -286,11 +286,13 @@ banish_from_hand(target) = "{banish} {target} de la mano";
 
 return_one(target) = "devuelve {@un target} a la mano";
 return_n(n, target) = "devuelve {n} {target:n} a la mano";
-return_all_but_one(target) = "devuelve todos menos {@un target} a la mano";
+todos_adj = { masc: "todos", fem: "todas" };
+return_all_but_one(target) = "devuelve {todos_adj:target} menos {@un target} a la mano";
 return_all(target) = "devuelve {@el:other target} a la mano";
 return_any_number(target) = "devuelve cualquier cantidad de {target:other} a la mano";
 return_up_to(n, target) = "devuelve hasta {n} {target:n} a la mano";
-return_each_other(target) = "devuelve cada otro {target:one} a la mano";
+otro_adj = { masc: "otro", fem: "otra" };
+return_each_other(target) = "devuelve cada {otro_adj:target} {target:one} a la mano";
 return_n_or_more(n, target) = "devuelve {n} o más {target:other} a la mano";
 
 // =========================================================================
