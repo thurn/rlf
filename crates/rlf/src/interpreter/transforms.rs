@@ -357,9 +357,57 @@ fn parse_german_gender(value: &Value) -> Option<GermanGender> {
     }
 }
 
-/// Parse case from context value.
+/// German plural category (singular/plural).
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum GermanPlural {
+    One,
+    Other,
+}
+
+/// Parse compound German context for case and plural.
+///
+/// Supports formats: "acc", "acc.other", "other", "nom.one", or numeric context.
+/// Defaults to nominative singular if no context provided.
+fn parse_german_context(context: Option<&Value>) -> (GermanCase, GermanPlural) {
+    match context {
+        Some(Value::String(s)) => {
+            if let Some((case_str, plural_str)) = s.split_once('.') {
+                let case = match case_str {
+                    "acc" => GermanCase::Accusative,
+                    "dat" => GermanCase::Dative,
+                    "gen" => GermanCase::Genitive,
+                    _ => GermanCase::Nominative,
+                };
+                let plural = match plural_str {
+                    "other" => GermanPlural::Other,
+                    _ => GermanPlural::One,
+                };
+                (case, plural)
+            } else {
+                match s.as_str() {
+                    "acc" => (GermanCase::Accusative, GermanPlural::One),
+                    "dat" => (GermanCase::Dative, GermanPlural::One),
+                    "gen" => (GermanCase::Genitive, GermanPlural::One),
+                    "other" => (GermanCase::Nominative, GermanPlural::Other),
+                    _ => (GermanCase::Nominative, GermanPlural::One),
+                }
+            }
+        }
+        Some(Value::Number(n)) => {
+            if *n == 1 {
+                (GermanCase::Nominative, GermanPlural::One)
+            } else {
+                (GermanCase::Nominative, GermanPlural::Other)
+            }
+        }
+        _ => (GermanCase::Nominative, GermanPlural::One),
+    }
+}
+
+/// Parse case from context value for German indefinite articles.
 ///
 /// Defaults to nominative if no context or unknown case string.
+/// Does not support plural (German has no plural indefinite article).
 fn parse_german_case(context: Option<&Value>) -> GermanCase {
     match context {
         Some(Value::String(s)) => match s.as_str() {
@@ -395,6 +443,19 @@ fn german_definite_article(gender: GermanGender, case: GermanCase) -> &'static s
     }
 }
 
+/// German definite article lookup table for plural nouns.
+///
+/// Plural articles are gender-independent in German:
+/// nom: die, acc: die, dat: den, gen: der
+fn german_definite_article_plural(case: GermanCase) -> &'static str {
+    match case {
+        GermanCase::Nominative => "die",
+        GermanCase::Accusative => "die",
+        GermanCase::Dative => "den",
+        GermanCase::Genitive => "der",
+    }
+}
+
 /// German indefinite article lookup table.
 ///
 /// Returns the correct article for gender x case combination.
@@ -421,7 +482,7 @@ fn german_indefinite_article(gender: GermanGender, case: GermanCase) -> &'static
 /// German definite article transform (@der/@die/@das).
 ///
 /// Reads :masc/:fem/:neut tag from Value to determine gender.
-/// Uses context for case (defaults to nominative).
+/// Uses context for case and plural (e.g., "acc", "acc.other", "other").
 fn german_der_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
     let text = resolve_text_with_context(value, context);
     let gender = parse_german_gender(value).ok_or_else(|| EvalError::MissingTag {
@@ -429,8 +490,12 @@ fn german_der_transform(value: &Value, context: Option<&Value>) -> Result<String
         expected: vec!["masc".to_string(), "fem".to_string(), "neut".to_string()],
         phrase: text.clone(),
     })?;
-    let case = parse_german_case(context);
-    let article = german_definite_article(gender, case);
+    let (case, plural) = parse_german_context(context);
+    let article = if plural == GermanPlural::Other {
+        german_definite_article_plural(case)
+    } else {
+        german_definite_article(gender, case)
+    };
     Ok(format!("{} {}", article, text))
 }
 
@@ -544,6 +609,10 @@ fn parse_romance_plural(context: Option<&Value>) -> RomancePlural {
 /// (e.g., "other"), this selects that variant instead of returning the default
 /// text. This ensures transforms like `@el:other` produce the correct noun form
 /// alongside the correct article form.
+///
+/// For compound context keys like "acc.other", tries matching in order:
+/// 1. The full compound key ("acc.other")
+/// 2. Each dot-separated segment from right to left ("other", then "acc")
 fn resolve_text_with_context(value: &Value, context: Option<&Value>) -> String {
     let Some(Value::String(ctx_key)) = context else {
         return value.to_string();
@@ -554,11 +623,15 @@ fn resolve_text_with_context(value: &Value, context: Option<&Value>) -> String {
     if phrase.variants.is_empty() {
         return value.to_string();
     }
-    phrase
-        .variants
-        .get(&VariantKey::new(ctx_key))
-        .cloned()
-        .unwrap_or_else(|| value.to_string())
+    if let Some(text) = phrase.variants.get(&VariantKey::new(ctx_key)) {
+        return text.clone();
+    }
+    for segment in ctx_key.rsplit('.') {
+        if let Some(text) = phrase.variants.get(&VariantKey::new(segment)) {
+            return text.clone();
+        }
+    }
+    value.to_string()
 }
 
 // =============================================================================

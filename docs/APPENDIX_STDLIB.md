@@ -405,10 +405,22 @@ thing_exists(thing) = "{thing}{@particle:subj thing} ある";
 | `:neut` | Neuter (das) |
 
 **Transforms**:
-| Transform | Aliases | Reads | Effect |
-|-----------|---------|-------|--------|
-| `@der` | `@die`, `@das` | `:masc`, `:fem`, `:neut` + case | Definite article (der/die/das/den/dem/des) |
-| `@ein` | `@eine` | `:masc`, `:fem`, `:neut` + case | Indefinite article (ein/eine/einen/einem/einer/eines) |
+| Transform | Aliases | Reads | Context | Effect |
+|-----------|---------|-------|---------|--------|
+| `@der` | `@die`, `@das` | `:masc`, `:fem`, `:neut` | case, `:one`/`:other` | Definite article (der/die/das/den/dem/des + plural) |
+| `@ein` | `@eine` | `:masc`, `:fem`, `:neut` | case | Indefinite article (ein/eine/einen/einem/einer/eines) |
+
+Use compound context for case + plural: `@der:acc.other`. The `@ein` transform is
+singular-only (German has no plural indefinite article).
+
+**Plural definite articles** (gender-independent):
+
+| Case | Singular (varies by gender) | Plural |
+|------|-----------------------------|--------|
+| nom | der/die/das | die |
+| acc | den/die/das | die |
+| dat | dem/der/dem | den |
+| gen | des/der/des | der |
 
 **Plural categories**: `one`, `other`
 
@@ -431,8 +443,11 @@ ereignis = :neut {
     nom.other, acc.other, dat.other, gen.other: "Ereignisse",
 };
 
-the_card = "{@der:nom karte}";   // → "die Karte"
-a_char = "{@ein:acc charakter}"; // → "einen Charakter"
+the_card = "{@der:nom karte}";            // → "die Karte"
+the_cards = "{@der:nom.other karte}";     // → "die Karten"
+a_char = "{@ein:acc charakter}";          // → "einen Charakter"
+with_events = "mit {@der:dat.other ereignis}";  // → "mit den Ereignisse"
+of_cards = "{@der:gen.other karte}";      // → "der Karten"
 ```
 
 ---

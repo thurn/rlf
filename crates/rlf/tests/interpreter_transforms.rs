@@ -1081,6 +1081,165 @@ fn german_all_cases_neuter() {
 }
 
 // =============================================================================
+// German Plural Article Tests (@der with .other context)
+// =============================================================================
+
+#[test]
+fn german_der_plural_nominative_masculine() {
+    let phrase = Phrase::builder()
+        .text("Charakter".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("nom.other".to_string());
+    let transform = TransformKind::GermanDer;
+    let result = transform.execute(&value, Some(&context), "de").unwrap();
+    assert_eq!(result, "die Charakter");
+}
+
+#[test]
+fn german_der_plural_accusative_feminine() {
+    let phrase = Phrase::builder()
+        .text("Karte".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("acc.other".to_string());
+    let transform = TransformKind::GermanDer;
+    let result = transform.execute(&value, Some(&context), "de").unwrap();
+    assert_eq!(result, "die Karte");
+}
+
+#[test]
+fn german_der_plural_dative_feminine() {
+    let phrase = Phrase::builder()
+        .text("Karte".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("dat.other".to_string());
+    let transform = TransformKind::GermanDer;
+    let result = transform.execute(&value, Some(&context), "de").unwrap();
+    assert_eq!(result, "den Karte");
+}
+
+#[test]
+fn german_der_plural_genitive_neuter() {
+    let phrase = Phrase::builder()
+        .text("Ereignis".to_string())
+        .tags(vec![Tag::new("neut")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("gen.other".to_string());
+    let transform = TransformKind::GermanDer;
+    let result = transform.execute(&value, Some(&context), "de").unwrap();
+    assert_eq!(result, "der Ereignis");
+}
+
+#[test]
+fn german_der_plural_default_nominative() {
+    // "other" without case prefix defaults to nominative plural
+    let phrase = Phrase::builder()
+        .text("Charakter".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("other".to_string());
+    let transform = TransformKind::GermanDer;
+    let result = transform.execute(&value, Some(&context), "de").unwrap();
+    assert_eq!(result, "die Charakter");
+}
+
+#[test]
+fn german_der_singular_still_works_with_one() {
+    // Explicit "nom.one" should produce the same as "nom" (singular)
+    let phrase = Phrase::builder()
+        .text("Charakter".to_string())
+        .tags(vec![Tag::new("masc")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let context = Value::String("nom.one".to_string());
+    let transform = TransformKind::GermanDer;
+    let result = transform.execute(&value, Some(&context), "de").unwrap();
+    assert_eq!(result, "der Charakter");
+}
+
+#[test]
+fn german_der_plural_integration() {
+    let source = r#"
+        karte = :fem { one: "Karte", other: "Karten" };
+        charakter = :masc { one: "Charakter", other: "Charaktere" };
+        ereignis = :neut { one: "Ereignis", other: "Ereignisse" };
+        the_cards = "{@der:nom.other karte}";
+        destroy_chars = "Zerstöre {@der:acc.other charakter}.";
+        with_events = "mit {@der:dat.other ereignis}";
+        of_cards = "{@der:gen.other karte}";
+    "#;
+
+    let mut locale = Locale::builder().language("de").build();
+    locale.load_translations_str("de", source).unwrap();
+
+    assert_eq!(
+        locale.get_phrase("the_cards").unwrap().to_string(),
+        "die Karten"
+    );
+    assert_eq!(
+        locale.get_phrase("destroy_chars").unwrap().to_string(),
+        "Zerstöre die Charaktere."
+    );
+    assert_eq!(
+        locale.get_phrase("with_events").unwrap().to_string(),
+        "mit den Ereignisse"
+    );
+    assert_eq!(
+        locale.get_phrase("of_cards").unwrap().to_string(),
+        "der Karten"
+    );
+}
+
+#[test]
+fn german_der_plural_all_cases() {
+    // Plural articles are gender-independent
+    let source = r#"
+        karte = :fem { one: "Karte", other: "Karten" };
+        nom = "{@der:nom.other karte}";
+        acc = "{@der:acc.other karte}";
+        dat = "{@der:dat.other karte}";
+        gen = "{@der:gen.other karte}";
+    "#;
+
+    let mut locale = Locale::builder().language("de").build();
+    locale.load_translations_str("de", source).unwrap();
+
+    assert_eq!(locale.get_phrase("nom").unwrap().to_string(), "die Karten");
+    assert_eq!(locale.get_phrase("acc").unwrap().to_string(), "die Karten");
+    assert_eq!(locale.get_phrase("dat").unwrap().to_string(), "den Karten");
+    assert_eq!(locale.get_phrase("gen").unwrap().to_string(), "der Karten");
+}
+
+#[test]
+fn german_der_numeric_plural_context() {
+    // Numeric context: 1 = singular, anything else = plural
+    let phrase = Phrase::builder()
+        .text("Karte".to_string())
+        .tags(vec![Tag::new("fem")])
+        .build();
+    let value = Value::Phrase(phrase);
+
+    let transform = TransformKind::GermanDer;
+
+    let context_one = Value::Number(1);
+    let result = transform.execute(&value, Some(&context_one), "de").unwrap();
+    assert_eq!(result, "die Karte"); // singular fem nom = "die"
+
+    let context_many = Value::Number(3);
+    let result = transform
+        .execute(&value, Some(&context_many), "de")
+        .unwrap();
+    assert_eq!(result, "die Karte"); // plural nom = "die"
+}
+
+// =============================================================================
 // Dutch Article Transforms (@de/@het, @een)
 // =============================================================================
 

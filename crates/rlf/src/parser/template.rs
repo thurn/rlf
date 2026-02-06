@@ -157,12 +157,26 @@ fn ws(input: &mut &str) -> ModalResult<()> {
 
 /// Parse a transform: @name or @name:context
 fn transform(input: &mut &str) -> ModalResult<Transform> {
-    preceded('@', (identifier, opt(preceded(':', selector_identifier))))
-        .map(|(name, context)| Transform {
-            name: name.to_string(),
-            context: context.map(|s| Selector::Identifier(s.to_string())),
-        })
-        .parse_next(input)
+    preceded(
+        '@',
+        (identifier, opt(preceded(':', transform_context_identifier))),
+    )
+    .map(|(name, context)| Transform {
+        name: name.to_string(),
+        context: context.map(|s| Selector::Identifier(s.to_string())),
+    })
+    .parse_next(input)
+}
+
+/// Parse a transform context identifier (alphanumeric, underscores, and dots).
+///
+/// Dots are allowed in transform contexts for compound selectors like
+/// `@der:acc.other` (case + plural) or `@inflect:abl.poss1sg.pl` (suffix chains).
+fn transform_context_identifier<'i>(input: &mut &'i str) -> ModalResult<&'i str> {
+    take_while(1.., |c: char| {
+        c.is_ascii_alphanumeric() || c == '_' || c == '.'
+    })
+    .parse_next(input)
 }
 
 /// Parse a reference: identifier or identifier(args)
