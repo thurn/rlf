@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 
 use bon::Builder;
 
-use crate::interpreter::error::LoadError;
+use crate::interpreter::error::{LoadError, LoadWarning};
 use crate::interpreter::registry::PhraseRegistry;
 use crate::interpreter::transforms::TransformRegistry;
 use crate::interpreter::{EvalContext, EvalError, eval_phrase_def, eval_template};
@@ -241,6 +241,71 @@ impl Locale {
                 })?;
 
         self.load_translations(language, path)
+    }
+
+    /// Validate translations for a target language against a source language.
+    ///
+    /// Checks for:
+    /// - Phrases in the target language that do not exist in the source language
+    /// - Phrases with a different parameter count than the source
+    ///
+    /// Both the source and target languages must already be loaded. Returns an
+    /// empty vector if no warnings are found or if either language is not loaded.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use rlf::{Locale, LoadWarning};
+    ///
+    /// let mut locale = Locale::new();
+    /// locale.load_translations_str("en", r#"hello = "Hello!";"#).unwrap();
+    /// locale.load_translations_str("ru", r#"
+    ///     hello = "Привет!";
+    ///     extra = "Лишнее";
+    /// "#).unwrap();
+    ///
+    /// let warnings = locale.validate_translations("en", "ru");
+    /// assert_eq!(warnings.len(), 1); // "extra" not in source
+    /// ```
+    pub fn validate_translations(
+        &self,
+        source_language: &str,
+        target_language: &str,
+    ) -> Vec<LoadWarning> {
+        let mut warnings = Vec::new();
+
+        let Some(source_registry) = self.registries.get(source_language) else {
+            return warnings;
+        };
+        let Some(target_registry) = self.registries.get(target_language) else {
+            return warnings;
+        };
+
+        let mut target_names: Vec<&str> = target_registry.phrase_names().collect();
+        target_names.sort();
+
+        for name in target_names {
+            if let Some(source_def) = source_registry.get(name) {
+                let target_def = target_registry
+                    .get(name)
+                    .expect("name came from this registry");
+                if source_def.parameters.len() != target_def.parameters.len() {
+                    warnings.push(LoadWarning::ParameterCountMismatch {
+                        name: name.to_string(),
+                        language: target_language.to_string(),
+                        source_count: source_def.parameters.len(),
+                        translation_count: target_def.parameters.len(),
+                    });
+                }
+            } else {
+                warnings.push(LoadWarning::UnknownPhrase {
+                    name: name.to_string(),
+                    language: target_language.to_string(),
+                });
+            }
+        }
+
+        warnings
     }
 
     /// Internal loading implementation.

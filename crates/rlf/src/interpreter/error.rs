@@ -1,5 +1,6 @@
 //! Error types for the RLF interpreter.
 
+use std::fmt;
 use std::io;
 use std::path::PathBuf;
 
@@ -60,6 +61,57 @@ pub enum LoadError {
     /// Attempted to reload translations that were loaded from a string.
     #[error("cannot reload '{language}': was loaded from string, not file")]
     NoPathForReload { language: String },
+}
+
+/// A warning produced during translation validation.
+///
+/// Warnings indicate potential issues in translation files that do not prevent
+/// loading but may cause runtime errors. Use `Locale::validate_translations()`
+/// to check loaded translations against source phrases.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LoadWarning {
+    /// Translation file defines a phrase that does not exist in the source language.
+    UnknownPhrase {
+        /// Name of the phrase that is not in the source language.
+        name: String,
+        /// Language code of the translation.
+        language: String,
+    },
+    /// Translation phrase has a different parameter count than the source phrase.
+    ParameterCountMismatch {
+        /// Name of the phrase.
+        name: String,
+        /// Language code of the translation.
+        language: String,
+        /// Number of parameters in the source phrase.
+        source_count: usize,
+        /// Number of parameters in the translation phrase.
+        translation_count: usize,
+    },
+}
+
+impl fmt::Display for LoadWarning {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            LoadWarning::UnknownPhrase { name, language } => {
+                write!(
+                    f,
+                    "warning: translation '{language}' defines unknown phrase '{name}' not found in source"
+                )
+            }
+            LoadWarning::ParameterCountMismatch {
+                name,
+                language,
+                source_count,
+                translation_count,
+            } => {
+                write!(
+                    f,
+                    "warning: phrase '{name}' in '{language}' has {translation_count} parameter(s), but source has {source_count}"
+                )
+            }
+        }
+    }
 }
 
 /// An error that occurred during phrase evaluation.

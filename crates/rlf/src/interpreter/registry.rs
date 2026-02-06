@@ -322,4 +322,19 @@ impl PhraseRegistry {
     pub fn name_for_id(&self, id: u64) -> Option<&str> {
         self.id_to_name.get(&id).map(String::as_str)
     }
+
+    /// Returns an iterator over all phrase names in this registry.
+    pub fn phrase_names(&self) -> impl Iterator<Item = &str> {
+        self.phrases.keys().map(String::as_str)
+    }
+
+    /// Returns the number of phrases in this registry.
+    pub fn len(&self) -> usize {
+        self.phrases.len()
+    }
+
+    /// Returns true if this registry contains no phrases.
+    pub fn is_empty(&self) -> bool {
+        self.phrases.is_empty()
+    }
 }

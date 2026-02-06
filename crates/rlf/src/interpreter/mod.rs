@@ -13,7 +13,7 @@ mod registry;
 mod transforms;
 
 pub use context::EvalContext;
-pub use error::{EvalError, LoadError, compute_suggestions};
+pub use error::{EvalError, LoadError, LoadWarning, compute_suggestions};
 pub use evaluator::{eval_phrase_def, eval_template};
 pub use locale::Locale;
 pub use plural::plural_category;
