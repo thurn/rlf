@@ -4587,3 +4587,378 @@ fn turkish_inflect_registered() {
         Some(TransformKind::TurkishInflect)
     );
 }
+
+// -----------------------------------------------------------------------------
+// Turkish @inflect - Nominative case (no suffix)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn turkish_inflect_nom_front() {
+    // :front "ev" + :nom -> "ev" (nominative adds no suffix)
+    let phrase = Phrase::builder()
+        .text("ev".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("nom".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "ev");
+}
+
+#[test]
+fn turkish_inflect_nom_back() {
+    // :back "at" + :nom -> "at" (nominative adds no suffix)
+    let phrase = Phrase::builder()
+        .text("at".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("nom".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "at");
+}
+
+// -----------------------------------------------------------------------------
+// Turkish @inflect - Accusative case
+// -----------------------------------------------------------------------------
+
+#[test]
+fn turkish_inflect_acc_front() {
+    // :front "ev" + :acc -> "evi"
+    let phrase = Phrase::builder()
+        .text("ev".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("acc".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "evi");
+}
+
+#[test]
+fn turkish_inflect_acc_back() {
+    // :back "at" + :acc -> "atı"
+    let phrase = Phrase::builder()
+        .text("at".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("acc".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "at\u{0131}");
+}
+
+// -----------------------------------------------------------------------------
+// Turkish @inflect - Genitive case
+// -----------------------------------------------------------------------------
+
+#[test]
+fn turkish_inflect_gen_front() {
+    // :front "ev" + :gen -> "evin"
+    let phrase = Phrase::builder()
+        .text("ev".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("gen".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "evin");
+}
+
+#[test]
+fn turkish_inflect_gen_back() {
+    // :back "at" + :gen -> "atın"
+    let phrase = Phrase::builder()
+        .text("at".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("gen".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "at\u{0131}n");
+}
+
+// -----------------------------------------------------------------------------
+// Turkish @inflect - Possessive suffixes
+// -----------------------------------------------------------------------------
+
+#[test]
+fn turkish_inflect_poss1sg_front() {
+    // :front "ev" + :poss1sg -> "evim" (my house)
+    let phrase = Phrase::builder()
+        .text("ev".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("poss1sg".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "evim");
+}
+
+#[test]
+fn turkish_inflect_poss1sg_back() {
+    // :back "at" + :poss1sg -> "atım" (my horse)
+    let phrase = Phrase::builder()
+        .text("at".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("poss1sg".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "at\u{0131}m");
+}
+
+#[test]
+fn turkish_inflect_poss2sg_front() {
+    // :front "ev" + :poss2sg -> "evin" (your house)
+    let phrase = Phrase::builder()
+        .text("ev".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("poss2sg".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "evin");
+}
+
+#[test]
+fn turkish_inflect_poss2sg_back() {
+    // :back "at" + :poss2sg -> "atın" (your horse)
+    let phrase = Phrase::builder()
+        .text("at".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("poss2sg".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "at\u{0131}n");
+}
+
+#[test]
+fn turkish_inflect_poss3sg_front() {
+    // :front "ev" + :poss3sg -> "evi" (his/her house)
+    let phrase = Phrase::builder()
+        .text("ev".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("poss3sg".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "evi");
+}
+
+#[test]
+fn turkish_inflect_poss3sg_back() {
+    // :back "at" + :poss3sg -> "atı" (his/her horse)
+    let phrase = Phrase::builder()
+        .text("at".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("poss3sg".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "at\u{0131}");
+}
+
+#[test]
+fn turkish_inflect_poss1pl_front() {
+    // :front "ev" + :poss1pl -> "evimiz" (our house)
+    let phrase = Phrase::builder()
+        .text("ev".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("poss1pl".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "evimiz");
+}
+
+#[test]
+fn turkish_inflect_poss1pl_back() {
+    // :back "at" + :poss1pl -> "atımız" (our horse)
+    let phrase = Phrase::builder()
+        .text("at".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("poss1pl".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "at\u{0131}m\u{0131}z");
+}
+
+#[test]
+fn turkish_inflect_poss2pl_front() {
+    // :front "ev" + :poss2pl -> "eviniz" (your (pl.) house)
+    let phrase = Phrase::builder()
+        .text("ev".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("poss2pl".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "eviniz");
+}
+
+#[test]
+fn turkish_inflect_poss2pl_back() {
+    // :back "at" + :poss2pl -> "atınız" (your (pl.) horse)
+    let phrase = Phrase::builder()
+        .text("at".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("poss2pl".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "at\u{0131}n\u{0131}z");
+}
+
+#[test]
+fn turkish_inflect_poss3pl_front() {
+    // :front "ev" + :poss3pl -> "evleri" (their house)
+    let phrase = Phrase::builder()
+        .text("ev".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("poss3pl".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "evleri");
+}
+
+#[test]
+fn turkish_inflect_poss3pl_back() {
+    // :back "at" + :poss3pl -> "atları" (their horse)
+    let phrase = Phrase::builder()
+        .text("at".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("poss3pl".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "atlar\u{0131}");
+}
+
+// -----------------------------------------------------------------------------
+// Turkish @inflect - Complex suffix chains from documentation
+// -----------------------------------------------------------------------------
+
+#[test]
+fn turkish_inflect_pl_poss1sg_abl_front() {
+    // :front "ev" + :pl.poss1sg.abl -> "evlerimden" (from my houses)
+    // This is the example from APPENDIX_STDLIB.md
+    let phrase = Phrase::builder()
+        .text("ev".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("pl.poss1sg.abl".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "evlerimden");
+}
+
+#[test]
+fn turkish_inflect_pl_poss1sg_abl_back() {
+    // :back "at" + :pl.poss1sg.abl -> "atlarımdan" (from my horses)
+    let phrase = Phrase::builder()
+        .text("at".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("pl.poss1sg.abl".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "atlar\u{0131}mdan");
+}
+
+#[test]
+fn turkish_inflect_poss1sg_gen_front() {
+    // :front "ev" + :poss1sg.gen -> "evimin" (of my house)
+    let phrase = Phrase::builder()
+        .text("ev".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("poss1sg.gen".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "evimin");
+}
+
+#[test]
+fn turkish_inflect_pl_acc_front() {
+    // :front "ev" + :pl.acc -> "evleri"
+    let phrase = Phrase::builder()
+        .text("ev".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("pl.acc".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "evleri");
+}
+
+#[test]
+fn turkish_inflect_pl_gen_back() {
+    // :back "at" + :pl.gen -> "atların"
+    let phrase = Phrase::builder()
+        .text("at".to_string())
+        .tags(vec![Tag::new("back")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("pl.gen".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "atlar\u{0131}n");
+}
+
+#[test]
+fn turkish_inflect_poss2pl_loc_front() {
+    // :front "göz" + :poss2pl.loc -> "gözinizde" (in your (pl.) eye)
+    let phrase = Phrase::builder()
+        .text("g\u{00f6}z".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("poss2pl.loc".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "g\u{00f6}zinizde");
+}
+
+// -----------------------------------------------------------------------------
+// Turkish @inflect - Unknown suffix names ignored
+// -----------------------------------------------------------------------------
+
+#[test]
+fn turkish_inflect_unknown_suffix_ignored() {
+    // Unknown suffixes in chain are silently ignored
+    let phrase = Phrase::builder()
+        .text("ev".to_string())
+        .tags(vec![Tag::new("front")])
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::TurkishInflect;
+    let context = Value::String("pl.invalid.dat".to_string());
+    let result = transform.execute(&value, Some(&context), "tr").unwrap();
+    assert_eq!(result, "evlere");
+}

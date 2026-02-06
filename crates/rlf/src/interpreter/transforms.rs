@@ -1511,28 +1511,46 @@ fn korean_particle_transform(value: &Value, context: Option<&Value>) -> Result<S
 /// Turkish vowel harmony type.
 #[derive(Clone, Copy)]
 enum TurkishHarmony {
-    /// Front vowels: e, i, o, u
+    /// Front vowels: e, i, ö, ü
     Front,
-    /// Back vowels: a, i, o, u
+    /// Back vowels: a, ı, o, u
     Back,
 }
 
 /// Turkish suffix types for @inflect transform.
 #[derive(Clone, Copy)]
 enum TurkishSuffix {
-    /// Plural: -ler/-lar (2-way)
+    /// Plural: -ler/-lar
     Plural,
-    /// Dative: -e/-a (2-way)
+    /// Nominative: no suffix (unmarked case)
+    Nominative,
+    /// Accusative: -i/-ı (definite object)
+    Accusative,
+    /// Genitive: -in/-ın (possession)
+    Genitive,
+    /// Dative: -e/-a (direction/recipient)
     Dative,
-    /// Locative: -de/-da (2-way, ignoring voicing)
+    /// Locative: -de/-da (location)
     Locative,
-    /// Ablative: -den/-dan (2-way, ignoring voicing)
+    /// Ablative: -den/-dan (source/origin)
     Ablative,
+    /// Possessive 1st person singular: -im/-ım (my)
+    Poss1Sg,
+    /// Possessive 2nd person singular: -in/-ın (your)
+    Poss2Sg,
+    /// Possessive 3rd person singular: -i/-ı (his/her/its)
+    Poss3Sg,
+    /// Possessive 1st person plural: -imiz/-ımız (our)
+    Poss1Pl,
+    /// Possessive 2nd person plural: -iniz/-ınız (your, pl.)
+    Poss2Pl,
+    /// Possessive 3rd person plural: -leri/-ları (their)
+    Poss3Pl,
 }
 
 /// Parse suffix chain from context value.
 ///
-/// Parses dot-separated suffix names: "pl.dat" -> [Plural, Dative]
+/// Parses dot-separated suffix names: "pl.poss1sg.abl" -> [Plural, Poss1Sg, Ablative]
 fn parse_turkish_suffix_chain(context: Option<&Value>) -> Vec<TurkishSuffix> {
     let Some(Value::String(s)) = context else {
         return Vec::new();
@@ -1541,25 +1559,51 @@ fn parse_turkish_suffix_chain(context: Option<&Value>) -> Vec<TurkishSuffix> {
     s.split('.')
         .filter_map(|part| match part {
             "pl" => Some(TurkishSuffix::Plural),
+            "nom" => Some(TurkishSuffix::Nominative),
+            "acc" => Some(TurkishSuffix::Accusative),
+            "gen" => Some(TurkishSuffix::Genitive),
             "dat" => Some(TurkishSuffix::Dative),
             "loc" => Some(TurkishSuffix::Locative),
             "abl" => Some(TurkishSuffix::Ablative),
+            "poss1sg" => Some(TurkishSuffix::Poss1Sg),
+            "poss2sg" => Some(TurkishSuffix::Poss2Sg),
+            "poss3sg" => Some(TurkishSuffix::Poss3Sg),
+            "poss1pl" => Some(TurkishSuffix::Poss1Pl),
+            "poss2pl" => Some(TurkishSuffix::Poss2Pl),
+            "poss3pl" => Some(TurkishSuffix::Poss3Pl),
             _ => None,
         })
         .collect()
 }
 
-/// Get the 2-way harmony suffix text.
-fn turkish_suffix_2way(suffix: TurkishSuffix, harmony: TurkishHarmony) -> &'static str {
+/// Get the 2-way harmony suffix text for the given suffix and harmony class.
+fn turkish_suffix_form(suffix: TurkishSuffix, harmony: TurkishHarmony) -> &'static str {
     match (suffix, harmony) {
         (TurkishSuffix::Plural, TurkishHarmony::Front) => "ler",
         (TurkishSuffix::Plural, TurkishHarmony::Back) => "lar",
+        (TurkishSuffix::Nominative, _) => "",
+        (TurkishSuffix::Accusative, TurkishHarmony::Front) => "i",
+        (TurkishSuffix::Accusative, TurkishHarmony::Back) => "\u{0131}",
+        (TurkishSuffix::Genitive, TurkishHarmony::Front) => "in",
+        (TurkishSuffix::Genitive, TurkishHarmony::Back) => "\u{0131}n",
         (TurkishSuffix::Dative, TurkishHarmony::Front) => "e",
         (TurkishSuffix::Dative, TurkishHarmony::Back) => "a",
         (TurkishSuffix::Locative, TurkishHarmony::Front) => "de",
         (TurkishSuffix::Locative, TurkishHarmony::Back) => "da",
         (TurkishSuffix::Ablative, TurkishHarmony::Front) => "den",
         (TurkishSuffix::Ablative, TurkishHarmony::Back) => "dan",
+        (TurkishSuffix::Poss1Sg, TurkishHarmony::Front) => "im",
+        (TurkishSuffix::Poss1Sg, TurkishHarmony::Back) => "\u{0131}m",
+        (TurkishSuffix::Poss2Sg, TurkishHarmony::Front) => "in",
+        (TurkishSuffix::Poss2Sg, TurkishHarmony::Back) => "\u{0131}n",
+        (TurkishSuffix::Poss3Sg, TurkishHarmony::Front) => "i",
+        (TurkishSuffix::Poss3Sg, TurkishHarmony::Back) => "\u{0131}",
+        (TurkishSuffix::Poss1Pl, TurkishHarmony::Front) => "imiz",
+        (TurkishSuffix::Poss1Pl, TurkishHarmony::Back) => "\u{0131}m\u{0131}z",
+        (TurkishSuffix::Poss2Pl, TurkishHarmony::Front) => "iniz",
+        (TurkishSuffix::Poss2Pl, TurkishHarmony::Back) => "\u{0131}n\u{0131}z",
+        (TurkishSuffix::Poss3Pl, TurkishHarmony::Front) => "leri",
+        (TurkishSuffix::Poss3Pl, TurkishHarmony::Back) => "lar\u{0131}",
     }
 }
 
@@ -1569,11 +1613,20 @@ fn turkish_suffix_2way(suffix: TurkishSuffix, harmony: TurkishHarmony) -> &'stat
 ///
 /// Context specifies suffix chain as dot-separated names:
 /// - "pl" -> Plural (-ler/-lar)
+/// - "nom" -> Nominative (no suffix)
+/// - "acc" -> Accusative (-i/-ı)
+/// - "gen" -> Genitive (-in/-ın)
 /// - "dat" -> Dative (-e/-a)
 /// - "loc" -> Locative (-de/-da)
 /// - "abl" -> Ablative (-den/-dan)
+/// - "poss1sg" -> 1st person singular possessive (-im/-ım)
+/// - "poss2sg" -> 2nd person singular possessive (-in/-ın)
+/// - "poss3sg" -> 3rd person singular possessive (-i/-ı)
+/// - "poss1pl" -> 1st person plural possessive (-imiz/-ımız)
+/// - "poss2pl" -> 2nd person plural possessive (-iniz/-ınız)
+/// - "poss3pl" -> 3rd person plural possessive (-leri/-ları)
 ///
-/// Example: "pl.dat" on :front "ev" -> "evlere"
+/// Example: "pl.poss1sg.abl" on :front "ev" -> "evlerimden"
 fn turkish_inflect_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
     let text = value.to_string();
 
@@ -1596,7 +1649,7 @@ fn turkish_inflect_transform(value: &Value, context: Option<&Value>) -> Result<S
     // Apply each suffix left-to-right, harmony persists through chain
     let mut result = text;
     for suffix in suffixes {
-        let suffix_text = turkish_suffix_2way(suffix, harmony);
+        let suffix_text = turkish_suffix_form(suffix, harmony);
         result.push_str(suffix_text);
     }
 
