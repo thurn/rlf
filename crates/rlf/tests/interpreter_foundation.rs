@@ -35,6 +35,36 @@ fn registry_get_by_id() {
     assert_eq!(phrase.name, "hello");
 }
 
+#[test]
+fn registry_insert_same_name_twice_succeeds() {
+    let mut registry = PhraseRegistry::new();
+    registry.load_phrases(r#"hello = "Hello!";"#).unwrap();
+    // Re-inserting the same phrase name should overwrite, not error
+    registry.load_phrases(r#"hello = "Hi!";"#).unwrap();
+    let phrase = registry.get_phrase("en", "hello").unwrap();
+    assert_eq!(phrase.to_string(), "Hi!");
+}
+
+#[test]
+fn registry_detects_hash_collision() {
+    let mut registry = PhraseRegistry::new();
+    registry.load_phrases(r#"hello = "Hello!";"#).unwrap();
+
+    // Simulate a collision: inject a fake mapping so that "goodbye"'s hash
+    // points to a different name already in the registry.
+    let colliding_id = rlf::PhraseId::from_name("goodbye");
+    registry.inject_id_mapping(colliding_id.as_u128(), "hello".to_string());
+
+    // Now loading "goodbye" should fail because its hash maps to "hello"
+    let result = registry.load_phrases(r#"goodbye = "Goodbye!";"#);
+    assert!(result.is_err());
+    let err = format!("{}", result.unwrap_err());
+    assert!(
+        err.contains("hash collision"),
+        "error should mention hash collision, got: {err}"
+    );
+}
+
 // === EvalContext Tests ===
 
 #[test]

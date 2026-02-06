@@ -339,4 +339,10 @@ impl PhraseRegistry {
     pub fn is_empty(&self) -> bool {
         self.phrases.is_empty()
     }
+
+    /// Inject a fake id-to-name mapping for testing collision detection.
+    #[doc(hidden)]
+    pub fn inject_id_mapping(&mut self, id: u128, name: String) {
+        self.id_to_name.insert(id, name);
+    }
 }
