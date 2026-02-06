@@ -1,7 +1,7 @@
 //! Phrase registry for storing and looking up phrase definitions.
 
-use std::cell::RefCell;
 use std::collections::HashMap;
+use std::sync::RwLock;
 
 use crate::interpreter::transforms::TransformRegistry;
 use crate::interpreter::{EvalContext, EvalError, eval_phrase_def, eval_template};
@@ -21,8 +21,9 @@ pub struct PhraseRegistry {
     id_to_name: HashMap<u64, String>,
     /// Cache of parsed template ASTs for `eval_str()`.
     ///
-    /// Uses `RefCell` for interior mutability so `eval_str` can remain `&self`.
-    template_cache: RefCell<HashMap<String, Template>>,
+    /// Uses `RwLock` for interior mutability so `eval_str` can remain `&self`
+    /// while allowing `PhraseRegistry` to be `Sync`.
+    template_cache: RwLock<HashMap<String, Template>>,
 }
 
 impl PhraseRegistry {
@@ -147,18 +148,18 @@ impl PhraseRegistry {
     ///
     /// Call this if you need to free memory used by cached template ASTs.
     pub fn clear_template_cache(&self) {
-        self.template_cache.borrow_mut().clear();
+        self.template_cache.write().expect("lock poisoned").clear();
     }
 
     /// Return the number of cached template ASTs.
     pub fn template_cache_len(&self) -> usize {
-        self.template_cache.borrow().len()
+        self.template_cache.read().expect("lock poisoned").len()
     }
 
     /// Look up or parse and cache a template string.
     fn cached_template(&self, template_str: &str) -> Result<Template, EvalError> {
         {
-            let cache = self.template_cache.borrow();
+            let cache = self.template_cache.read().expect("lock poisoned");
             if let Some(template) = cache.get(template_str) {
                 return Ok(template.clone());
             }
@@ -167,7 +168,8 @@ impl PhraseRegistry {
             name: format!("parse error: {e}"),
         })?;
         self.template_cache
-            .borrow_mut()
+            .write()
+            .expect("lock poisoned")
             .insert(template_str.to_string(), template.clone());
         Ok(template)
     }

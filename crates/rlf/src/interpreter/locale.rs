@@ -3,10 +3,10 @@
 //! The Locale struct provides the user-facing API for managing language selection,
 //! loading translations, and accessing phrases.
 
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::RwLock;
 
 use bon::Builder;
 
@@ -77,10 +77,10 @@ pub struct Locale {
 
     /// Cache of parsed template ASTs for `eval_str()`.
     ///
-    /// Uses `RefCell` for interior mutability so `eval_str` can remain `&self`.
-    /// Templates are keyed by their source string and reused across calls.
+    /// Uses `RwLock` for interior mutability so `eval_str` can remain `&self`
+    /// while allowing `Locale` to be `Sync` for use in statics.
     #[builder(skip)]
-    template_cache: RefCell<HashMap<String, Template>>,
+    template_cache: RwLock<HashMap<String, Template>>,
 }
 
 impl Default for Locale {
@@ -622,18 +622,18 @@ impl Locale {
     ///
     /// Call this if you need to free memory used by cached template ASTs.
     pub fn clear_template_cache(&self) {
-        self.template_cache.borrow_mut().clear();
+        self.template_cache.write().expect("lock poisoned").clear();
     }
 
     /// Return the number of cached template ASTs.
     pub fn template_cache_len(&self) -> usize {
-        self.template_cache.borrow().len()
+        self.template_cache.read().expect("lock poisoned").len()
     }
 
     /// Look up or parse and cache a template string.
     fn cached_template(&self, template_str: &str) -> Result<Template, EvalError> {
         {
-            let cache = self.template_cache.borrow();
+            let cache = self.template_cache.read().expect("lock poisoned");
             if let Some(template) = cache.get(template_str) {
                 return Ok(template.clone());
             }
@@ -642,7 +642,8 @@ impl Locale {
             name: format!("parse error: {e}"),
         })?;
         self.template_cache
-            .borrow_mut()
+            .write()
+            .expect("lock poisoned")
             .insert(template_str.to_string(), template.clone());
         Ok(template)
     }
