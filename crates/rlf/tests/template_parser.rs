@@ -415,8 +415,27 @@ fn test_auto_capitalization_preserves_rest() {
         } => {
             assert_eq!(transforms.len(), 1);
             assert_eq!(transforms[0].name, "cap");
-            // Only the first letter is lowercased
+            // Only the first letter is lowercased (no underscore boundary)
             assert_eq!(*reference, Reference::Identifier("cardName".into()));
+        }
+        Segment::Literal(_) => panic!("expected interpolation"),
+    }
+}
+
+#[test]
+fn test_auto_capitalization_with_underscores() {
+    // {Phrase_Name} -> @cap phrase_name
+    let t = parse_template("{Phrase_Name}").unwrap();
+    match &t.segments[0] {
+        Segment::Interpolation {
+            transforms,
+            reference,
+            ..
+        } => {
+            assert_eq!(transforms.len(), 1);
+            assert_eq!(transforms[0].name, "cap");
+            // First char of each underscore-separated segment is lowercased
+            assert_eq!(*reference, Reference::Identifier("phrase_name".into()));
         }
         Segment::Literal(_) => panic!("expected interpolation"),
     }

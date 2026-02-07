@@ -375,11 +375,21 @@ fn parse_reference(content: &str, span: Span) -> syn::Result<(Reference, String,
     let first_char = ident.chars().next().unwrap();
     let auto_cap = first_char.is_ascii_uppercase();
     let actual_ident = if auto_cap {
-        let mut chars = ident.chars();
-        let lowered = chars.next().unwrap().to_ascii_lowercase();
+        // Lowercase the first character and the first character after each underscore
         let mut result = String::with_capacity(ident.len());
-        result.push(lowered);
-        result.extend(chars);
+        let mut after_underscore = true;
+        for c in ident.chars() {
+            if c == '_' {
+                result.push(c);
+                after_underscore = true;
+            } else if after_underscore {
+                result.push(c.to_ascii_lowercase());
+                after_underscore = false;
+            } else {
+                result.push(c);
+                after_underscore = false;
+            }
+        }
         result
     } else {
         ident.to_string()

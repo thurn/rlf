@@ -360,12 +360,22 @@ fn reference(input: &mut &str) -> ModalResult<ParsedReference> {
     // Check for auto-capitalization: if first letter is uppercase, add @cap
     let auto_cap = first_char.is_ascii_uppercase();
     let actual_name = if auto_cap {
-        let mut chars = name.chars();
-        let first = chars.next().unwrap().to_ascii_lowercase();
-        let mut lowered = String::with_capacity(name.len());
-        lowered.push(first);
-        lowered.extend(chars);
-        lowered
+        // Lowercase the first character and the first character after each underscore
+        let mut result = String::with_capacity(name.len());
+        let mut after_underscore = true;
+        for c in name.chars() {
+            if c == '_' {
+                result.push(c);
+                after_underscore = true;
+            } else if after_underscore {
+                result.push(c.to_ascii_lowercase());
+                after_underscore = false;
+            } else {
+                result.push(c);
+                after_underscore = false;
+            }
+        }
+        result
     } else {
         name
     };

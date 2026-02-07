@@ -526,3 +526,20 @@ fn auto_capitalization_in_rlf_file_with_variants() {
     let phrase = locale.call_phrase("draw", &[Value::from(3)]).unwrap();
     assert_eq!(phrase.to_string(), "Draw 3 Cards.");
 }
+
+#[test]
+fn auto_capitalization_with_underscore_identifiers() {
+    let mut locale = Locale::new();
+    locale
+        .load_translations_str(
+            "en",
+            r#"
+        fire_elemental = "fire elemental";
+        heading = "{Fire_Elemental}";
+    "#,
+        )
+        .unwrap();
+
+    let phrase = locale.get_phrase("heading").unwrap();
+    assert_eq!(phrase.to_string(), "Fire elemental");
+}

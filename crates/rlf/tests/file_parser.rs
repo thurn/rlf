@@ -498,6 +498,33 @@ fn test_auto_capitalization_with_selector() {
 }
 
 #[test]
+fn test_auto_capitalization_with_underscores() {
+    let phrases = parse_file(r#"draw = "Draw {Fire_Elemental}.";"#).unwrap();
+    match &phrases[0].body {
+        PhraseBody::Simple(t) => {
+            let interp = t
+                .segments
+                .iter()
+                .find(|s| matches!(s, Segment::Interpolation { .. }))
+                .expect("expected interpolation");
+            match interp {
+                Segment::Interpolation {
+                    transforms,
+                    reference,
+                    ..
+                } => {
+                    assert_eq!(transforms.len(), 1);
+                    assert_eq!(transforms[0].name, "cap");
+                    assert_eq!(*reference, Reference::Identifier("fire_elemental".into()));
+                }
+                Segment::Literal(_) => panic!("expected interpolation"),
+            }
+        }
+        PhraseBody::Variants(_) => panic!("expected simple body"),
+    }
+}
+
+#[test]
 fn test_no_auto_capitalization_for_lowercase() {
     let phrases = parse_file(r#"draw = "Draw {card}.";"#).unwrap();
     match &phrases[0].body {
