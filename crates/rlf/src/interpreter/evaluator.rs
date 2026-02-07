@@ -273,13 +273,29 @@ fn eval_with_from_modifier(
         sorted_keys.sort();
         for key in sorted_keys {
             let variant_text = &source_variants[key];
-            // Create a context with the variant text substituted for the from_param
-            let simple_params: HashMap<String, Value> =
-                [(from_param.to_string(), Value::String(variant_text.clone()))]
-                    .into_iter()
-                    .collect();
+            // Create a Phrase with variant text as display but preserving
+            // original tags and variants for phrase call arguments.
+            let mut variant_params: HashMap<String, Value> = HashMap::new();
+            variant_params.insert(
+                from_param.to_string(),
+                Value::Phrase(
+                    Phrase::builder()
+                        .text(variant_text.clone())
+                        .tags(inherited_tags.clone())
+                        .variants(source_variants.clone())
+                        .build(),
+                ),
+            );
+            // Copy all other parameters from the parent context
+            for param_name in &def.parameters {
+                if param_name != from_param
+                    && let Some(v) = ctx.get_param(param_name)
+                {
+                    variant_params.insert(param_name.clone(), v.clone());
+                }
+            }
             let mut variant_ctx = EvalContext::with_string_context(
-                &simple_params,
+                &variant_params,
                 ctx.string_context().map(ToString::to_string),
             );
 
@@ -357,10 +373,22 @@ fn eval_from_with_match(
         sorted_keys.sort();
         for key in sorted_keys {
             let variant_text = &source_variants[key];
-            // Build params map: substitute from_param with the variant text,
-            // copy all other params via get_param lookups on known param names
+            // Build params map: substitute from_param with a Phrase that has the
+            // variant text as its display text but retains the original tags and
+            // variants. This ensures bare {$s} interpolation shows the variant
+            // text while phrase calls like {subtype($s)} still receive a Phrase
+            // value with full metadata for :from inheritance.
             let mut variant_params: HashMap<String, Value> = HashMap::new();
-            variant_params.insert(from_param.to_string(), Value::String(variant_text.clone()));
+            variant_params.insert(
+                from_param.to_string(),
+                Value::Phrase(
+                    Phrase::builder()
+                        .text(variant_text.clone())
+                        .tags(inherited_tags.clone())
+                        .variants(source_variants.clone())
+                        .build(),
+                ),
+            );
             for param_name in &def.parameters {
                 if param_name != from_param
                     && let Some(v) = ctx.get_param(param_name)
@@ -794,11 +822,8 @@ fn select_match_branch<'a>(
         }
     }
 
-    Err(EvalError::PhraseNotFound {
-        name: format!(
-            "no matching branch in :match block for keys {:?}",
-            resolved_keys
-        ),
+    Err(EvalError::MissingMatchDefault {
+        keys: resolved_keys.to_vec(),
     })
 }
 

@@ -223,4 +223,8 @@ pub enum EvalError {
         name
     )]
     SelectorOnPhrase { name: String },
+
+    /// No branch matched in a :match block and no default was found.
+    #[error("no matching branch in :match block for keys {keys:?}")]
+    MissingMatchDefault { keys: Vec<Vec<String>> },
 }
