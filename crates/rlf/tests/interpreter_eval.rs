@@ -1746,17 +1746,17 @@ fn eval_russian_dative_case() {
 }
 
 // =============================================================================
-// Selector Auto-forwarding to Parameterized Phrases
+// Phrase Call in Template (v2 syntax replaces v1 auto-forwarding)
 // =============================================================================
 
 #[test]
-fn eval_parameterized_phrase_with_selector_auto_forwards_args() {
+fn eval_phrase_call_replaces_auto_forward() {
     let mut registry = PhraseRegistry::new();
     registry
         .load_phrases(
             r#"
         cards($n) = { one: "{$n} card", other: "{$n} cards" };
-        draw($n) = "Draw {cards:$n}.";
+        draw($n) = "Draw {cards($n)}.";
     "#,
         )
         .unwrap();
@@ -1773,12 +1773,35 @@ fn eval_parameterized_phrase_with_selector_auto_forwards_args() {
 }
 
 #[test]
-fn eval_parameterized_phrase_selector_auto_forward_with_multiple_params() {
+fn eval_bare_identifier_on_parameterized_phrase_is_error() {
     let mut registry = PhraseRegistry::new();
     registry
         .load_phrases(
             r#"
-        noun($case, $n) = {
+        cards($n) = { one: "{$n} card", other: "{$n} cards" };
+        bad = "{cards}";
+    "#,
+        )
+        .unwrap();
+
+    let err = registry.get_phrase("en", "bad").unwrap_err();
+    assert!(matches!(
+        err,
+        EvalError::ArgumentCount {
+            expected: 1,
+            got: 0,
+            ..
+        }
+    ));
+}
+
+#[test]
+fn eval_term_with_multidimensional_variant_selection() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        noun = {
             nom.one: "card",
             nom.other: "cards",
             acc.one: "card",

@@ -54,14 +54,7 @@ pub fn eval_template(
                 selectors,
             } => {
                 // 1. Resolve reference to Value
-                let value = resolve_reference(
-                    reference,
-                    selectors,
-                    ctx,
-                    registry,
-                    transform_registry,
-                    lang,
-                )?;
+                let value = resolve_reference(reference, ctx, registry, transform_registry, lang)?;
                 // 2. Apply selectors to get variant/final value (returns Value to preserve tags)
                 let selected = apply_selectors(&value, selectors, ctx, lang)?;
                 // 3. Apply transforms (right-to-left per DESIGN.md)
@@ -77,17 +70,15 @@ pub fn eval_template(
 
 /// Resolve a reference to a Value.
 ///
-/// Resolution order:
-/// 1. Parameters (from the evaluation context)
-/// 2. Phrases (from the registry)
+/// Uses the v2 AST distinction between parameters and identifiers:
+/// - `Reference::Parameter(name)` → look up in current parameter bindings
+/// - `Reference::Identifier(name)` → look up as a term/phrase in the registry
+/// - `Reference::PhraseCall { name, args }` → evaluate phrase call
 ///
-/// When a `Reference::Identifier` refers to a parameterized phrase and the
-/// selector count matches the parameter count, selectors are automatically
-/// forwarded as arguments. This allows `{cards:n}` where `cards(n)` is
-/// defined with variants.
+/// No implicit fallback: parameters never check the registry, and identifiers
+/// never check parameter bindings.
 fn resolve_reference(
     reference: &Reference,
-    selectors: &[Selector],
     ctx: &mut EvalContext<'_>,
     registry: &PhraseRegistry,
     transform_registry: &TransformRegistry,
@@ -95,7 +86,7 @@ fn resolve_reference(
 ) -> Result<Value, EvalError> {
     match reference {
         Reference::Parameter(name) => {
-            // Parameter reference: always look up in context
+            // Parameter reference ($name): look up in context only
             ctx.get_param(name)
                 .cloned()
                 .ok_or_else(|| EvalError::PhraseNotFound {
@@ -103,55 +94,26 @@ fn resolve_reference(
                 })
         }
         Reference::Identifier(name) => {
-            // Bare identifier: look up as phrase/term (no parameter lookup)
-            if let Some(def) = registry.get(name) {
-                if !def.parameters.is_empty() {
-                    // Auto-forward selectors as arguments when counts match
-                    if selectors.len() == def.parameters.len() {
-                        let resolved_args: Vec<Value> = selectors
-                            .iter()
-                            .map(|sel| resolve_selector_to_value(sel, ctx))
-                            .collect::<Result<Vec<_>, _>>()?;
+            // Bare identifier: look up as term/phrase in registry only
+            let def = registry
+                .get(name)
+                .ok_or_else(|| EvalError::PhraseNotFound { name: name.clone() })?;
 
-                        let params: HashMap<String, Value> = def
-                            .parameters
-                            .iter()
-                            .zip(resolved_args)
-                            .map(|(name, value)| (name.clone(), value))
-                            .collect();
-
-                        let mut child_ctx = EvalContext::with_string_context(
-                            &params,
-                            ctx.string_context().map(ToString::to_string),
-                        );
-                        child_ctx.push_call(name)?;
-                        let result = eval_phrase_def(
-                            def,
-                            &mut child_ctx,
-                            registry,
-                            transform_registry,
-                            lang,
-                        )?;
-                        child_ctx.pop_call();
-                        return Ok(Value::Phrase(result));
-                    }
-
-                    return Err(EvalError::ArgumentCount {
-                        phrase: name.clone(),
-                        expected: def.parameters.len(),
-                        got: 0,
-                    });
-                }
-
-                // Evaluate the phrase
-                ctx.push_call(name)?;
-                let result = eval_phrase_def(def, ctx, registry, transform_registry, lang)?;
-                ctx.pop_call();
-                return Ok(Value::Phrase(result));
+            if !def.parameters.is_empty() {
+                // In v2, a bare identifier referencing a parameterized phrase
+                // without () is an error — must use PhraseCall syntax
+                return Err(EvalError::ArgumentCount {
+                    phrase: name.clone(),
+                    expected: def.parameters.len(),
+                    got: 0,
+                });
             }
 
-            // Not found
-            Err(EvalError::PhraseNotFound { name: name.clone() })
+            // Evaluate the term
+            ctx.push_call(name)?;
+            let result = eval_phrase_def(def, ctx, registry, transform_registry, lang)?;
+            ctx.pop_call();
+            Ok(Value::Phrase(result))
         }
         Reference::PhraseCall { name, args } => {
             let def = registry
@@ -170,7 +132,7 @@ fn resolve_reference(
             // Resolve arguments to values
             let resolved_args: Vec<Value> = args
                 .iter()
-                .map(|arg| resolve_reference(arg, &[], ctx, registry, transform_registry, lang))
+                .map(|arg| resolve_reference(arg, ctx, registry, transform_registry, lang))
                 .collect::<Result<Vec<_>, _>>()?;
 
             // Build param map for child context
@@ -430,32 +392,12 @@ fn build_compound_keys(parts: &[Vec<String>]) -> Vec<String> {
     result
 }
 
-/// Resolve a selector to a Value for use as a forwarded argument.
-///
-/// Used when auto-forwarding selectors as arguments to parameterized phrases.
-/// Returns the parameter's value if it references one, or a string literal otherwise.
-fn resolve_selector_to_value(
-    selector: &Selector,
-    ctx: &EvalContext<'_>,
-) -> Result<Value, EvalError> {
-    match selector {
-        Selector::Identifier(name) => Ok(Value::String(name.clone())),
-        Selector::Parameter(name) => {
-            ctx.get_param(name)
-                .cloned()
-                .ok_or_else(|| EvalError::PhraseNotFound {
-                    name: format!("${name}"),
-                })
-        }
-    }
-}
-
 /// Resolve a selector to candidate key strings.
 ///
-/// Returns one or more candidate keys for a selector position:
-/// - Static identifier -> single candidate: the literal key
-/// - Parameter -> resolved value: Number -> CLDR category,
-///   Phrase -> all tags, String -> parsed number or literal
+/// Uses the v2 AST distinction directly:
+/// - `Selector::Identifier(name)` → use as a literal variant key
+/// - `Selector::Parameter(name)` → look up parameter value, then resolve:
+///   Number → CLDR plural category, Phrase → all tags, String → literal or parsed number
 fn resolve_selector_candidates(
     selector: &Selector,
     ctx: &EvalContext<'_>,
