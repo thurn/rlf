@@ -1,9 +1,10 @@
 //! Template string parser using winnow.
 //!
 //! Parses RLF template strings into an AST. Handles:
-//! - Literal text segments
+//! - Literal text segments (`$`, `@`, `:` are literal in text)
 //! - Interpolations with transforms, references, and selectors
-//! - Escape sequences: {{ }} @@ ::
+//! - Text escape sequences: `{{` -> `{`, `}}` -> `}`
+//! - Interpolation escape sequences: `$$` -> `$`, `@@` -> `@`, `::` -> `:`
 //! - Automatic capitalization (uppercase first letter -> @cap transform)
 //! - Phrase calls with arguments
 
@@ -212,6 +213,24 @@ fn reference(input: &mut &str) -> ModalResult<ParsedReference> {
         let _ = "$$".parse_next(input)?;
         return Ok(ParsedReference {
             reference: Reference::Identifier("$".to_string()),
+            auto_cap: false,
+        });
+    }
+
+    // Check for @@ escape sequence (literal @)
+    if input.starts_with("@@") {
+        let _ = "@@".parse_next(input)?;
+        return Ok(ParsedReference {
+            reference: Reference::Identifier("@".to_string()),
+            auto_cap: false,
+        });
+    }
+
+    // Check for :: escape sequence (literal :)
+    if input.starts_with("::") {
+        let _ = "::".parse_next(input)?;
+        return Ok(ParsedReference {
+            reference: Reference::Identifier(":".to_string()),
             auto_cap: false,
         });
     }

@@ -265,21 +265,8 @@ pub(crate) fn parse_template_string(s: &str, span: Span) -> syn::Result<Vec<Segm
                     return Err(syn::Error::new(span, "unexpected closing brace"));
                 }
             }
-            '@' if chars.peek() == Some(&'@') => {
-                // Escaped @ sign
-                chars.next();
-                current_literal.push('@');
-            }
-            ':' if chars.peek() == Some(&':') => {
-                // Escaped colon
-                chars.next();
-                current_literal.push(':');
-            }
-            '$' if chars.peek() == Some(&'$') => {
-                // Escaped dollar sign
-                chars.next();
-                current_literal.push('$');
-            }
+            // Per v2 spec: $, @, : are literal in regular text outside {}.
+            // No escaping needed — they are only special inside {} expressions.
             _ => {
                 current_literal.push(c);
             }
@@ -299,8 +286,8 @@ fn parse_interpolation(content: &str, span: Span) -> syn::Result<Interpolation> 
     let mut transforms = Vec::new();
     let mut rest = content;
 
-    // Parse transforms (start with @)
-    while rest.starts_with('@') {
+    // Parse transforms (start with @, but @@ is an escape for literal @)
+    while rest.starts_with('@') && !rest.starts_with("@@") {
         rest = &rest[1..]; // Skip @
 
         // Find end of transform name (space, colon, open paren, or end of string)
@@ -438,6 +425,33 @@ fn parse_reference(content: &str, span: Span) -> syn::Result<(Reference, String,
     if let Some(after_quote) = content.strip_prefix('"') {
         let (s, rest) = parse_string_literal_arg(after_quote, span)?;
         return Ok((Reference::StringLiteral(s, span), rest, false));
+    }
+
+    // Check for $$ escape sequence (literal $)
+    if let Some(rest) = content.strip_prefix("$$") {
+        return Ok((
+            Reference::Identifier(SpannedIdent::from_str("$", span)),
+            rest.to_string(),
+            false,
+        ));
+    }
+
+    // Check for @@ escape sequence (literal @)
+    if let Some(rest) = content.strip_prefix("@@") {
+        return Ok((
+            Reference::Identifier(SpannedIdent::from_str("@", span)),
+            rest.to_string(),
+            false,
+        ));
+    }
+
+    // Check for :: escape sequence (literal :)
+    if let Some(rest) = content.strip_prefix("::") {
+        return Ok((
+            Reference::Identifier(SpannedIdent::from_str(":", span)),
+            rest.to_string(),
+            false,
+        ));
     }
 
     // v2: Check for $ prefix (parameter reference)
@@ -628,7 +642,7 @@ fn extract_selectors(content: &str, span: Span) -> syn::Result<Vec<Selector>> {
     let mut selectors = Vec::new();
     let mut rest = content.trim();
 
-    while rest.starts_with(':') {
+    while rest.starts_with(':') && !rest.starts_with("::") {
         rest = &rest[1..]; // Skip :
 
         // v2: Check for $ prefix (parameterized selector)
@@ -771,31 +785,86 @@ mod tests {
     }
 
     #[test]
-    fn test_escaped_at_sign() {
+    fn test_at_literal_in_text() {
+        // v2: @ is literal in regular text, no escaping needed
+        let segments = parse_ok("user@example.com");
+        assert_eq!(segments.len(), 1);
+        assert_eq!(get_literal(&segments[0]), "user@example.com");
+    }
+
+    #[test]
+    fn test_colon_literal_in_text() {
+        // v2: : is literal in regular text, no escaping needed
+        let segments = parse_ok("ratio 1:2");
+        assert_eq!(segments.len(), 1);
+        assert_eq!(get_literal(&segments[0]), "ratio 1:2");
+    }
+
+    #[test]
+    fn test_dollar_literal_in_text() {
+        // v2: $ is literal in regular text, no escaping needed
+        let segments = parse_ok("The cost is $5.");
+        assert_eq!(segments.len(), 1);
+        assert_eq!(get_literal(&segments[0]), "The cost is $5.");
+    }
+
+    #[test]
+    fn test_double_at_literal_in_text() {
+        // v2: @@ in text produces two @ characters (both are literal)
         let segments = parse_ok("Use @@ for transforms.");
         assert_eq!(segments.len(), 1);
-        assert_eq!(get_literal(&segments[0]), "Use @ for transforms.");
+        assert_eq!(get_literal(&segments[0]), "Use @@ for transforms.");
     }
 
     #[test]
-    fn test_escaped_colon() {
+    fn test_double_colon_literal_in_text() {
+        // v2: :: in text produces two : characters (both are literal)
         let segments = parse_ok("Ratio 1::2.");
         assert_eq!(segments.len(), 1);
-        assert_eq!(get_literal(&segments[0]), "Ratio 1:2.");
+        assert_eq!(get_literal(&segments[0]), "Ratio 1::2.");
     }
 
     #[test]
-    fn test_escaped_at_and_colon_together() {
-        let segments = parse_ok("@@ and :: together");
-        assert_eq!(segments.len(), 1);
-        assert_eq!(get_literal(&segments[0]), "@ and : together");
-    }
-
-    #[test]
-    fn test_escaped_dollar_sign() {
+    fn test_double_dollar_literal_in_text() {
+        // v2: $$ in text produces two $ characters (both are literal)
         let segments = parse_ok("Use $$ for literal dollar.");
         assert_eq!(segments.len(), 1);
-        assert_eq!(get_literal(&segments[0]), "Use $ for literal dollar.");
+        assert_eq!(get_literal(&segments[0]), "Use $$ for literal dollar.");
+    }
+
+    #[test]
+    fn test_dollar_escape_in_interpolation() {
+        // v2: $$ inside {} produces literal $
+        let segments = parse_ok("{$$}");
+        assert_eq!(segments.len(), 1);
+        let interp = get_interpolation(&segments[0]);
+        assert!(matches!(&interp.reference, Reference::Identifier(ident) if ident.name == "$"));
+    }
+
+    #[test]
+    fn test_at_escape_in_interpolation() {
+        // v2: @@ inside {} produces literal @
+        let segments = parse_ok("{@@}");
+        assert_eq!(segments.len(), 1);
+        let interp = get_interpolation(&segments[0]);
+        assert!(matches!(&interp.reference, Reference::Identifier(ident) if ident.name == "@"));
+    }
+
+    #[test]
+    fn test_colon_escape_in_interpolation() {
+        // v2: :: inside {} produces literal :
+        let segments = parse_ok("{::}");
+        assert_eq!(segments.len(), 1);
+        let interp = get_interpolation(&segments[0]);
+        assert!(matches!(&interp.reference, Reference::Identifier(ident) if ident.name == ":"));
+    }
+
+    #[test]
+    fn test_escaped_braces_with_dollar_param() {
+        // v2: "Use {{$name}} for params" -> "Use {$name} for params"
+        let segments = parse_ok("Use {{$name}} for params");
+        assert_eq!(segments.len(), 1);
+        assert_eq!(get_literal(&segments[0]), "Use {$name} for params");
     }
 
     // =========================================================================

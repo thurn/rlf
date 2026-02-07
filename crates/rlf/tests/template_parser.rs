@@ -602,6 +602,57 @@ fn test_escape_in_interpolation_context() {
     assert_eq!(t.segments[2], Segment::Literal(" after".into()));
 }
 
+#[test]
+fn test_at_escape_in_interpolation() {
+    let t = parse_template("{@@}").unwrap();
+    match &t.segments[0] {
+        Segment::Interpolation { reference, .. } => {
+            assert_eq!(*reference, Reference::Identifier("@".into()));
+        }
+        Segment::Literal(_) => panic!("expected interpolation"),
+    }
+}
+
+#[test]
+fn test_colon_escape_in_interpolation() {
+    let t = parse_template("{::}").unwrap();
+    match &t.segments[0] {
+        Segment::Interpolation { reference, .. } => {
+            assert_eq!(*reference, Reference::Identifier(":".into()));
+        }
+        Segment::Literal(_) => panic!("expected interpolation"),
+    }
+}
+
+#[test]
+fn test_escaped_braces_with_dollar_param() {
+    let t = parse_template("Use {{$name}} for params").unwrap();
+    assert_eq!(
+        t.segments,
+        vec![Segment::Literal("Use {$name} for params".into())]
+    );
+}
+
+#[test]
+fn test_multiple_special_chars_in_text() {
+    let t = parse_template("Price $5, user@example.com, ratio 1:2").unwrap();
+    assert_eq!(
+        t.segments,
+        vec![Segment::Literal(
+            "Price $5, user@example.com, ratio 1:2".into()
+        )]
+    );
+}
+
+#[test]
+fn test_double_chars_in_text_are_literal() {
+    let t = parse_template("Use @@ and :: and $$ in text").unwrap();
+    assert_eq!(
+        t.segments,
+        vec![Segment::Literal("Use @@ and :: and $$ in text".into())]
+    );
+}
+
 // =============================================================================
 // Automatic capitalization (bare identifiers only)
 // =============================================================================

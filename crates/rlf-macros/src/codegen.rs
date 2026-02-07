@@ -673,25 +673,25 @@ mod tests {
     }
 
     #[test]
-    fn test_reconstruct_literal_at_sign_not_escaped() {
+    fn test_reconstruct_literal_at_sign_in_text() {
         let input = parse_input(parse_quote! {
-            test = "Use @@ for transforms.";
+            test = "user@example.com";
         });
         let source = reconstruct_source(&input);
-        // In v2, @ is literal in template text and should NOT be double-escaped
+        // v2: @ is literal in text — preserved as-is in round-trip
         assert!(
-            source.contains("Use @ for transforms."),
+            source.contains("user@example.com"),
             "v2: @ should be literal in text, got: {source}"
         );
     }
 
     #[test]
-    fn test_reconstruct_literal_colon_not_escaped() {
+    fn test_reconstruct_literal_colon_in_text() {
         let input = parse_input(parse_quote! {
-            test = "Ratio 1::2.";
+            test = "Ratio 1:2.";
         });
         let source = reconstruct_source(&input);
-        // In v2, : is literal in template text and should NOT be double-escaped
+        // v2: : is literal in text — preserved as-is in round-trip
         assert!(
             source.contains("Ratio 1:2."),
             "v2: : should be literal in text, got: {source}"
