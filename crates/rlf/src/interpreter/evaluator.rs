@@ -116,6 +116,8 @@ fn resolve_reference(
             ctx.pop_call();
             Ok(Value::Phrase(result))
         }
+        Reference::NumberLiteral(n) => Ok(Value::Number(*n)),
+        Reference::StringLiteral(s) => Ok(Value::String(s.clone())),
         Reference::PhraseCall { name, args } => {
             let def = registry
                 .get(name)

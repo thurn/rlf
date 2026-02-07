@@ -123,6 +123,10 @@ pub enum Reference {
         name: SpannedIdent,
         args: Vec<Reference>,
     },
+    /// Literal integer argument in a phrase call: `cards(2)`
+    NumberLiteral(i64, Span),
+    /// Literal string argument in a phrase call: `trigger("Attack")`
+    StringLiteral(String, Span),
 }
 
 /// A selector for variant selection.

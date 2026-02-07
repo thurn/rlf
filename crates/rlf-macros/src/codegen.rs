@@ -363,7 +363,7 @@ fn reconstruct_transform(transform: &TransformRef) -> String {
     result
 }
 
-/// Reconstruct a reference (identifier, parameter, or call).
+/// Reconstruct a reference (identifier, parameter, call, or literal).
 fn reconstruct_reference(reference: &Reference) -> String {
     match reference {
         Reference::Identifier(ident) => ident.name.clone(),
@@ -371,6 +371,11 @@ fn reconstruct_reference(reference: &Reference) -> String {
         Reference::Call { name, args } => {
             let arg_strs: Vec<String> = args.iter().map(reconstruct_reference).collect();
             format!("{}({})", name.name, arg_strs.join(", "))
+        }
+        Reference::NumberLiteral(n, _) => n.to_string(),
+        Reference::StringLiteral(s, _) => {
+            let escaped = s.replace('\\', "\\\\").replace('"', "\\\"");
+            format!("\"{escaped}\"")
         }
     }
 }

@@ -195,7 +195,9 @@ fn validate_interpolation(
     // Determine if reference is a literal phrase (not a parameter)
     let is_literal_phrase = match &interp.reference {
         Reference::Identifier(ident) => ctx.phrases.contains(&ident.name),
-        Reference::Parameter(_) => false,
+        Reference::Parameter(_) | Reference::NumberLiteral(..) | Reference::StringLiteral(..) => {
+            false
+        }
         Reference::Call { name, .. } => ctx.phrases.contains(&name.name),
     };
 
@@ -203,7 +205,9 @@ fn validate_interpolation(
         let phrase_name = match &interp.reference {
             Reference::Identifier(ident) => &ident.name,
             Reference::Call { name, .. } => &name.name,
-            Reference::Parameter(_) => unreachable!(),
+            Reference::Parameter(_)
+            | Reference::NumberLiteral(..)
+            | Reference::StringLiteral(..) => unreachable!(),
         };
 
         // Get phrase variants for literal selector validation
@@ -313,6 +317,9 @@ fn validate_reference(
             for arg in args {
                 validate_reference(arg, params, ctx)?;
             }
+        }
+        Reference::NumberLiteral(..) | Reference::StringLiteral(..) => {
+            // Literal values are always valid
         }
     }
     Ok(())
@@ -514,6 +521,9 @@ fn collect_reference_refs(
             for arg in args {
                 collect_reference_refs(arg, params, ctx, refs);
             }
+        }
+        Reference::NumberLiteral(..) | Reference::StringLiteral(..) => {
+            // Literal values are not phrase references
         }
     }
 }

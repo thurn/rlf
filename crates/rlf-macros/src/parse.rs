@@ -421,6 +421,25 @@ fn parse_reference(content: &str, span: Span) -> syn::Result<(Reference, String,
         return Err(syn::Error::new(span, "empty reference in interpolation"));
     }
 
+    // Check for number literal (digit start)
+    if content.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+        let digit_end = content
+            .find(|c: char| !c.is_ascii_digit())
+            .unwrap_or(content.len());
+        let digits = &content[..digit_end];
+        let rest = &content[digit_end..];
+        let n: i64 = digits
+            .parse()
+            .map_err(|e| syn::Error::new(span, format!("invalid number literal: {e}")))?;
+        return Ok((Reference::NumberLiteral(n, span), rest.to_string(), false));
+    }
+
+    // Check for string literal ("..." start)
+    if let Some(after_quote) = content.strip_prefix('"') {
+        let (s, rest) = parse_string_literal_arg(after_quote, span)?;
+        return Ok((Reference::StringLiteral(s, span), rest, false));
+    }
+
     // v2: Check for $ prefix (parameter reference)
     if let Some(after_dollar) = content.strip_prefix('$') {
         let ident_end = after_dollar
@@ -507,10 +526,10 @@ fn parse_reference(content: &str, span: Span) -> syn::Result<(Reference, String,
         let args_str = &rest[1..end]; // Content between parens
         let after_call = &rest[end + 1..];
 
-        // Parse arguments (comma-separated references: $param or bare term name)
+        // Parse arguments (comma-separated: $param, term name, number, or string literal)
         let mut args = Vec::new();
         if !args_str.is_empty() {
-            for arg in args_str.split(',') {
+            for arg in split_args(args_str) {
                 let (arg_ref, _, _) = parse_reference(arg.trim(), span)?;
                 args.push(arg_ref);
             }
@@ -531,6 +550,75 @@ fn parse_reference(content: &str, span: Span) -> syn::Result<(Reference, String,
             auto_cap,
         ))
     }
+}
+
+/// Split argument string by commas, respecting string literals.
+fn split_args(s: &str) -> Vec<&str> {
+    let mut args = Vec::new();
+    let mut start = 0;
+    let mut in_string = false;
+    let mut prev_backslash = false;
+
+    for (i, c) in s.char_indices() {
+        if in_string {
+            if c == '\\' && !prev_backslash {
+                prev_backslash = true;
+                continue;
+            }
+            if c == '"' && !prev_backslash {
+                in_string = false;
+            }
+            prev_backslash = false;
+        } else if c == '"' {
+            in_string = true;
+        } else if c == ',' {
+            args.push(&s[start..i]);
+            start = i + 1;
+        }
+    }
+
+    args.push(&s[start..]);
+    args
+}
+
+/// Parse a string literal argument from content after the opening `"`.
+///
+/// Returns the parsed string and the remaining content after the closing `"`.
+fn parse_string_literal_arg(content: &str, span: Span) -> syn::Result<(String, String)> {
+    let mut result = String::new();
+    let mut chars = content.chars();
+    let mut byte_offset = 0;
+
+    loop {
+        let Some(c) = chars.next() else {
+            return Err(syn::Error::new(span, "unclosed string literal in argument"));
+        };
+        byte_offset += c.len_utf8();
+        match c {
+            '"' => break,
+            '\\' => {
+                let Some(escaped) = chars.next() else {
+                    return Err(syn::Error::new(
+                        span,
+                        "unexpected end of string after backslash",
+                    ));
+                };
+                byte_offset += escaped.len_utf8();
+                match escaped {
+                    '"' => result.push('"'),
+                    '\\' => result.push('\\'),
+                    other => {
+                        result.push('\\');
+                        result.push(other);
+                    }
+                }
+            }
+            other => result.push(other),
+        }
+    }
+
+    let rest = &content[byte_offset..];
+    Ok((result, rest.to_string()))
 }
 
 /// Extract selectors from the remaining content after a reference.

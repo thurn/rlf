@@ -952,3 +952,135 @@ fn test_unmatched_close_brace_in_text() {
     let result = parse_template("text } more");
     assert!(result.is_err());
 }
+
+// =============================================================================
+// Literal arguments in phrase calls
+// =============================================================================
+
+#[test]
+fn test_phrase_call_with_number_literal() {
+    let t = parse_template("{cards(2)}").unwrap();
+    match &t.segments[0] {
+        Segment::Interpolation { reference, .. } => match reference {
+            Reference::PhraseCall { name, args } => {
+                assert_eq!(name, "cards");
+                assert_eq!(args.len(), 1);
+                assert_eq!(args[0], Reference::NumberLiteral(2));
+            }
+            _ => panic!("expected phrase call"),
+        },
+        Segment::Literal(_) => panic!("expected interpolation"),
+    }
+}
+
+#[test]
+fn test_phrase_call_with_string_literal() {
+    let t = parse_template(r#"{trigger("Attack")}"#).unwrap();
+    match &t.segments[0] {
+        Segment::Interpolation { reference, .. } => match reference {
+            Reference::PhraseCall { name, args } => {
+                assert_eq!(name, "trigger");
+                assert_eq!(args.len(), 1);
+                assert_eq!(args[0], Reference::StringLiteral("Attack".into()));
+            }
+            _ => panic!("expected phrase call"),
+        },
+        Segment::Literal(_) => panic!("expected interpolation"),
+    }
+}
+
+#[test]
+fn test_phrase_call_with_string_literal_escapes() {
+    let t = parse_template(r#"{trigger("He said \"hi\"")}"#).unwrap();
+    match &t.segments[0] {
+        Segment::Interpolation { reference, .. } => match reference {
+            Reference::PhraseCall { name, args } => {
+                assert_eq!(name, "trigger");
+                assert_eq!(args.len(), 1);
+                assert_eq!(args[0], Reference::StringLiteral("He said \"hi\"".into()));
+            }
+            _ => panic!("expected phrase call"),
+        },
+        Segment::Literal(_) => panic!("expected interpolation"),
+    }
+}
+
+#[test]
+fn test_phrase_call_with_string_literal_backslash_escape() {
+    let t = parse_template(r#"{trigger("path\\file")}"#).unwrap();
+    match &t.segments[0] {
+        Segment::Interpolation { reference, .. } => match reference {
+            Reference::PhraseCall { name, args } => {
+                assert_eq!(name, "trigger");
+                assert_eq!(args.len(), 1);
+                assert_eq!(args[0], Reference::StringLiteral(r"path\file".into()));
+            }
+            _ => panic!("expected phrase call"),
+        },
+        Segment::Literal(_) => panic!("expected interpolation"),
+    }
+}
+
+#[test]
+fn test_phrase_call_with_large_number_literal() {
+    let t = parse_template("{cards(42)}").unwrap();
+    match &t.segments[0] {
+        Segment::Interpolation { reference, .. } => match reference {
+            Reference::PhraseCall { name, args } => {
+                assert_eq!(name, "cards");
+                assert_eq!(args.len(), 1);
+                assert_eq!(args[0], Reference::NumberLiteral(42));
+            }
+            _ => panic!("expected phrase call"),
+        },
+        Segment::Literal(_) => panic!("expected interpolation"),
+    }
+}
+
+#[test]
+fn test_phrase_call_mixed_literal_and_param_args() {
+    let t = parse_template("{foo($x, 3, \"hello\")}").unwrap();
+    match &t.segments[0] {
+        Segment::Interpolation { reference, .. } => match reference {
+            Reference::PhraseCall { name, args } => {
+                assert_eq!(name, "foo");
+                assert_eq!(args.len(), 3);
+                assert_eq!(args[0], Reference::Parameter("x".into()));
+                assert_eq!(args[1], Reference::NumberLiteral(3));
+                assert_eq!(args[2], Reference::StringLiteral("hello".into()));
+            }
+            _ => panic!("expected phrase call"),
+        },
+        Segment::Literal(_) => panic!("expected interpolation"),
+    }
+}
+
+#[test]
+fn test_phrase_call_number_literal_zero() {
+    let t = parse_template("{cards(0)}").unwrap();
+    match &t.segments[0] {
+        Segment::Interpolation { reference, .. } => match reference {
+            Reference::PhraseCall { name, args } => {
+                assert_eq!(name, "cards");
+                assert_eq!(args[0], Reference::NumberLiteral(0));
+            }
+            _ => panic!("expected phrase call"),
+        },
+        Segment::Literal(_) => panic!("expected interpolation"),
+    }
+}
+
+#[test]
+fn test_phrase_call_with_empty_string_literal() {
+    let t = parse_template(r#"{foo("")}"#).unwrap();
+    match &t.segments[0] {
+        Segment::Interpolation { reference, .. } => match reference {
+            Reference::PhraseCall { name, args } => {
+                assert_eq!(name, "foo");
+                assert_eq!(args[0], Reference::StringLiteral(String::new()));
+            }
+            _ => panic!("expected phrase call"),
+        },
+        Segment::Literal(_) => panic!("expected interpolation"),
+    }
+}

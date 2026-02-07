@@ -2020,3 +2020,99 @@ fn eval_variant_phrase_auto_selects_via_locale() {
         .unwrap();
     assert_eq!(three.to_string(), "this turn 3 times");
 }
+
+// =============================================================================
+// Literal Arguments in Phrase Calls
+// =============================================================================
+
+#[test]
+fn eval_phrase_call_with_number_literal() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        cards($n) = { one: "a card", other: "{$n} cards" };
+        pair = "You have {cards(2)}.";
+    "#,
+        )
+        .unwrap();
+    let result = registry.get_phrase("en", "pair").unwrap();
+    assert_eq!(result.to_string(), "You have 2 cards.");
+}
+
+#[test]
+fn eval_phrase_call_with_number_literal_match() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        cards($n) = { one: "a card", other: "{$n} cards" };
+        one_card = "{cards(1)}";
+    "#,
+        )
+        .unwrap();
+    let result = registry.get_phrase("en", "one_card").unwrap();
+    assert_eq!(result.to_string(), "a card");
+}
+
+#[test]
+fn eval_phrase_call_with_string_literal() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        trigger($t) = "<b>{$t}</b>";
+        example = "{trigger("Attack")}";
+    "#,
+        )
+        .unwrap();
+    let result = registry.get_phrase("en", "example").unwrap();
+    assert_eq!(result.to_string(), "<b>Attack</b>");
+}
+
+#[test]
+fn eval_phrase_call_with_string_literal_escape() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        wrap($s) = "[{$s}]";
+        example = "{wrap("He said \"hi\"")}";
+    "#,
+        )
+        .unwrap();
+    let result = registry.get_phrase("en", "example").unwrap();
+    assert_eq!(result.to_string(), "[He said \"hi\"]");
+}
+
+#[test]
+fn eval_phrase_call_with_number_literal_zero() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        items($n) = { one: "one item", other: "{$n} items" };
+        none = "{items(0)}";
+    "#,
+        )
+        .unwrap();
+    let result = registry.get_phrase("en", "none").unwrap();
+    assert_eq!(result.to_string(), "0 items");
+}
+
+#[test]
+fn eval_phrase_call_mixed_literal_and_param() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        format($label, $n) = "{$label}: {$n}";
+        example($n) = "{format("Score", $n)}";
+    "#,
+        )
+        .unwrap();
+    let result = registry
+        .call_phrase("en", "example", &[Value::from(42)])
+        .unwrap();
+    assert_eq!(result.to_string(), "Score: 42");
+}

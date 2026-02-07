@@ -453,18 +453,55 @@ fn phrase_call_args(input: &mut &str) -> ModalResult<Vec<Reference>> {
     .parse_next(input)
 }
 
-/// Parse a reference argument: $param or bare term name.
+/// Parse a reference argument: $param, bare term name, number literal, or string literal.
 fn reference_arg(input: &mut &str) -> ModalResult<Reference> {
     if input.starts_with('$') {
         let _ = '$'.parse_next(input)?;
         simple_identifier
             .map(|name| Reference::Parameter(name.to_string()))
             .parse_next(input)
+    } else if input.starts_with('"') {
+        string_literal_arg(input)
+    } else if input.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+        number_literal_arg(input)
     } else {
         simple_identifier
             .map(|name| Reference::Identifier(name.to_string()))
             .parse_next(input)
     }
+}
+
+/// Parse a number literal argument: sequence of digits.
+fn number_literal_arg(input: &mut &str) -> ModalResult<Reference> {
+    let digits: &str = take_while(1.., |c: char| c.is_ascii_digit()).parse_next(input)?;
+    let n: i64 = digits
+        .parse()
+        .map_err(|_| ErrMode::Backtrack(ContextError::new()))?;
+    Ok(Reference::NumberLiteral(n))
+}
+
+/// Parse a string literal argument: "text" with escape support for \" and \\.
+fn string_literal_arg(input: &mut &str) -> ModalResult<Reference> {
+    let _ = '"'.parse_next(input)?;
+    let mut result = String::new();
+    loop {
+        match any.parse_next(input)? {
+            '"' => break,
+            '\\' => {
+                let escaped = any.parse_next(input)?;
+                match escaped {
+                    '"' => result.push('"'),
+                    '\\' => result.push('\\'),
+                    other => {
+                        result.push('\\');
+                        result.push(other);
+                    }
+                }
+            }
+            c => result.push(c),
+        }
+    }
+    Ok(Reference::StringLiteral(result))
 }
 
 /// Parse a selector: :identifier or :$param

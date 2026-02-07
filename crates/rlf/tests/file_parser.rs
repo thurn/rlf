@@ -655,3 +655,118 @@ fn test_both_static_and_dynamic_context() {
         PhraseBody::Variants(_) => panic!("expected simple body"),
     }
 }
+
+// =============================================================================
+// Literal arguments in phrase calls
+// =============================================================================
+
+#[test]
+fn test_phrase_call_with_number_literal() {
+    let phrases = parse_file(
+        r#"
+        cards($n) = { one: "a card", other: "{$n} cards" };
+        pair = "You have {cards(2)}.";
+    "#,
+    )
+    .unwrap();
+    assert_eq!(phrases.len(), 2);
+    match &phrases[1].body {
+        PhraseBody::Simple(t) => {
+            let interp = t
+                .segments
+                .iter()
+                .find(|s| matches!(s, Segment::Interpolation { .. }))
+                .expect("expected interpolation");
+            match interp {
+                Segment::Interpolation { reference, .. } => match reference {
+                    Reference::PhraseCall { name, args } => {
+                        assert_eq!(name, "cards");
+                        assert_eq!(args.len(), 1);
+                        assert_eq!(args[0], Reference::NumberLiteral(2));
+                    }
+                    _ => panic!("expected phrase call"),
+                },
+                Segment::Literal(_) => panic!("expected interpolation"),
+            }
+        }
+        PhraseBody::Variants(_) => panic!("expected simple body"),
+    }
+}
+
+#[test]
+fn test_phrase_call_with_string_literal() {
+    let phrases = parse_file(
+        r#"
+        trigger($t) = "<b>{$t}</b>";
+        example = "{trigger("Attack")}";
+    "#,
+    )
+    .unwrap();
+    assert_eq!(phrases.len(), 2);
+    match &phrases[1].body {
+        PhraseBody::Simple(t) => match &t.segments[0] {
+            Segment::Interpolation { reference, .. } => match reference {
+                Reference::PhraseCall { name, args } => {
+                    assert_eq!(name, "trigger");
+                    assert_eq!(args.len(), 1);
+                    assert_eq!(args[0], Reference::StringLiteral("Attack".into()));
+                }
+                _ => panic!("expected phrase call"),
+            },
+            Segment::Literal(_) => panic!("expected interpolation"),
+        },
+        PhraseBody::Variants(_) => panic!("expected simple body"),
+    }
+}
+
+#[test]
+fn test_phrase_call_with_string_literal_escape() {
+    let phrases = parse_file(
+        r#"
+        wrap($s) = "[{$s}]";
+        example = "{wrap("He said \"hi\"")}";
+    "#,
+    )
+    .unwrap();
+    match &phrases[1].body {
+        PhraseBody::Simple(t) => match &t.segments[0] {
+            Segment::Interpolation { reference, .. } => match reference {
+                Reference::PhraseCall { name, args } => {
+                    assert_eq!(name, "wrap");
+                    assert_eq!(args[0], Reference::StringLiteral("He said \"hi\"".into()));
+                }
+                _ => panic!("expected phrase call"),
+            },
+            Segment::Literal(_) => panic!("expected interpolation"),
+        },
+        PhraseBody::Variants(_) => panic!("expected simple body"),
+    }
+}
+
+#[test]
+fn test_phrase_call_mixed_literal_args() {
+    let phrases = parse_file(
+        r#"
+        fmt($a, $b, $c) = "{$a}{$b}{$c}";
+        example($x) = "{fmt(42, "hello", $x)}";
+    "#,
+    )
+    .unwrap();
+    match &phrases[1].body {
+        PhraseBody::Simple(t) => match &t.segments[0] {
+            Segment::Interpolation { reference, .. } => match reference {
+                Reference::PhraseCall { name, args } => {
+                    assert_eq!(name, "fmt");
+                    assert_eq!(args.len(), 3);
+                    assert_eq!(args[0], Reference::NumberLiteral(42));
+                    assert_eq!(args[1], Reference::StringLiteral("hello".into()));
+                    assert_eq!(args[2], Reference::Parameter("x".into()));
+                }
+                _ => panic!("expected phrase call"),
+            },
+            Segment::Literal(_) => panic!("expected interpolation"),
+        },
+        PhraseBody::Variants(_) => panic!("expected simple body"),
+    }
+    drop(phrases);
+}

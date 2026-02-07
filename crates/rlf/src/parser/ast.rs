@@ -56,6 +56,10 @@ pub enum Reference {
     Parameter(String),
     /// Reference to a phrase call with arguments: {phrase($arg1, $arg2)}
     PhraseCall { name: String, args: Vec<Reference> },
+    /// Literal integer argument in a phrase call: {cards(2)}
+    NumberLiteral(i64),
+    /// Literal string argument in a phrase call: {trigger("Attack")}
+    StringLiteral(String),
 }
 
 /// A selector for variant selection.
