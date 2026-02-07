@@ -207,4 +207,20 @@ pub enum EvalError {
     /// Unknown transform name.
     #[error("unknown transform '@{name}'")]
     UnknownTransform { name: String },
+
+    /// Term cannot be called with arguments.
+    #[error(
+        "'{name}' is a term — cannot use () call syntax; use {{{}:variant}} or {{{}:$param}} to select a variant",
+        name,
+        name
+    )]
+    ArgumentsToTerm { name: String },
+
+    /// Phrase cannot use `:` without `()`.
+    #[error(
+        "'{name}' is a phrase — cannot use : without (); use {{{}(...)}} or {{{}(...):variant}}",
+        name,
+        name
+    )]
+    SelectorOnPhrase { name: String },
 }

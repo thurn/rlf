@@ -11,8 +11,8 @@ use crate::interpreter::plural::plural_category;
 use crate::interpreter::transforms::TransformRegistry;
 use crate::interpreter::{EvalContext, EvalError, PhraseRegistry};
 use crate::parser::ast::{
-    PhraseBody, PhraseDefinition, Reference, Segment, Selector, Template, Transform,
-    TransformContext, VariantEntry,
+    DefinitionKind, PhraseBody, PhraseDefinition, Reference, Segment, Selector, Template,
+    Transform, TransformContext, VariantEntry,
 };
 use crate::types::{Phrase, Tag, Value, VariantKey};
 
@@ -100,14 +100,10 @@ fn resolve_reference(
                 .get(name)
                 .ok_or_else(|| EvalError::PhraseNotFound { name: name.clone() })?;
 
-            if !def.parameters.is_empty() {
-                // In v2, a bare identifier referencing a parameterized phrase
-                // without () is an error — must use PhraseCall syntax
-                return Err(EvalError::ArgumentCount {
-                    phrase: name.clone(),
-                    expected: def.parameters.len(),
-                    got: 0,
-                });
+            if def.kind == DefinitionKind::Phrase {
+                // v2: a bare identifier referencing a phrase (with parameters)
+                // is always an error — phrases must be called with ()
+                return Err(EvalError::SelectorOnPhrase { name: name.clone() });
             }
 
             // Evaluate the term
@@ -122,6 +118,11 @@ fn resolve_reference(
             let def = registry
                 .get(name)
                 .ok_or_else(|| EvalError::PhraseNotFound { name: name.clone() })?;
+
+            if def.kind == DefinitionKind::Term {
+                // v2: terms cannot be called with () — use : for variant selection
+                return Err(EvalError::ArgumentsToTerm { name: name.clone() });
+            }
 
             // Validate argument count
             if def.parameters.len() != args.len() {
@@ -190,7 +191,6 @@ pub fn eval_phrase_def(
         PhraseBody::Variants(entries) => {
             let (text, variants) =
                 build_phrase_from_variants(entries, ctx, registry, transform_registry, lang)?;
-            let text = auto_select_variant(&def.parameters, ctx, &variants, lang).unwrap_or(text);
             Ok(Phrase::builder()
                 .text(text)
                 .variants(variants)
@@ -610,50 +610,4 @@ fn build_phrase_from_variants(
     }
 
     Ok((default_text, variants))
-}
-
-/// Auto-select a variant based on numeric parameters.
-///
-/// When a variant phrase is called with a numeric parameter, the CLDR plural
-/// category of that number determines the default text. This allows patterns
-/// like `this_turn_times(n) = { one: "this turn", other: "this turn {n} times" }`
-/// to automatically produce the correct variant when called directly.
-///
-/// Returns `None` if no numeric parameter is found or no variant matches.
-fn auto_select_variant(
-    param_names: &[String],
-    ctx: &EvalContext<'_>,
-    variants: &HashMap<VariantKey, String>,
-    lang: &str,
-) -> Option<String> {
-    if variants.is_empty() {
-        return None;
-    }
-
-    for name in param_names {
-        let Some(value) = ctx.get_param(name) else {
-            continue;
-        };
-        let category = match value {
-            Value::Number(n) => plural_category(lang, *n),
-            Value::Float(f) => plural_category(lang, *f as i64),
-            _ => continue,
-        };
-
-        // Try exact match, then progressively shorter fallback keys
-        let key = category.to_string();
-        if let Some(text) = variants.get(&VariantKey::new(&key)) {
-            return Some(text.clone());
-        }
-        // Try fallback (strip trailing .segment)
-        let mut current = key.as_str();
-        while let Some(dot_pos) = current.rfind('.') {
-            current = &current[..dot_pos];
-            if let Some(text) = variants.get(&VariantKey::new(current)) {
-                return Some(text.clone());
-            }
-        }
-    }
-
-    None
 }

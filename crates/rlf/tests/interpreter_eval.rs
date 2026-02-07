@@ -1776,7 +1776,7 @@ fn eval_phrase_call_replaces_auto_forward() {
 
 #[test]
 fn eval_bare_identifier_on_parameterized_phrase_is_error() {
-    // v2: phrases with params use simple template bodies.
+    // v2: bare identifier referencing a phrase is an error — must use ()
     let mut registry = PhraseRegistry::new();
     registry
         .load_phrases(
@@ -1788,14 +1788,10 @@ fn eval_bare_identifier_on_parameterized_phrase_is_error() {
         .unwrap();
 
     let err = registry.get_phrase("en", "bad").unwrap_err();
-    assert!(matches!(
-        err,
-        EvalError::ArgumentCount {
-            expected: 1,
-            got: 0,
-            ..
-        }
-    ));
+    assert!(
+        matches!(err, EvalError::SelectorOnPhrase { ref name } if name == "cards"),
+        "expected SelectorOnPhrase, got: {err:?}"
+    );
 }
 
 #[test]
@@ -2104,4 +2100,198 @@ fn eval_phrase_call_mixed_literal_and_param() {
         .call_phrase("en", "example", &[Value::from(42)])
         .unwrap();
     assert_eq!(result.to_string(), "Score: 42");
+}
+
+// =============================================================================
+// Term/Phrase Usage Rule Enforcement
+// =============================================================================
+
+#[test]
+fn error_arguments_to_term() {
+    // {card($n)} where card is a term -> ArgumentsToTerm error
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        card = { one: "card", other: "cards" };
+        bad($n) = "{card($n)}";
+    "#,
+        )
+        .unwrap();
+
+    let err = registry
+        .call_phrase("en", "bad", &[Value::from(1)])
+        .unwrap_err();
+    assert!(
+        matches!(err, EvalError::ArgumentsToTerm { ref name } if name == "card"),
+        "expected ArgumentsToTerm, got: {err:?}"
+    );
+    let msg = err.to_string();
+    assert!(msg.contains("term"), "error should mention 'term': {msg}");
+    assert!(
+        msg.contains("card:variant"),
+        "error should suggest :variant syntax: {msg}"
+    );
+}
+
+#[test]
+fn error_selector_on_phrase_with_colon() {
+    // {cards:other} where cards is a phrase -> SelectorOnPhrase error
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        cards($n) = "{$n} cards";
+        bad = "{cards:other}";
+    "#,
+        )
+        .unwrap();
+
+    let err = registry.get_phrase("en", "bad").unwrap_err();
+    assert!(
+        matches!(err, EvalError::SelectorOnPhrase { ref name } if name == "cards"),
+        "expected SelectorOnPhrase, got: {err:?}"
+    );
+    let msg = err.to_string();
+    assert!(
+        msg.contains("phrase"),
+        "error should mention 'phrase': {msg}"
+    );
+    assert!(
+        msg.contains("cards(...)"),
+        "error should suggest () syntax: {msg}"
+    );
+}
+
+#[test]
+fn error_bare_phrase_reference() {
+    // {cards} where cards is a phrase -> SelectorOnPhrase error
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        cards($n) = "{$n} cards";
+        bad = "{cards}";
+    "#,
+        )
+        .unwrap();
+
+    let err = registry.get_phrase("en", "bad").unwrap_err();
+    assert!(
+        matches!(err, EvalError::SelectorOnPhrase { ref name } if name == "cards"),
+        "expected SelectorOnPhrase, got: {err:?}"
+    );
+}
+
+#[test]
+fn ok_term_with_static_selection() {
+    // {card:other} where card is a term -> OK
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        card = { one: "card", other: "cards" };
+        all_cards = "All {card:other}.";
+    "#,
+        )
+        .unwrap();
+
+    let result = registry.get_phrase("en", "all_cards").unwrap();
+    assert_eq!(result.to_string(), "All cards.");
+}
+
+#[test]
+fn ok_phrase_call_with_args() {
+    // {cards($n)} where cards is a phrase -> OK
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        cards($n) = "{$n} cards";
+        draw($n) = "Draw {cards($n)}.";
+    "#,
+        )
+        .unwrap();
+
+    let result = registry
+        .call_phrase("en", "draw", &[Value::from(3)])
+        .unwrap();
+    assert_eq!(result.to_string(), "Draw 3 cards.");
+}
+
+#[test]
+fn ok_phrase_call_then_select() {
+    // {cards($n):one} -> call phrase then select variant from result -> OK
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        ancient = :an { one: "Ancient", other: "Ancients" };
+        subtype($s) = :from($s) "<b>{$s}</b>";
+        get_plural($s) = "{subtype($s):other}";
+    "#,
+        )
+        .unwrap();
+
+    let ancient = registry.get_phrase("en", "ancient").unwrap();
+    let result = registry
+        .call_phrase("en", "get_plural", &[Value::Phrase(ancient)])
+        .unwrap();
+    assert_eq!(result.to_string(), "<b>Ancients</b>");
+}
+
+#[test]
+fn error_arguments_to_term_via_call_phrase_api() {
+    // Calling a term via call_phrase with args -> ArgumentsToTerm error
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(r#"card = { one: "card", other: "cards" };"#)
+        .unwrap();
+
+    let err = registry
+        .call_phrase("en", "card", &[Value::from(1)])
+        .unwrap_err();
+    assert!(
+        matches!(err, EvalError::ArgumentsToTerm { ref name } if name == "card"),
+        "expected ArgumentsToTerm, got: {err:?}"
+    );
+}
+
+#[test]
+fn error_get_phrase_on_phrase_definition() {
+    // Calling get_phrase on a phrase (with params) -> SelectorOnPhrase
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(r#"greet($name) = "Hello, {$name}!";"#)
+        .unwrap();
+
+    let err = registry.get_phrase("en", "greet").unwrap_err();
+    assert!(
+        matches!(err, EvalError::SelectorOnPhrase { ref name } if name == "greet"),
+        "expected SelectorOnPhrase, got: {err:?}"
+    );
+}
+
+#[test]
+fn error_arguments_to_term_message_format() {
+    let err = EvalError::ArgumentsToTerm {
+        name: "card".to_string(),
+    };
+    let msg = err.to_string();
+    assert!(msg.contains("'card' is a term"));
+    assert!(msg.contains("cannot use () call syntax"));
+    assert!(msg.contains("{card:variant}"));
+    assert!(msg.contains("{card:$param}"));
+}
+
+#[test]
+fn error_selector_on_phrase_message_format() {
+    let err = EvalError::SelectorOnPhrase {
+        name: "cards".to_string(),
+    };
+    let msg = err.to_string();
+    assert!(msg.contains("'cards' is a phrase"));
+    assert!(msg.contains("cannot use : without ()"));
+    assert!(msg.contains("{cards(...)}"));
+    assert!(msg.contains("{cards(...):variant}"));
 }

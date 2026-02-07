@@ -201,6 +201,12 @@ impl PhraseRegistry {
             name: name.to_string(),
         })?;
 
+        if def.kind == DefinitionKind::Term && !args.is_empty() {
+            return Err(EvalError::ArgumentsToTerm {
+                name: name.to_string(),
+            });
+        }
+
         // Check argument count
         if def.parameters.len() != args.len() {
             return Err(EvalError::ArgumentCount {
@@ -252,11 +258,9 @@ impl PhraseRegistry {
             name: name.to_string(),
         })?;
 
-        if !def.parameters.is_empty() {
-            return Err(EvalError::ArgumentCount {
-                phrase: name.to_string(),
-                expected: def.parameters.len(),
-                got: 0,
+        if def.kind == DefinitionKind::Phrase {
+            return Err(EvalError::SelectorOnPhrase {
+                name: name.to_string(),
             });
         }
 
