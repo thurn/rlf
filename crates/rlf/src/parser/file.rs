@@ -2,6 +2,8 @@
 //!
 //! Parses `.rlf` files containing phrase definitions.
 
+use std::collections::HashSet;
+
 use super::ast::*;
 use super::error::ParseError;
 use crate::types::Tag;
@@ -59,13 +61,13 @@ fn validate_definitions(definitions: &[PhraseDefinition]) -> Result<(), ParseErr
             });
         }
 
-        // Phrases cannot have variant block bodies (until :match is added in M4)
+        // Phrases cannot have variant block bodies — use :match for branching
         if def.kind == DefinitionKind::Phrase && matches!(def.body, PhraseBody::Variants(_)) {
             return Err(ParseError::Syntax {
                 line: 0,
                 column: 0,
                 message: format!(
-                    "phrase '{}' cannot have a variant block — use :match for branching",
+                    "phrase '{}' cannot have a variant block — use :match($param) for branching",
                     def.name
                 ),
             });
@@ -78,6 +80,29 @@ fn validate_definitions(definitions: &[PhraseDefinition]) -> Result<(), ParseErr
                 column: 0,
                 message: format!(":from requires parameters on definition '{}'", def.name),
             });
+        }
+
+        // :match requires parameters (must be a phrase)
+        if def.kind == DefinitionKind::Term && !def.match_params.is_empty() {
+            return Err(ParseError::Syntax {
+                line: 0,
+                column: 0,
+                message: format!(":match requires parameters on definition '{}'", def.name),
+            });
+        }
+
+        // :match parameters must be declared in the phrase signature
+        for mp in &def.match_params {
+            if !def.parameters.contains(mp) {
+                return Err(ParseError::Syntax {
+                    line: 0,
+                    column: 0,
+                    message: format!(
+                        ":match parameter '{}' is not declared in phrase '{}' — add it to the parameter list",
+                        mp, def.name
+                    ),
+                });
+            }
         }
 
         // Validate * default markers in variant blocks
@@ -114,7 +139,64 @@ fn validate_definitions(definitions: &[PhraseDefinition]) -> Result<(), ParseErr
                 });
             }
         }
+
+        // Validate * default markers in match blocks
+        if let PhraseBody::Match(branches) = &def.body {
+            validate_match_defaults(def, branches)?;
+        }
     }
+    Ok(())
+}
+
+/// Validate that exactly one distinct `*` default value exists per dimension in a match block.
+fn validate_match_defaults(
+    def: &PhraseDefinition,
+    branches: &[MatchBranch],
+) -> Result<(), ParseError> {
+    let num_dims = def.match_params.len();
+
+    // Collect distinct default values per dimension
+    let mut default_values_per_dim: Vec<HashSet<String>> = vec![HashSet::new(); num_dims];
+
+    for branch in branches {
+        for key in &branch.keys {
+            let parts: Vec<&str> = key.value.split('.').collect();
+            for (dim, &is_default) in key.default_dimensions.iter().enumerate() {
+                if is_default && dim < num_dims && dim < parts.len() {
+                    default_values_per_dim[dim].insert(parts[dim].to_string());
+                }
+            }
+        }
+    }
+
+    // Validate: exactly one distinct default value per dimension
+    for (dim, values) in default_values_per_dim.iter().enumerate() {
+        if values.is_empty() {
+            let param_name = &def.match_params[dim];
+            return Err(ParseError::Syntax {
+                line: 0,
+                column: 0,
+                message: format!(
+                    "no '*' default branch for :match parameter '{}' in phrase '{}' — exactly one branch must be marked with '*'",
+                    param_name, def.name
+                ),
+            });
+        }
+        if values.len() > 1 {
+            let param_name = &def.match_params[dim];
+            return Err(ParseError::Syntax {
+                line: 0,
+                column: 0,
+                message: format!(
+                    "multiple '*' default values for :match parameter '{}' in phrase '{}' — exactly one is allowed (found: {})",
+                    param_name,
+                    def.name,
+                    values.iter().cloned().collect::<Vec<_>>().join(", ")
+                ),
+            });
+        }
+    }
+
     Ok(())
 }
 
@@ -155,7 +237,7 @@ fn line_comment<'i>(input: &mut &'i str) -> ModalResult<&'i str> {
     preceded("//", take_while(0.., |c| c != '\n')).parse_next(input)
 }
 
-/// Parse a phrase definition: name(params)? = tags? from? body ;
+/// Parse a phrase definition: name(params)? = tags? from? match? body ;
 fn phrase_definition(input: &mut &str) -> ModalResult<PhraseDefinition> {
     let name = snake_case_identifier(input)?;
     skip_ws_and_comments(input)?;
@@ -173,12 +255,31 @@ fn phrase_definition(input: &mut &str) -> ModalResult<PhraseDefinition> {
     // Optional tags
     let tags: Vec<Tag> = repeat(0.., terminated(tag, skip_ws_and_comments)).parse_next(input)?;
 
-    // Optional :from(param)
-    let from_param: Option<String> =
-        opt(terminated(from_modifier, skip_ws_and_comments)).parse_next(input)?;
+    // Parse :from and :match in either order
+    let mut from_param: Option<String> = None;
+    let mut match_params: Vec<String> = Vec::new();
 
-    // Body (simple template or variant block)
-    let body = phrase_body(input)?;
+    // Try :from first, then :match, then :from again (covers both orders)
+    if let Some(fp) = opt(terminated(from_modifier, skip_ws_and_comments)).parse_next(input)? {
+        from_param = Some(fp);
+    }
+    if let Some(mp) = opt(terminated(match_modifier, skip_ws_and_comments)).parse_next(input)? {
+        match_params = mp;
+    }
+    if from_param.is_none()
+        && let Some(fp) = opt(terminated(from_modifier, skip_ws_and_comments)).parse_next(input)?
+    {
+        from_param = Some(fp);
+    }
+
+    // Body: if :match was specified, parse a match block; otherwise simple or variant block
+    let body = if !match_params.is_empty() {
+        match_block(match_params.len())
+            .map(PhraseBody::Match)
+            .parse_next(input)?
+    } else {
+        phrase_body(input)?
+    };
     skip_ws_and_comments(input)?;
 
     // Semicolon
@@ -197,6 +298,7 @@ fn phrase_definition(input: &mut &str) -> ModalResult<PhraseDefinition> {
         parameters,
         tags,
         from_param,
+        match_params,
         body,
         has_empty_parens,
     })
@@ -248,8 +350,8 @@ fn tag(input: &mut &str) -> ModalResult<Tag> {
         take_while(1.., |c: char| c.is_ascii_alphanumeric() || c == '_'),
     )
     .verify(|s: &&str| {
-        // Make sure this is not a :from modifier
-        *s != "from"
+        // Make sure this is not a :from or :match modifier
+        *s != "from" && *s != "match"
     })
     .map(|s: &str| Tag::new(s))
     .parse_next(input)
@@ -258,6 +360,111 @@ fn tag(input: &mut &str) -> ModalResult<Tag> {
 /// Parse a :from(param) modifier.
 fn from_modifier(input: &mut &str) -> ModalResult<String> {
     preceded(":from", delimited('(', parameter_name, ')')).parse_next(input)
+}
+
+/// Parse a :match($p1, $p2, ...) modifier.
+fn match_modifier(input: &mut &str) -> ModalResult<Vec<String>> {
+    preceded(
+        ":match",
+        delimited(
+            '(',
+            separated(
+                1..,
+                preceded(skip_ws_and_comments, parameter_name),
+                (skip_ws_and_comments, ',', skip_ws_and_comments),
+            ),
+            preceded(skip_ws_and_comments, ')'),
+        ),
+    )
+    .parse_next(input)
+}
+
+/// Parse a match block: { key: "template", *default: "template" }
+fn match_block(num_params: usize) -> impl FnMut(&mut &str) -> ModalResult<Vec<MatchBranch>> {
+    move |input: &mut &str| {
+        delimited(
+            ('{', skip_ws_and_comments),
+            |input: &mut &str| match_entries(input, num_params),
+            (skip_ws_and_comments, '}'),
+        )
+        .parse_next(input)
+    }
+}
+
+/// Parse match entries with trailing comma support.
+fn match_entries(input: &mut &str, num_params: usize) -> ModalResult<Vec<MatchBranch>> {
+    let entries: Vec<MatchBranch> = separated(
+        0..,
+        |input: &mut &str| match_entry(input, num_params),
+        (skip_ws_and_comments, ',', skip_ws_and_comments),
+    )
+    .parse_next(input)?;
+
+    // Allow trailing comma
+    let _ = opt((skip_ws_and_comments, ',')).parse_next(input)?;
+
+    Ok(entries)
+}
+
+/// Parse a single match entry: *?key1, key2: "template"
+fn match_entry(input: &mut &str, num_params: usize) -> ModalResult<MatchBranch> {
+    let keys = match_keys(input, num_params)?;
+    skip_ws_and_comments(input)?;
+    ':'.parse_next(input)?;
+    skip_ws_and_comments(input)?;
+    let template = template_string(input)?;
+
+    Ok(MatchBranch { keys, template })
+}
+
+/// Parse match keys: key1, key2, key3 (before the colon).
+fn match_keys(input: &mut &str, num_params: usize) -> ModalResult<Vec<MatchKey>> {
+    separated(
+        1..,
+        |input: &mut &str| match_key(input, num_params),
+        (skip_ws_and_comments, ',', skip_ws_and_comments),
+    )
+    .parse_next(input)
+}
+
+/// Parse a single match key, possibly with dot notation and `*` defaults per dimension.
+///
+/// Examples: `1`, `other`, `*other`, `1.masc`, `*other.*neut`
+fn match_key(input: &mut &str, num_params: usize) -> ModalResult<MatchKey> {
+    let mut value_parts = Vec::new();
+    let mut default_dims = Vec::new();
+
+    // Parse first dimension
+    let is_default = opt('*').parse_next(input)?.is_some();
+    default_dims.push(is_default);
+    let part = match_key_component(input)?;
+    value_parts.push(part);
+
+    // Parse additional dimensions (dot-separated)
+    while input.starts_with('.') {
+        let _ = '.'.parse_next(input)?;
+        let is_default = opt('*').parse_next(input)?.is_some();
+        default_dims.push(is_default);
+        let part = match_key_component(input)?;
+        value_parts.push(part);
+    }
+
+    // Validate dimension count matches number of match parameters
+    if value_parts.len() != num_params {
+        return Err(ErrMode::Backtrack(ContextError::new()));
+    }
+
+    Ok(MatchKey {
+        value: value_parts.join("."),
+        default_dimensions: default_dims,
+    })
+}
+
+/// Parse a single component of a match key (identifier or number).
+fn match_key_component(input: &mut &str) -> ModalResult<String> {
+    take_while(1.., |c: char| c.is_ascii_alphanumeric() || c == '_')
+        .map(|s: &str| s.to_string())
+        .parse_next(input)
 }
 
 /// Parse a phrase body: simple template or variant block.

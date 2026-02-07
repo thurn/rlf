@@ -378,24 +378,46 @@ impl Locale {
                 let def = target_registry
                     .get(name)
                     .expect("name came from this registry");
-                if let PhraseBody::Variants(entries) = &def.body {
-                    for entry in entries {
-                        for key in &entry.keys {
-                            for component in key.split('.') {
-                                if !valid_keys.contains(&component) {
-                                    warnings.push(LoadWarning::InvalidVariantKey {
-                                        name: name.to_string(),
-                                        language: target_language.to_string(),
-                                        key: component.to_string(),
-                                        valid_keys: valid_keys
-                                            .iter()
-                                            .map(ToString::to_string)
-                                            .collect(),
-                                    });
+                match &def.body {
+                    PhraseBody::Variants(entries) => {
+                        for entry in entries {
+                            for key in &entry.keys {
+                                for component in key.split('.') {
+                                    if !valid_keys.contains(&component) {
+                                        warnings.push(LoadWarning::InvalidVariantKey {
+                                            name: name.to_string(),
+                                            language: target_language.to_string(),
+                                            key: component.to_string(),
+                                            valid_keys: valid_keys
+                                                .iter()
+                                                .map(ToString::to_string)
+                                                .collect(),
+                                        });
+                                    }
                                 }
                             }
                         }
                     }
+                    PhraseBody::Match(branches) => {
+                        for branch in branches {
+                            for key in &branch.keys {
+                                for component in key.value.split('.') {
+                                    if !valid_keys.contains(&component) {
+                                        warnings.push(LoadWarning::InvalidVariantKey {
+                                            name: name.to_string(),
+                                            language: target_language.to_string(),
+                                            key: component.to_string(),
+                                            valid_keys: valid_keys
+                                                .iter()
+                                                .map(ToString::to_string)
+                                                .collect(),
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    PhraseBody::Simple(_) => {}
                 }
             }
         }

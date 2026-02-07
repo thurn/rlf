@@ -1,0 +1,5 @@
+error: :match parameter 'unknown' is not declared in phrase 'cards' — add it to the parameter list
+ --> tests/fail/match_undeclared_param.rs:4:25
+  |
+4 |     cards($n) = :match($unknown) { *other: "cards" };
+  |                         ^^^^^^^

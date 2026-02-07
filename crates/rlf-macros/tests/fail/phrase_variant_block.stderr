@@ -1,4 +1,4 @@
-error: phrase 'cards' cannot have a variant block — use :match for branching
+error: phrase 'cards' cannot have a variant block — use :match($param) for branching
  --> tests/fail/phrase_variant_block.rs:4:5
   |
 4 |     cards($n) = { one: "{$n} card", other: "{$n} cards" };

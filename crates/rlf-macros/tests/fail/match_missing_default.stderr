@@ -1,0 +1,5 @@
+error: no '*' default branch for :match parameter 'n' — exactly one branch must be marked with '*'
+ --> tests/fail/match_missing_default.rs:4:25
+  |
+4 |     cards($n) = :match($n) { 1: "a card", other: "{$n} cards" };
+  |                         ^

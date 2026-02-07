@@ -34,6 +34,8 @@ pub struct PhraseDefinition {
     pub parameters: Vec<SpannedIdent>,
     pub tags: Vec<SpannedIdent>,
     pub from_param: Option<SpannedIdent>,
+    /// :match parameter names (empty if no :match).
+    pub match_params: Vec<SpannedIdent>,
     pub body: PhraseBody,
 }
 
@@ -61,11 +63,12 @@ impl SpannedIdent {
     }
 }
 
-/// Phrase body: either simple template or variant map.
+/// Phrase body: either simple template, variant map, or match block.
 #[derive(Debug)]
 pub enum PhraseBody {
     Simple(Template),
     Variants(Vec<VariantEntry>),
+    Match(Vec<MatchBranch>),
 }
 
 /// A variant entry: `key: "template"`
@@ -76,6 +79,25 @@ pub struct VariantEntry {
     pub template: Template,
     /// Whether this entry is marked as the default with `*`.
     pub is_default: bool,
+}
+
+/// A single branch in a `:match` block.
+#[derive(Debug)]
+pub struct MatchBranch {
+    /// Match keys (multiple keys share the same template, e.g. `one, other: "text"`).
+    pub keys: Vec<MatchKey>,
+    /// Template for this branch.
+    pub template: Template,
+}
+
+/// A single key in a `:match` branch.
+#[derive(Debug)]
+pub struct MatchKey {
+    /// The full key value (e.g. "1", "other", "1.masc").
+    /// Default markers (`*`) are stripped.
+    pub value: SpannedIdent,
+    /// Whether each dimension is marked as default with `*`.
+    pub default_dimensions: Vec<bool>,
 }
 
 /// A template string with interpolations.

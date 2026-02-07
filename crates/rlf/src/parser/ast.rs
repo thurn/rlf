@@ -98,7 +98,9 @@ pub struct PhraseDefinition {
     pub tags: Vec<Tag>,
     /// :from(param) inheritance (None if not present).
     pub from_param: Option<String>,
-    /// Phrase body (simple template or variants).
+    /// :match parameter names (empty if no :match).
+    pub match_params: Vec<String>,
+    /// Phrase body (simple template, variants, or match).
     pub body: PhraseBody,
     /// Whether the definition had an explicit empty parameter list `()`.
     ///
@@ -112,8 +114,10 @@ pub struct PhraseDefinition {
 pub enum PhraseBody {
     /// Simple phrase: name = "text";
     Simple(Template),
-    /// Variant phrase: name = { one: "x", other: "y" };
+    /// Variant phrase (terms only): name = { one: "x", other: "y" };
     Variants(Vec<VariantEntry>),
+    /// Match phrase: name($n) = :match($n) { 1: "x", *other: "y" };
+    Match(Vec<MatchBranch>),
 }
 
 /// A single variant entry in a variant block.
@@ -125,4 +129,30 @@ pub struct VariantEntry {
     pub template: Template,
     /// Whether this entry is marked as the default with `*`.
     pub is_default: bool,
+}
+
+/// A single branch in a `:match` block.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MatchBranch {
+    /// Match keys (multiple keys share the same template, e.g. `one, other: "text"`).
+    /// For multi-parameter match, keys use dot notation (e.g. `1.masc`, `*other.*neut`).
+    pub keys: Vec<MatchKey>,
+    /// Template for this branch.
+    pub template: Template,
+}
+
+/// A single key in a `:match` branch.
+///
+/// Supports named keys (`one`, `other`, `masc`), numeric keys (`0`, `1`, `2`),
+/// and multi-parameter dot-notation keys (`1.masc`, `*other.fem`).
+/// Each dot-separated component has an independent default marker.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MatchKey {
+    /// The full key value (e.g. "1", "other", "1.masc", "other.fem").
+    /// Numeric keys are stored as strings. Default markers (`*`) are stripped.
+    pub value: String,
+    /// Whether each dimension in this key is marked as default with `*`.
+    /// For single-param match, this has one element.
+    /// For multi-param match with dot notation, one element per dimension.
+    pub default_dimensions: Vec<bool>,
 }

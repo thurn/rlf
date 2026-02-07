@@ -10,8 +10,8 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
 use crate::input::{
-    DefinitionKind, Interpolation, MacroInput, PhraseBody, PhraseDefinition, Reference, Segment,
-    Selector, Template, TransformContext, TransformRef,
+    DefinitionKind, Interpolation, MacroInput, MatchBranch, MatchKey, PhraseBody, PhraseDefinition,
+    Reference, Segment, Selector, Template, TransformContext, TransformRef,
 };
 
 /// Main code generation entry point.
@@ -256,6 +256,18 @@ fn reconstruct_source(input: &MacroInput) -> String {
             line.push_str(") ");
         }
 
+        // :match modifier
+        if !phrase.match_params.is_empty() {
+            line.push_str(":match(");
+            let params: Vec<_> = phrase
+                .match_params
+                .iter()
+                .map(|p| format!("${}", p.name))
+                .collect();
+            line.push_str(&params.join(", "));
+            line.push_str(") ");
+        }
+
         // Body
         match &phrase.body {
             PhraseBody::Simple(template) => {
@@ -281,6 +293,13 @@ fn reconstruct_source(input: &MacroInput) -> String {
                 line.push_str(&variant_strs.join(", "));
                 line.push_str(" }");
             }
+            PhraseBody::Match(branches) => {
+                line.push_str("{ ");
+                let branch_strs: Vec<String> =
+                    branches.iter().map(reconstruct_match_branch).collect();
+                line.push_str(&branch_strs.join(", "));
+                line.push_str(" }");
+            }
         }
 
         line.push(';');
@@ -288,6 +307,32 @@ fn reconstruct_source(input: &MacroInput) -> String {
     }
 
     lines.join("\n")
+}
+
+/// Reconstruct a match branch for source output.
+fn reconstruct_match_branch(branch: &MatchBranch) -> String {
+    let key_strs: Vec<String> = branch.keys.iter().map(reconstruct_match_key).collect();
+    format!(
+        "{}: \"{}\"",
+        key_strs.join(", "),
+        reconstruct_template(&branch.template)
+    )
+}
+
+/// Reconstruct a match key with `*` default markers.
+fn reconstruct_match_key(key: &MatchKey) -> String {
+    let parts: Vec<&str> = key.value.name.split('.').collect();
+    let mut result = String::new();
+    for (i, part) in parts.iter().enumerate() {
+        if i > 0 {
+            result.push('.');
+        }
+        if key.default_dimensions.get(i).copied().unwrap_or(false) {
+            result.push('*');
+        }
+        result.push_str(part);
+    }
+    result
 }
 
 /// Reconstruct a template string from Template AST.

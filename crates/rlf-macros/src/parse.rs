@@ -2,11 +2,13 @@
 //!
 //! Implements syn::parse::Parse for all AST types defined in input.rs.
 
+use std::collections::HashSet;
 use std::mem;
 
 use crate::input::{
-    DefinitionKind, Interpolation, MacroInput, PhraseBody, PhraseDefinition, Reference, Segment,
-    Selector, SpannedIdent, Template, TransformContext, TransformRef, VariantEntry,
+    DefinitionKind, Interpolation, MacroInput, MatchBranch, MatchKey, PhraseBody, PhraseDefinition,
+    Reference, Segment, Selector, SpannedIdent, Template, TransformContext, TransformRef,
+    VariantEntry,
 };
 use proc_macro2::Span;
 use syn::parse::{Parse, ParseStream};
@@ -23,44 +25,81 @@ impl Parse for MacroInput {
     }
 }
 
-/// Parsed tags and optional :from modifier.
-struct TagsAndFrom {
+/// Parsed tags, optional :from modifier, and optional :match modifier.
+struct TagsFromMatch {
     tags: Vec<SpannedIdent>,
     from_param: Option<SpannedIdent>,
+    match_params: Vec<SpannedIdent>,
 }
 
-/// Parse optional tags (:tag) and :from(param) modifiers from the input stream.
+/// Parse optional tags (:tag), :from(param), and :match($p1, $p2) modifiers.
 ///
+/// :from and :match can appear in either order. Tags must come before both.
 /// Stops when it encounters something that isn't `:ident` (e.g., a string
 /// literal, brace block, or identifier without colon prefix).
-fn parse_tags_and_from(input: ParseStream) -> syn::Result<TagsAndFrom> {
+fn parse_tags_from_match(input: ParseStream) -> syn::Result<TagsFromMatch> {
     let mut tags = Vec::new();
     let mut from_param = None;
+    let mut match_params = Vec::new();
 
     while input.peek(Token![:]) && !input.peek2(Brace) {
         let colon_span = input.parse::<Token![:]>()?.span;
-        let ident: Ident = input.parse()?;
 
-        if ident == "from" {
+        // `match` is a Rust keyword, so syn::Ident won't parse it.
+        // We check for it explicitly before trying to parse a regular Ident.
+        if input.peek(Token![match]) {
+            input.parse::<Token![match]>()?;
             let content;
             syn::parenthesized!(content in input);
-            // v2: require $ prefix on :from parameter
-            if content.peek(Token![$]) {
-                content.parse::<Token![$]>()?;
-            } else {
+            while !content.is_empty() {
+                if content.peek(Token![$]) {
+                    content.parse::<Token![$]>()?;
+                } else {
+                    return Err(syn::Error::new(
+                        content.span(),
+                        "expected '$' before parameter name in :match",
+                    ));
+                }
+                let param: Ident = content.parse()?;
+                match_params.push(SpannedIdent::new(&param));
+                if content.peek(Token![,]) {
+                    content.parse::<Token![,]>()?;
+                }
+            }
+            if match_params.is_empty() {
                 return Err(syn::Error::new(
-                    content.span(),
-                    "expected '$' before parameter name in :from",
+                    colon_span,
+                    ":match requires at least one parameter",
                 ));
             }
-            let param: Ident = content.parse()?;
-            from_param = Some(SpannedIdent::new(&param));
         } else {
-            tags.push(SpannedIdent::from_str(ident.to_string(), colon_span));
+            let ident: Ident = input.parse()?;
+
+            if ident == "from" {
+                let content;
+                syn::parenthesized!(content in input);
+                // v2: require $ prefix on :from parameter
+                if content.peek(Token![$]) {
+                    content.parse::<Token![$]>()?;
+                } else {
+                    return Err(syn::Error::new(
+                        content.span(),
+                        "expected '$' before parameter name in :from",
+                    ));
+                }
+                let param: Ident = content.parse()?;
+                from_param = Some(SpannedIdent::new(&param));
+            } else {
+                tags.push(SpannedIdent::from_str(ident.to_string(), colon_span));
+            }
         }
     }
 
-    Ok(TagsAndFrom { tags, from_param })
+    Ok(TagsFromMatch {
+        tags,
+        from_param,
+        match_params,
+    })
 }
 
 impl Parse for PhraseDefinition {
@@ -107,11 +146,19 @@ impl Parse for PhraseDefinition {
         // Parse =
         input.parse::<Token![=]>()?;
 
-        // Parse optional tags/from AFTER = sign (DESIGN.md syntax: `name = :tag body`)
-        let TagsAndFrom { tags, from_param } = parse_tags_and_from(input)?;
+        // Parse optional tags/from/match AFTER = sign
+        let TagsFromMatch {
+            tags,
+            from_param,
+            match_params,
+        } = parse_tags_from_match(input)?;
 
-        // Parse body
-        let body: PhraseBody = input.parse()?;
+        // Parse body: if :match was specified, parse a match block
+        let body = if !match_params.is_empty() {
+            parse_match_block(input, match_params.len())?
+        } else {
+            input.parse()?
+        };
 
         // Parse ;
         input.parse::<Token![;]>()?;
@@ -123,12 +170,12 @@ impl Parse for PhraseDefinition {
             DefinitionKind::Phrase
         };
 
-        // Validate: phrases cannot have variant block bodies (until :match in M4)
+        // Validate: phrases cannot have variant block bodies without :match
         if kind == DefinitionKind::Phrase && matches!(body, PhraseBody::Variants(_)) {
             return Err(syn::Error::new(
                 name.span,
                 format!(
-                    "phrase '{}' cannot have a variant block — use :match for branching",
+                    "phrase '{}' cannot have a variant block — use :match($param) for branching",
                     name.name
                 ),
             ));
@@ -141,12 +188,40 @@ impl Parse for PhraseDefinition {
             return Err(syn::Error::new(from.span, ":from requires parameters"));
         }
 
+        // Validate: :match requires parameters (must be a phrase)
+        if kind == DefinitionKind::Term && !match_params.is_empty() {
+            return Err(syn::Error::new(
+                name.span,
+                ":match requires parameters on definition",
+            ));
+        }
+
+        // Validate: :match parameters must be declared in the phrase signature
+        let param_names: HashSet<String> = parameters.iter().map(|p| p.name.clone()).collect();
+        for mp in &match_params {
+            if !param_names.contains(&mp.name) {
+                return Err(syn::Error::new(
+                    mp.span,
+                    format!(
+                        ":match parameter '{}' is not declared in phrase '{}' — add it to the parameter list",
+                        mp.name, name.name
+                    ),
+                ));
+            }
+        }
+
+        // Validate match defaults
+        if let PhraseBody::Match(ref branches) = body {
+            validate_match_defaults(&name, &match_params, branches)?;
+        }
+
         Ok(PhraseDefinition {
             kind,
             name,
             parameters,
             tags,
             from_param,
+            match_params,
             body,
         })
     }
@@ -252,6 +327,163 @@ impl Parse for VariantEntry {
             is_default,
         })
     }
+}
+
+/// Parse a match block: `{ key: "template", *default: "template" }`.
+fn parse_match_block(input: ParseStream, num_params: usize) -> syn::Result<PhraseBody> {
+    let content;
+    syn::braced!(content in input);
+
+    let mut branches = Vec::new();
+    while !content.is_empty() {
+        branches.push(parse_match_entry(&content, num_params)?);
+    }
+
+    Ok(PhraseBody::Match(branches))
+}
+
+/// Parse a single match entry: `*?key1, key2: "template",?`
+fn parse_match_entry(input: ParseStream, num_params: usize) -> syn::Result<MatchBranch> {
+    let mut keys = Vec::new();
+
+    loop {
+        let key = parse_match_key(input, num_params)?;
+        keys.push(key);
+
+        // Check for comma (more keys) or colon (end of keys)
+        if input.peek(Token![,]) && !input.peek2(Token![:]) && !input.peek2(LitStr) {
+            let fork = input.fork();
+            fork.parse::<Token![,]>().ok();
+            // Look ahead: if the next token after comma could start a key (ident,
+            // number, or *), consume the comma and continue.
+            if fork.peek(Ident) || fork.peek(syn::LitInt) || fork.peek(Token![*]) {
+                input.parse::<Token![,]>()?;
+                continue;
+            }
+        }
+        break;
+    }
+
+    // Parse colon
+    input.parse::<Token![:]>()?;
+
+    // Parse template string
+    let template: Template = input.parse()?;
+
+    // Parse optional trailing comma
+    if input.peek(Token![,]) {
+        input.parse::<Token![,]>()?;
+    }
+
+    Ok(MatchBranch { keys, template })
+}
+
+/// Parse a single match key, possibly with dot notation and `*` defaults per dimension.
+///
+/// Examples: `1`, `other`, `*other`, `1.masc`, `*other.*neut`
+fn parse_match_key(input: ParseStream, num_params: usize) -> syn::Result<MatchKey> {
+    let mut value_parts = Vec::new();
+    let mut default_dims = Vec::new();
+
+    // Parse first dimension
+    let is_default = if input.peek(Token![*]) {
+        input.parse::<Token![*]>()?;
+        true
+    } else {
+        false
+    };
+    default_dims.push(is_default);
+
+    let (part, span) = parse_match_key_component(input)?;
+    value_parts.push(part);
+
+    // Parse additional dimensions (dot-separated)
+    while input.peek(Token![.]) {
+        input.parse::<Token![.]>()?;
+        let is_default = if input.peek(Token![*]) {
+            input.parse::<Token![*]>()?;
+            true
+        } else {
+            false
+        };
+        default_dims.push(is_default);
+        let (part, _) = parse_match_key_component(input)?;
+        value_parts.push(part);
+    }
+
+    // Validate dimension count matches number of match parameters
+    if value_parts.len() != num_params {
+        return Err(syn::Error::new(
+            span,
+            format!(
+                "match key has {} dimension(s) but :match has {} parameter(s)",
+                value_parts.len(),
+                num_params
+            ),
+        ));
+    }
+
+    Ok(MatchKey {
+        value: SpannedIdent::from_str(value_parts.join("."), span),
+        default_dimensions: default_dims,
+    })
+}
+
+/// Parse a single component of a match key: an identifier or integer literal.
+fn parse_match_key_component(input: ParseStream) -> syn::Result<(String, Span)> {
+    if input.peek(syn::LitInt) {
+        let lit: syn::LitInt = input.parse()?;
+        Ok((lit.to_string(), lit.span()))
+    } else {
+        let ident: Ident = input.parse()?;
+        Ok((ident.to_string(), ident.span()))
+    }
+}
+
+/// Validate that exactly one distinct `*` default value exists per dimension in match branches.
+fn validate_match_defaults(
+    name: &SpannedIdent,
+    match_params: &[SpannedIdent],
+    branches: &[MatchBranch],
+) -> syn::Result<()> {
+    let num_dims = match_params.len();
+
+    // Collect distinct default values per dimension
+    let mut default_values_per_dim: Vec<HashSet<String>> = vec![HashSet::new(); num_dims];
+
+    for branch in branches {
+        for key in &branch.keys {
+            let parts: Vec<&str> = key.value.name.split('.').collect();
+            for (dim, &is_default) in key.default_dimensions.iter().enumerate() {
+                if is_default && dim < num_dims && dim < parts.len() {
+                    default_values_per_dim[dim].insert(parts[dim].to_string());
+                }
+            }
+        }
+    }
+
+    for (dim, values) in default_values_per_dim.iter().enumerate() {
+        if values.is_empty() {
+            return Err(syn::Error::new(
+                match_params[dim].span,
+                format!(
+                    "no '*' default branch for :match parameter '{}' — exactly one branch must be marked with '*'",
+                    match_params[dim].name
+                ),
+            ));
+        }
+        if values.len() > 1 {
+            return Err(syn::Error::new(
+                name.span,
+                format!(
+                    "multiple '*' default markers for :match parameter '{}' — exactly one is allowed",
+                    match_params[dim].name
+                ),
+            ));
+        }
+    }
+
+    Ok(())
 }
 
 impl Parse for Template {

@@ -11,8 +11,8 @@ use crate::interpreter::plural::plural_category;
 use crate::interpreter::transforms::TransformRegistry;
 use crate::interpreter::{EvalContext, EvalError, PhraseRegistry};
 use crate::parser::ast::{
-    DefinitionKind, PhraseBody, PhraseDefinition, Reference, Segment, Selector, Template,
-    Transform, TransformContext, VariantEntry,
+    DefinitionKind, MatchBranch, PhraseBody, PhraseDefinition, Reference, Segment, Selector,
+    Template, Transform, TransformContext, VariantEntry,
 };
 use crate::types::{Phrase, Tag, Value, VariantKey};
 
@@ -197,6 +197,17 @@ pub fn eval_phrase_def(
                 .tags(tags)
                 .build())
         }
+        PhraseBody::Match(branches) => {
+            let text = eval_match_branches(
+                branches,
+                &def.match_params,
+                ctx,
+                registry,
+                transform_registry,
+                lang,
+            )?;
+            Ok(Phrase::builder().text(text).tags(tags).build())
+        }
     }
 }
 
@@ -233,14 +244,20 @@ fn eval_with_from_modifier(
         (source_phrase.tags.clone(), source_phrase.variants.clone())
     };
 
-    // Get the template from the definition body
+    // Get the template from the definition body (or evaluate match)
     let template = match &def.body {
         PhraseBody::Simple(t) => t,
         PhraseBody::Variants(_) => {
-            // :from with variants is not supported - use simple template
             return Err(EvalError::PhraseNotFound {
                 name: ":from modifier cannot be used with variant definitions".to_string(),
             });
+        }
+        PhraseBody::Match(_) => {
+            // :from + :match: evaluate the match for each inherited variant
+            // The match selection runs within each variant evaluation
+            // For now, fall through to evaluate the match body as-is
+            // (full :from + :match integration is in M4b)
+            return eval_from_with_match(def, from_param, ctx, registry, transform_registry, lang);
         }
     };
 
@@ -285,6 +302,97 @@ fn eval_with_from_modifier(
         // No variants - just evaluate the template
         let text = eval_template(template, ctx, registry, transform_registry, lang)?;
         Ok(Phrase::builder().text(text).tags(inherited_tags).build())
+    }
+}
+
+/// Evaluate a phrase with both :from and :match modifiers.
+///
+/// Inherits tags/variants from :from parameter, evaluates :match branches
+/// within each inherited variant's context.
+fn eval_from_with_match(
+    def: &PhraseDefinition,
+    from_param: &str,
+    ctx: &mut EvalContext<'_>,
+    registry: &PhraseRegistry,
+    transform_registry: &TransformRegistry,
+    lang: &str,
+) -> Result<Phrase, EvalError> {
+    let PhraseBody::Match(branches) = &def.body else {
+        return Err(EvalError::PhraseNotFound {
+            name: "expected Match body in eval_from_with_match".to_string(),
+        });
+    };
+
+    // Get source phrase from the parameter
+    let (inherited_tags, source_variants) = {
+        let source = ctx
+            .get_param(from_param)
+            .ok_or_else(|| EvalError::PhraseNotFound {
+                name: format!("parameter '{}' not found for :from modifier", from_param),
+            })?;
+        let source_phrase = source
+            .as_phrase()
+            .ok_or_else(|| EvalError::PhraseNotFound {
+                name: format!(
+                    "parameter '{}' must be a Phrase for :from modifier",
+                    from_param
+                ),
+            })?;
+        (source_phrase.tags.clone(), source_phrase.variants.clone())
+    };
+
+    // Evaluate match for default text
+    let default_text = eval_match_branches(
+        branches,
+        &def.match_params,
+        ctx,
+        registry,
+        transform_registry,
+        lang,
+    )?;
+
+    if !source_variants.is_empty() {
+        let mut variants = HashMap::new();
+        let mut sorted_keys: Vec<_> = source_variants.keys().collect();
+        sorted_keys.sort();
+        for key in sorted_keys {
+            let variant_text = &source_variants[key];
+            // Build params map: substitute from_param with the variant text,
+            // copy all other params via get_param lookups on known param names
+            let mut variant_params: HashMap<String, Value> = HashMap::new();
+            variant_params.insert(from_param.to_string(), Value::String(variant_text.clone()));
+            for param_name in &def.parameters {
+                if param_name != from_param
+                    && let Some(v) = ctx.get_param(param_name)
+                {
+                    variant_params.insert(param_name.clone(), v.clone());
+                }
+            }
+            let mut variant_ctx = EvalContext::with_string_context(
+                &variant_params,
+                ctx.string_context().map(ToString::to_string),
+            );
+            let variant_result = eval_match_branches(
+                branches,
+                &def.match_params,
+                &mut variant_ctx,
+                registry,
+                transform_registry,
+                lang,
+            )?;
+            variants.insert(key.clone(), variant_result);
+        }
+
+        Ok(Phrase::builder()
+            .text(default_text)
+            .variants(variants)
+            .tags(inherited_tags)
+            .build())
+    } else {
+        Ok(Phrase::builder()
+            .text(default_text)
+            .tags(inherited_tags)
+            .build())
     }
 }
 
@@ -560,6 +668,138 @@ fn resolve_transform_context(
             Ok(Some(Value::String(combined)))
         }
     }
+}
+
+/// Evaluate match branches, selecting the best-matching branch template.
+///
+/// Resolution per dimension:
+/// 1. Exact numeric key (for Number values)
+/// 2. CLDR plural category (for Number values)
+/// 3. Tag-based matching (for Phrase values, first matching tag)
+/// 4. Default (`*`-marked) branch
+fn eval_match_branches(
+    branches: &[MatchBranch],
+    match_params: &[String],
+    ctx: &mut EvalContext<'_>,
+    registry: &PhraseRegistry,
+    transform_registry: &TransformRegistry,
+    lang: &str,
+) -> Result<String, EvalError> {
+    // Resolve each match parameter to its current value
+    let mut resolved_keys: Vec<Vec<String>> = Vec::new();
+    for param_name in match_params {
+        let value = ctx
+            .get_param(param_name)
+            .ok_or_else(|| EvalError::PhraseNotFound {
+                name: format!("${param_name}"),
+            })?;
+        match value {
+            Value::Number(n) => {
+                // For numbers, try exact match first, then CLDR
+                let exact = n.to_string();
+                let cldr = plural_category(lang, *n).to_string();
+                if exact == cldr {
+                    resolved_keys.push(vec![exact]);
+                } else {
+                    resolved_keys.push(vec![exact, cldr]);
+                }
+            }
+            Value::Phrase(phrase) => {
+                let tags: Vec<String> = phrase.tags.iter().map(ToString::to_string).collect();
+                resolved_keys.push(tags);
+            }
+            Value::String(s) => {
+                if let Ok(n) = s.parse::<i64>() {
+                    let exact = n.to_string();
+                    let cldr = plural_category(lang, n).to_string();
+                    if exact == cldr {
+                        resolved_keys.push(vec![exact]);
+                    } else {
+                        resolved_keys.push(vec![exact, cldr]);
+                    }
+                } else {
+                    resolved_keys.push(vec![s.clone()]);
+                }
+            }
+            Value::Float(f) => {
+                let cldr = plural_category(lang, *f as i64).to_string();
+                resolved_keys.push(vec![cldr]);
+            }
+        }
+    }
+
+    // Try to find a matching branch, considering all candidate key combinations
+    // and falling back to * default branches.
+    let selected_template = select_match_branch(branches, &resolved_keys, match_params.len())?;
+    eval_template(selected_template, ctx, registry, transform_registry, lang)
+}
+
+/// Select the best matching branch template from match branches.
+///
+/// Tries all combinations of resolved keys, then falls back to default branches.
+fn select_match_branch<'a>(
+    branches: &'a [MatchBranch],
+    resolved_keys: &[Vec<String>],
+    num_dims: usize,
+) -> Result<&'a Template, EvalError> {
+    // Build candidate compound keys from resolved keys via cartesian product
+    let compound_keys = build_compound_keys(resolved_keys);
+
+    // Try each candidate key against each branch
+    for candidate in &compound_keys {
+        for branch in branches {
+            for key in &branch.keys {
+                if key.value == *candidate {
+                    return Ok(&branch.template);
+                }
+            }
+        }
+    }
+
+    // No exact match found. Try partial matching: for each candidate, check if
+    // it matches a branch when accounting for * defaults in unmatched dimensions.
+    // For single-param match, fall through to default branch.
+    // For multi-param match, try combinations with defaults.
+    for candidate in &compound_keys {
+        let candidate_parts: Vec<&str> = candidate.split('.').collect();
+        for branch in branches {
+            for key in &branch.keys {
+                let key_parts: Vec<&str> = key.value.split('.').collect();
+                if key_parts.len() != candidate_parts.len() {
+                    continue;
+                }
+                // Check if this key matches (exact match or default dimension)
+                let matches = key_parts
+                    .iter()
+                    .zip(candidate_parts.iter())
+                    .enumerate()
+                    .all(|(dim, (key_part, cand_part))| {
+                        key_part == cand_part
+                            || key.default_dimensions.get(dim).copied().unwrap_or(false)
+                    });
+                if matches {
+                    return Ok(&branch.template);
+                }
+            }
+        }
+    }
+
+    // Last resort: find the branch where all dimensions are defaults
+    for branch in branches {
+        for key in &branch.keys {
+            if key.default_dimensions.len() == num_dims && key.default_dimensions.iter().all(|d| *d)
+            {
+                return Ok(&branch.template);
+            }
+        }
+    }
+
+    Err(EvalError::PhraseNotFound {
+        name: format!(
+            "no matching branch in :match block for keys {:?}",
+            resolved_keys
+        ),
+    })
 }
 
 /// Build a Phrase from variant entries.

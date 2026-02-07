@@ -15,7 +15,7 @@ fn test_simple_phrase() {
         PhraseBody::Simple(t) => {
             assert_eq!(t.segments.len(), 1);
         }
-        PhraseBody::Variants(_) => panic!("expected simple body"),
+        _ => panic!("expected simple body"),
     }
 }
 
@@ -72,7 +72,7 @@ fn test_simple_variants() {
         PhraseBody::Variants(entries) => {
             assert_eq!(entries.len(), 2);
         }
-        PhraseBody::Simple(_) => panic!("expected variants"),
+        _ => panic!("expected variants"),
     }
 }
 
@@ -94,7 +94,7 @@ fn test_multidimensional_variants() {
             assert_eq!(entries.len(), 4);
             assert_eq!(entries[0].keys, vec!["nom.one"]);
         }
-        PhraseBody::Simple(_) => panic!("expected variants"),
+        _ => panic!("expected variants"),
     }
 }
 
@@ -114,7 +114,7 @@ fn test_multikey_variants() {
             assert_eq!(entries.len(), 2);
             assert_eq!(entries[0].keys, vec!["nom", "acc"]);
         }
-        PhraseBody::Simple(_) => panic!("expected variants"),
+        _ => panic!("expected variants"),
     }
 }
 
@@ -191,7 +191,7 @@ fn test_variants_with_tags() {
     assert_eq!(phrases[0].tags, vec![Tag::new("fem")]);
     match &phrases[0].body {
         PhraseBody::Variants(_) => {}
-        PhraseBody::Simple(_) => panic!("expected variants"),
+        _ => panic!("expected variants"),
     }
 }
 
@@ -247,7 +247,7 @@ fn test_wildcard_fallback_key() {
             // "nom" should be parsed as a single-segment key
             assert!(entries.iter().any(|e| e.keys == vec!["nom"]));
         }
-        PhraseBody::Simple(_) => panic!("expected variants"),
+        _ => panic!("expected variants"),
     }
 }
 
@@ -261,7 +261,7 @@ fn test_template_with_interpolations() {
             // First segment is literal
             assert!(matches!(&t.segments[0], Segment::Literal(_)));
         }
-        PhraseBody::Variants(_) => panic!("expected simple body"),
+        _ => panic!("expected simple body"),
     }
 }
 
@@ -277,7 +277,7 @@ fn test_template_with_transforms() {
             }
             Segment::Literal(_) => panic!("expected interpolation"),
         },
-        PhraseBody::Variants(_) => panic!("expected simple body"),
+        _ => panic!("expected simple body"),
     }
 }
 
@@ -293,7 +293,7 @@ fn test_phrase_call_in_template() {
                 .find(|s| matches!(s, Segment::Interpolation { .. }));
             assert!(interp.is_some());
         }
-        PhraseBody::Variants(_) => panic!("expected simple body"),
+        _ => panic!("expected simple body"),
     }
 }
 
@@ -309,7 +309,7 @@ fn test_escape_sequences_in_template() {
                 panic!("expected literal segment");
             }
         }
-        PhraseBody::Variants(_) => panic!("expected simple body"),
+        _ => panic!("expected simple body"),
     }
 }
 
@@ -351,7 +351,7 @@ fn test_german_case_variants() {
         PhraseBody::Variants(entries) => {
             assert_eq!(entries.len(), 6);
         }
-        PhraseBody::Simple(_) => panic!("expected variants"),
+        _ => panic!("expected variants"),
     }
 }
 
@@ -411,7 +411,7 @@ fn test_single_variant() {
         PhraseBody::Variants(entries) => {
             assert_eq!(entries.len(), 1);
         }
-        PhraseBody::Simple(_) => panic!("expected variants"),
+        _ => panic!("expected variants"),
     }
 }
 
@@ -452,7 +452,7 @@ fn test_auto_capitalization_adds_cap_transform() {
                 Segment::Literal(_) => panic!("expected interpolation"),
             }
         }
-        PhraseBody::Variants(_) => panic!("expected simple body"),
+        _ => panic!("expected simple body"),
     }
 }
 
@@ -473,7 +473,7 @@ fn test_auto_capitalization_with_existing_transforms() {
             }
             Segment::Literal(_) => panic!("expected interpolation"),
         },
-        PhraseBody::Variants(_) => panic!("expected simple body"),
+        _ => panic!("expected simple body"),
     }
 }
 
@@ -494,7 +494,7 @@ fn test_auto_capitalization_with_selector() {
             }
             Segment::Literal(_) => panic!("expected interpolation"),
         },
-        PhraseBody::Variants(_) => panic!("expected simple body"),
+        _ => panic!("expected simple body"),
     }
 }
 
@@ -521,7 +521,7 @@ fn test_auto_capitalization_with_underscores() {
                 Segment::Literal(_) => panic!("expected interpolation"),
             }
         }
-        PhraseBody::Variants(_) => panic!("expected simple body"),
+        _ => panic!("expected simple body"),
     }
 }
 
@@ -542,7 +542,7 @@ fn test_no_auto_capitalization_for_lowercase() {
                 Segment::Literal(_) => panic!("expected interpolation"),
             }
         }
-        PhraseBody::Variants(_) => panic!("expected simple body"),
+        _ => panic!("expected simple body"),
     }
 }
 
@@ -614,7 +614,7 @@ fn test_dynamic_transform_context() {
                 Segment::Literal(_) => panic!("expected interpolation"),
             }
         }
-        PhraseBody::Variants(_) => panic!("expected simple body"),
+        _ => panic!("expected simple body"),
     }
 }
 
@@ -633,7 +633,7 @@ fn test_static_transform_context_unchanged() {
             }
             Segment::Literal(_) => panic!("expected interpolation"),
         },
-        PhraseBody::Variants(_) => panic!("expected simple body"),
+        _ => panic!("expected simple body"),
     }
 }
 
@@ -652,7 +652,7 @@ fn test_both_static_and_dynamic_context() {
             }
             Segment::Literal(_) => panic!("expected interpolation"),
         },
-        PhraseBody::Variants(_) => panic!("expected simple body"),
+        _ => panic!("expected simple body"),
     }
 }
 
@@ -690,7 +690,7 @@ fn test_phrase_call_with_number_literal() {
                 Segment::Literal(_) => panic!("expected interpolation"),
             }
         }
-        PhraseBody::Variants(_) => panic!("expected simple body"),
+        _ => panic!("expected simple body"),
     }
 }
 
@@ -716,7 +716,7 @@ fn test_phrase_call_with_string_literal() {
             },
             Segment::Literal(_) => panic!("expected interpolation"),
         },
-        PhraseBody::Variants(_) => panic!("expected simple body"),
+        _ => panic!("expected simple body"),
     }
 }
 
@@ -740,7 +740,7 @@ fn test_phrase_call_with_string_literal_escape() {
             },
             Segment::Literal(_) => panic!("expected interpolation"),
         },
-        PhraseBody::Variants(_) => panic!("expected simple body"),
+        _ => panic!("expected simple body"),
     }
 }
 
@@ -767,7 +767,7 @@ fn test_phrase_call_mixed_literal_args() {
             },
             Segment::Literal(_) => panic!("expected interpolation"),
         },
-        PhraseBody::Variants(_) => panic!("expected simple body"),
+        _ => panic!("expected simple body"),
     }
     drop(phrases);
 }
@@ -882,7 +882,7 @@ fn test_default_marker_on_variant() {
             assert!(entries[0].is_default);
             assert!(!entries[1].is_default);
         }
-        PhraseBody::Simple(_) => panic!("expected variants"),
+        _ => panic!("expected variants"),
     }
 }
 
@@ -899,7 +899,7 @@ fn test_no_default_marker() {
             assert!(!entries[0].is_default);
             assert!(!entries[1].is_default);
         }
-        PhraseBody::Simple(_) => panic!("expected variants"),
+        _ => panic!("expected variants"),
     }
 }
 
@@ -916,7 +916,7 @@ fn test_default_marker_on_second_variant() {
             assert!(!entries[0].is_default);
             assert!(entries[1].is_default);
         }
-        PhraseBody::Simple(_) => panic!("expected variants"),
+        _ => panic!("expected variants"),
     }
 }
 
@@ -963,6 +963,271 @@ fn test_default_marker_with_tags() {
         PhraseBody::Variants(entries) => {
             assert!(entries[0].is_default);
         }
-        PhraseBody::Simple(_) => panic!("expected variants"),
+        _ => panic!("expected variants"),
+    }
+}
+
+// =============================================================================
+// :match keyword tests
+// =============================================================================
+
+#[test]
+fn test_single_param_match() {
+    let phrases = parse_file(
+        r#"
+        cards($n) = :match($n) {
+            1: "a card",
+            *other: "{$n} cards",
+        };
+    "#,
+    )
+    .unwrap();
+    assert_eq!(phrases.len(), 1);
+    assert_eq!(phrases[0].kind, DefinitionKind::Phrase);
+    assert_eq!(phrases[0].match_params, vec!["n"]);
+    match &phrases[0].body {
+        PhraseBody::Match(branches) => {
+            assert_eq!(branches.len(), 2);
+            // First branch: 1: "a card"
+            assert_eq!(branches[0].keys.len(), 1);
+            assert_eq!(branches[0].keys[0].value, "1");
+            assert_eq!(branches[0].keys[0].default_dimensions, vec![false]);
+            // Second branch: *other: "{$n} cards"
+            assert_eq!(branches[1].keys.len(), 1);
+            assert_eq!(branches[1].keys[0].value, "other");
+            assert_eq!(branches[1].keys[0].default_dimensions, vec![true]);
+        }
+        _ => panic!("expected match body"),
+    }
+}
+
+#[test]
+fn test_multi_param_match() {
+    let phrases = parse_file(
+        r#"
+        n_allied($n, $entity) = :match($n, $entity) {
+            1.masc: "one masc",
+            1.*neut: "one neut",
+            *other.masc: "other masc",
+            other.*neut: "other neut",
+        };
+    "#,
+    )
+    .unwrap();
+    assert_eq!(phrases[0].match_params, vec!["n", "entity"]);
+    match &phrases[0].body {
+        PhraseBody::Match(branches) => {
+            assert_eq!(branches.len(), 4);
+            // 1.masc
+            assert_eq!(branches[0].keys[0].value, "1.masc");
+            assert_eq!(branches[0].keys[0].default_dimensions, vec![false, false]);
+            // 1.*neut
+            assert_eq!(branches[1].keys[0].value, "1.neut");
+            assert_eq!(branches[1].keys[0].default_dimensions, vec![false, true]);
+            // *other.masc
+            assert_eq!(branches[2].keys[0].value, "other.masc");
+            assert_eq!(branches[2].keys[0].default_dimensions, vec![true, false]);
+            // other.*neut
+            assert_eq!(branches[3].keys[0].value, "other.neut");
+            assert_eq!(branches[3].keys[0].default_dimensions, vec![false, true]);
+        }
+        _ => panic!("expected match body"),
+    }
+}
+
+#[test]
+fn test_match_named_and_numeric_keys() {
+    let phrases = parse_file(
+        r#"
+        cards($n) = :match($n) {
+            0: "no cards",
+            1: "a card",
+            2: "a pair of cards",
+            *other: "{$n} cards",
+        };
+    "#,
+    )
+    .unwrap();
+    match &phrases[0].body {
+        PhraseBody::Match(branches) => {
+            assert_eq!(branches.len(), 4);
+            assert_eq!(branches[0].keys[0].value, "0");
+            assert_eq!(branches[1].keys[0].value, "1");
+            assert_eq!(branches[2].keys[0].value, "2");
+            assert_eq!(branches[3].keys[0].value, "other");
+            assert!(branches[3].keys[0].default_dimensions[0]);
+        }
+        _ => panic!("expected match body"),
+    }
+}
+
+#[test]
+fn test_match_multi_key_shorthand() {
+    let phrases = parse_file(
+        r#"
+        cards($n) = :match($n) {
+            one, two: "few cards",
+            *other: "{$n} cards",
+        };
+    "#,
+    )
+    .unwrap();
+    match &phrases[0].body {
+        PhraseBody::Match(branches) => {
+            assert_eq!(branches.len(), 2);
+            assert_eq!(branches[0].keys.len(), 2);
+            assert_eq!(branches[0].keys[0].value, "one");
+            assert_eq!(branches[0].keys[1].value, "two");
+        }
+        _ => panic!("expected match body"),
+    }
+}
+
+#[test]
+fn test_from_then_match() {
+    let phrases = parse_file(
+        r#"
+        count_sub($n, $s) = :from($s) :match($n) {
+            1: "one {$s}",
+            *other: "{$n} {$s}",
+        };
+    "#,
+    )
+    .unwrap();
+    assert_eq!(phrases[0].from_param, Some("s".to_string()));
+    assert_eq!(phrases[0].match_params, vec!["n"]);
+    assert!(matches!(phrases[0].body, PhraseBody::Match(_)));
+}
+
+#[test]
+fn test_match_then_from() {
+    let phrases = parse_file(
+        r#"
+        count_sub($n, $s) = :match($n) :from($s) {
+            1: "one {$s}",
+            *other: "{$n} {$s}",
+        };
+    "#,
+    )
+    .unwrap();
+    assert_eq!(phrases[0].from_param, Some("s".to_string()));
+    assert_eq!(phrases[0].match_params, vec!["n"]);
+    assert!(matches!(phrases[0].body, PhraseBody::Match(_)));
+}
+
+#[test]
+fn test_match_missing_default_is_error() {
+    let result = parse_file(
+        r#"
+        cards($n) = :match($n) {
+            1: "a card",
+            other: "{$n} cards",
+        };
+    "#,
+    );
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("no '*' default"),
+        "expected missing default error, got: {err}"
+    );
+}
+
+#[test]
+fn test_match_multiple_defaults_is_error() {
+    let result = parse_file(
+        r#"
+        cards($n) = :match($n) {
+            *one: "a card",
+            *other: "{$n} cards",
+        };
+    "#,
+    );
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("multiple '*'"),
+        "expected multiple defaults error, got: {err}"
+    );
+}
+
+#[test]
+fn test_match_param_not_declared_is_error() {
+    let result = parse_file(
+        r#"
+        cards($n) = :match($unknown) {
+            *other: "cards",
+        };
+    "#,
+    );
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("not declared"),
+        "expected undeclared param error, got: {err}"
+    );
+}
+
+#[test]
+fn test_phrase_variant_block_without_match_is_error() {
+    let result = parse_file(
+        r#"
+        cards($n) = { one: "{$n} card", other: "{$n} cards" };
+    "#,
+    );
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("variant block") && err.contains(":match"),
+        "expected variant block suggestion, got: {err}"
+    );
+}
+
+#[test]
+fn test_match_with_tags() {
+    let phrases = parse_file(
+        r#"
+        cards($n) = :a :match($n) {
+            1: "a card",
+            *other: "{$n} cards",
+        };
+    "#,
+    )
+    .unwrap();
+    assert_eq!(phrases[0].tags, vec![Tag::new("a")]);
+    assert_eq!(phrases[0].match_params, vec!["n"]);
+}
+
+#[test]
+fn test_match_trailing_comma() {
+    let phrases = parse_file(
+        r#"
+        cards($n) = :match($n) {
+            1: "a card",
+            *other: "{$n} cards",
+        };
+    "#,
+    )
+    .unwrap();
+    match &phrases[0].body {
+        PhraseBody::Match(branches) => assert_eq!(branches.len(), 2),
+        _ => panic!("expected match body"),
+    }
+}
+
+#[test]
+fn test_match_no_trailing_comma() {
+    let phrases = parse_file(
+        r#"
+        cards($n) = :match($n) {
+            1: "a card",
+            *other: "{$n} cards"
+        };
+    "#,
+    )
+    .unwrap();
+    match &phrases[0].body {
+        PhraseBody::Match(branches) => assert_eq!(branches.len(), 2),
+        _ => panic!("expected match body"),
     }
 }

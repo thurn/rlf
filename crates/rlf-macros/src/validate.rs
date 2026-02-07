@@ -48,19 +48,34 @@ impl ValidationContext {
             phrases.insert(name.clone());
 
             // Collect variant keys
-            if let PhraseBody::Variants(variants) = &phrase.body {
-                let mut keys = HashSet::new();
-                for variant in variants {
-                    for key in &variant.keys {
-                        // Handle dotted keys (e.g., "nom.one" -> add both "nom" and "nom.one")
-                        keys.insert(key.name.clone());
-                        // Also add the first component for partial matching
-                        if let Some(first) = key.name.split('.').next() {
-                            keys.insert(first.to_string());
+            match &phrase.body {
+                PhraseBody::Variants(variants) => {
+                    let mut keys = HashSet::new();
+                    for variant in variants {
+                        for key in &variant.keys {
+                            // Handle dotted keys (e.g., "nom.one" -> add both "nom" and "nom.one")
+                            keys.insert(key.name.clone());
+                            // Also add the first component for partial matching
+                            if let Some(first) = key.name.split('.').next() {
+                                keys.insert(first.to_string());
+                            }
                         }
                     }
+                    phrase_variants.insert(name.clone(), keys);
                 }
-                phrase_variants.insert(name.clone(), keys);
+                PhraseBody::Match(branches) => {
+                    let mut keys = HashSet::new();
+                    for branch in branches {
+                        for key in &branch.keys {
+                            keys.insert(key.value.name.clone());
+                            if let Some(first) = key.value.name.split('.').next() {
+                                keys.insert(first.to_string());
+                            }
+                        }
+                    }
+                    phrase_variants.insert(name.clone(), keys);
+                }
+                PhraseBody::Simple(_) => {}
             }
 
             // Collect tags
@@ -122,6 +137,11 @@ fn validate_phrase(phrase: &PhraseDefinition, ctx: &ValidationContext) -> syn::R
         PhraseBody::Variants(variants) => {
             for variant in variants {
                 validate_template(&variant.template, &params, ctx, &phrase.name.name)?;
+            }
+        }
+        PhraseBody::Match(branches) => {
+            for branch in branches {
+                validate_template(&branch.template, &params, ctx, &phrase.name.name)?;
             }
         }
     }
@@ -478,6 +498,11 @@ fn collect_phrase_refs(
         PhraseBody::Variants(variants) => {
             for variant in variants {
                 collect_template_refs(&variant.template, params, ctx, &mut refs);
+            }
+        }
+        PhraseBody::Match(branches) => {
+            for branch in branches {
+                collect_template_refs(&branch.template, params, ctx, &mut refs);
             }
         }
     }
