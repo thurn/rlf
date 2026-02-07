@@ -105,7 +105,7 @@ fn validate_definitions(definitions: &[PhraseDefinition]) -> Result<(), ParseErr
             }
         }
 
-        // Validate * default markers in variant blocks
+        // Validate * default markers and numeric keys in variant blocks
         if let PhraseBody::Variants(entries) = &def.body {
             let mut default_count = 0;
             for entry in entries {
@@ -123,6 +123,24 @@ fn validate_definitions(definitions: &[PhraseDefinition]) -> Result<(), ParseErr
                                 def.name
                             ),
                         });
+                    }
+                }
+
+                // Numeric keys in term variant blocks are not allowed
+                if def.kind == DefinitionKind::Term {
+                    for key in &entry.keys {
+                        for component in key.split('.') {
+                            if component.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+                                return Err(ParseError::Syntax {
+                                    line: 0,
+                                    column: 0,
+                                    message: format!(
+                                        "term variant keys must be named identifiers — use ':match' for numeric branching (found '{}' in '{}')",
+                                        key, def.name
+                                    ),
+                                });
+                            }
+                        }
                     }
                 }
             }

@@ -1,0 +1,5 @@
+error: phrase 'cards' expects 1 parameter, got 2
+ --> tests/fail/arity_mismatch.rs:5:19
+  |
+5 |     bad($a, $b) = "{cards($a, $b)}";
+  |                   ^^^^^^^^^^^^^^^^^

@@ -1,6 +1,6 @@
 //! Compile-time validation for the rlf! macro.
 //!
-//! Performs 7 types of validation checks:
+//! Performs validation checks including:
 //! 1. Undefined phrase references (MACRO-08)
 //! 2. Undefined parameter references (MACRO-09)
 //! 3. Invalid literal selectors (MACRO-10)
@@ -8,6 +8,11 @@
 //! 5. Transform tag requirements (MACRO-12) - infrastructure for future
 //! 6. Tag-based selection compatibility (MACRO-13) - infrastructure for future
 //! 7. Cyclic references (MACRO-14)
+//! 8. Term/phrase usage errors: `()` on a term, `:` on a phrase
+//! 9. Arity mismatches in phrase calls
+//! 10. Nested phrase calls not supported as arguments
+//! 11. `$name` referencing a term instead of a parameter
+//! 12. Numeric keys in term variant blocks
 //!
 //! Also provides typo suggestions (MACRO-17) using Levenshtein distance.
 
@@ -17,8 +22,8 @@ use proc_macro2::Span;
 use strsim::levenshtein;
 
 use crate::input::{
-    Interpolation, MacroInput, PhraseBody, PhraseDefinition, Reference, Segment, Selector,
-    Template, TransformContext,
+    DefinitionKind, Interpolation, MacroInput, PhraseBody, PhraseDefinition, Reference, Segment,
+    Selector, Template, TransformContext,
 };
 
 /// Known transforms (universal only for Phase 5).
@@ -34,6 +39,10 @@ pub struct ValidationContext {
     /// Phrase name -> defined tags (infrastructure for future tag-based validation).
     #[cfg_attr(not(test), expect(dead_code))]
     pub phrase_tags: HashMap<String, HashSet<String>>,
+    /// Phrase name -> DefinitionKind (Term or Phrase).
+    pub phrase_kinds: HashMap<String, DefinitionKind>,
+    /// Phrase name -> parameter count (0 for terms).
+    pub phrase_param_counts: HashMap<String, usize>,
 }
 
 impl ValidationContext {
@@ -42,10 +51,14 @@ impl ValidationContext {
         let mut phrases = HashSet::new();
         let mut phrase_variants = HashMap::new();
         let mut phrase_tags = HashMap::new();
+        let mut phrase_kinds = HashMap::new();
+        let mut phrase_param_counts = HashMap::new();
 
         for phrase in &input.phrases {
             let name = phrase.name.name.clone();
             phrases.insert(name.clone());
+            phrase_kinds.insert(name.clone(), phrase.kind);
+            phrase_param_counts.insert(name.clone(), phrase.parameters.len());
 
             // Collect variant keys
             match &phrase.body {
@@ -89,6 +102,8 @@ impl ValidationContext {
             phrases,
             phrase_variants,
             phrase_tags,
+            phrase_kinds,
+            phrase_param_counts,
         }
     }
 }
@@ -126,6 +141,27 @@ fn validate_phrase(phrase: &PhraseDefinition, ctx: &ValidationContext) -> syn::R
                     param.name, param.name
                 ),
             ));
+        }
+    }
+
+    // Validate: numeric keys in term variant blocks are not allowed
+    if phrase.kind == DefinitionKind::Term
+        && let PhraseBody::Variants(variants) = &phrase.body
+    {
+        for variant in variants {
+            for key in &variant.keys {
+                for component in key.name.split('.') {
+                    if component.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+                        return Err(syn::Error::new(
+                            key.span,
+                            format!(
+                                "term variant keys must be named identifiers — use ':match' for numeric branching (found '{}')",
+                                key.name
+                            ),
+                        ));
+                    }
+                }
+            }
         }
     }
 
@@ -210,6 +246,39 @@ fn validate_interpolation(
 
     // Validate the reference (phrase or parameter)
     validate_reference(&interp.reference, params, ctx)?;
+
+    // Check term/phrase usage: bare identifier with selectors on a phrase is an error
+    if let Reference::Identifier(ident) = &interp.reference
+        && let Some(&DefinitionKind::Phrase) = ctx.phrase_kinds.get(&ident.name)
+    {
+        if interp.selectors.is_empty() {
+            return Err(syn::Error::new(
+                ident.span,
+                format!(
+                    "'{}' is a phrase — cannot reference without (); use {{{}(...)}}",
+                    ident.name, ident.name
+                ),
+            ));
+        } else {
+            return Err(syn::Error::new(
+                ident.span,
+                format!(
+                    "'{}' is a phrase — use {}(...):{}",
+                    ident.name,
+                    ident.name,
+                    interp
+                        .selectors
+                        .iter()
+                        .map(|s| match s {
+                            Selector::Literal(i) => i.name.clone(),
+                            Selector::Parameter(i) => format!("${}", i.name),
+                        })
+                        .collect::<Vec<_>>()
+                        .join(":")
+                ),
+            ));
+        }
+    }
 
     // Validate selectors (MACRO-10, MACRO-13)
     // Determine if reference is a literal phrase (not a parameter)
@@ -296,8 +365,8 @@ fn validate_reference(
                 return Err(syn::Error::new(
                     ident.span,
                     format!(
-                        "bare identifier '{}' matches a parameter\nhelp: use {{${}}} to reference the parameter",
-                        ident.name, ident.name
+                        "'{}' matches parameter '${}' — use {{${}}}",
+                        ident.name, ident.name, ident.name
                     ),
                 ));
             }
@@ -314,6 +383,16 @@ fn validate_reference(
         Reference::Parameter(ident) => {
             // v2: $-prefixed parameter must be declared
             if !params.contains(&ident.name) {
+                // Check if the name matches a known term/phrase
+                if ctx.phrases.contains(&ident.name) {
+                    return Err(syn::Error::new(
+                        ident.span,
+                        format!(
+                            "'${}' is not a declared parameter — remove '$' to reference term '{}'",
+                            ident.name, ident.name
+                        ),
+                    ));
+                }
                 return Err(syn::Error::new(
                     ident.span,
                     format!(
@@ -333,8 +412,54 @@ fn validate_reference(
                 }
                 return Err(syn::Error::new(name.span, msg));
             }
-            // Validate arguments recursively
+
+            // Check term/phrase usage: Call on a term is an error
+            if let Some(&DefinitionKind::Term) = ctx.phrase_kinds.get(&name.name) {
+                let suggestion = if args.len() == 1 {
+                    let arg_str = match &args[0] {
+                        Reference::Parameter(p) => format!("${}", p.name),
+                        _ => "variant".to_string(),
+                    };
+                    format!(
+                        "'{}' is a term — use {{{}:{}}}",
+                        name.name, name.name, arg_str
+                    )
+                } else {
+                    format!(
+                        "'{}' is a term — cannot use () call syntax; use {{{}:variant}} or {{{}:$param}} to select a variant",
+                        name.name, name.name, name.name
+                    )
+                };
+                return Err(syn::Error::new(name.span, suggestion));
+            }
+
+            // Validate argument count
+            if let Some(&expected) = ctx.phrase_param_counts.get(&name.name)
+                && args.len() != expected
+            {
+                return Err(syn::Error::new(
+                    name.span,
+                    format!(
+                        "phrase '{}' expects {} parameter{}, got {}",
+                        name.name,
+                        expected,
+                        if expected == 1 { "" } else { "s" },
+                        args.len()
+                    ),
+                ));
+            }
+
+            // Validate arguments recursively, checking for nested calls
             for arg in args {
+                if let Reference::Call {
+                    name: inner_name, ..
+                } = arg
+                {
+                    return Err(syn::Error::new(
+                        inner_name.span,
+                        "nested phrase calls not supported as arguments — bind to a parameter in Rust instead",
+                    ));
+                }
                 validate_reference(arg, params, ctx)?;
             }
         }
@@ -730,7 +855,7 @@ mod tests {
         let result = validate(&input);
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
-        assert!(err.contains("bare identifier 'name' matches a parameter"));
+        assert!(err.contains("'name' matches parameter '$name'"));
         assert!(err.contains("{$name}"));
     }
 

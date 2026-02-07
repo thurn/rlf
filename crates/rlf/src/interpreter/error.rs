@@ -227,4 +227,8 @@ pub enum EvalError {
     /// No branch matched in a :match block and no default was found.
     #[error("no matching branch in :match block for keys {keys:?}")]
     MissingMatchDefault { keys: Vec<Vec<String>> },
+
+    /// Parameter not found in scope.
+    #[error("unknown parameter '${name}' — not in scope")]
+    UnknownParameter { name: String },
 }

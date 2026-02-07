@@ -1,0 +1,5 @@
+error: 'name' matches parameter '$name' — use {$name}
+ --> tests/fail/bare_ident_matches_param.rs:4:20
+  |
+4 |     greet($name) = "Hello, {name}!";
+  |                    ^^^^^^^^^^^^^^^^

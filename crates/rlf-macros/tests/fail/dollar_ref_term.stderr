@@ -1,0 +1,5 @@
+error: '$card' is not a declared parameter — remove '$' to reference term 'card'
+ --> tests/fail/dollar_ref_term.rs:5:15
+  |
+5 |     bad($n) = "{$n} {$card}";
+  |               ^^^^^^^^^^^^^^

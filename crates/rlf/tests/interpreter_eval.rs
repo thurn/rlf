@@ -2373,3 +2373,148 @@ fn eval_term_default_text_reflects_star() {
     let result = registry.get_phrase("en", "go").unwrap();
     assert_eq!(result.to_string(), "went");
 }
+
+// =============================================================================
+// UnknownParameter Error Tests
+// =============================================================================
+
+#[test]
+fn error_unknown_parameter_in_reference() {
+    // Template references $missing which was not passed as an argument
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(r#"bad($x) = "value: {$missing}";"#)
+        .unwrap();
+
+    let err = registry
+        .call_phrase("en", "bad", &[Value::from("test")])
+        .unwrap_err();
+    assert!(
+        matches!(err, EvalError::UnknownParameter { ref name } if name == "missing"),
+        "expected UnknownParameter, got: {err:?}"
+    );
+    let msg = err.to_string();
+    assert!(
+        msg.contains("$missing"),
+        "error should mention '$missing': {msg}"
+    );
+}
+
+#[test]
+fn error_unknown_parameter_in_selector() {
+    // Selector references $missing which was not passed as an argument
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        card = { one: "card", other: "cards" };
+        bad($x) = "{card:$missing}";
+    "#,
+        )
+        .unwrap();
+
+    let err = registry
+        .call_phrase("en", "bad", &[Value::from(1)])
+        .unwrap_err();
+    assert!(
+        matches!(err, EvalError::UnknownParameter { ref name } if name == "missing"),
+        "expected UnknownParameter, got: {err:?}"
+    );
+}
+
+#[test]
+fn error_unknown_parameter_message_format() {
+    let err = EvalError::UnknownParameter {
+        name: "count".to_string(),
+    };
+    let msg = err.to_string();
+    assert!(msg.contains("$count"), "should contain '$count': {msg}");
+    assert!(
+        msg.contains("not in scope"),
+        "should mention 'not in scope': {msg}"
+    );
+}
+
+#[test]
+fn error_missing_match_default() {
+    let err = EvalError::MissingMatchDefault {
+        keys: vec![vec!["other".to_string()]],
+    };
+    let msg = err.to_string();
+    assert!(
+        msg.contains("no matching branch"),
+        "should mention 'no matching branch': {msg}"
+    );
+}
+
+// =============================================================================
+// Runtime Term/Phrase Numeric Key Validation
+// =============================================================================
+
+#[test]
+fn error_numeric_key_in_term_variant_block() {
+    let mut registry = PhraseRegistry::new();
+    let result = registry.load_phrases(
+        r#"
+        card = { 1: "one card", other: "cards" };
+    "#,
+    );
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("term variant keys must be named identifiers"),
+        "should reject numeric key: {err}"
+    );
+}
+
+#[test]
+fn error_empty_parens_in_runtime() {
+    let mut registry = PhraseRegistry::new();
+    let result = registry.load_phrases(r#"bad() = "hello";"#);
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("empty parameter list"),
+        "should reject empty parens: {err}"
+    );
+}
+
+#[test]
+fn error_phrase_variant_block_in_runtime() {
+    let mut registry = PhraseRegistry::new();
+    let result = registry.load_phrases(
+        r#"
+        cards($n) = { one: "{$n} card", other: "{$n} cards" };
+    "#,
+    );
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("variant block"),
+        "should reject phrase variant block: {err}"
+    );
+}
+
+#[test]
+fn error_from_on_term_in_runtime() {
+    let mut registry = PhraseRegistry::new();
+    let result = registry.load_phrases(r#"bad = :from($s) "test";"#);
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains(":from requires parameters"),
+        "should reject :from on term: {err}"
+    );
+}
+
+#[test]
+fn error_match_on_term_in_runtime() {
+    let mut registry = PhraseRegistry::new();
+    let result = registry.load_phrases(r#"bad = :match($n) { *other: "test" };"#);
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains(":match requires parameters"),
+        "should reject :match on term: {err}"
+    );
+}

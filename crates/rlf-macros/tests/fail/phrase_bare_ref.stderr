@@ -1,0 +1,5 @@
+error: 'cards' is a phrase — cannot reference without (); use {cards(...)}
+ --> tests/fail/phrase_bare_ref.rs:5:11
+  |
+5 |     bad = "{cards}";
+  |           ^^^^^^^^^

@@ -1,0 +1,5 @@
+error: expected identifier
+ --> tests/fail/numeric_term_key.rs:4:14
+  |
+4 |     card = { 1: "one card", other: "cards" };
+  |              ^

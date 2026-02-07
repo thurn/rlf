@@ -1,0 +1,5 @@
+error: nested phrase calls not supported as arguments — bind to a parameter in Rust instead
+ --> tests/fail/nested_call.rs:6:15
+  |
+6 |     bad($y) = "{outer(inner($y))}";
+  |               ^^^^^^^^^^^^^^^^^^^^

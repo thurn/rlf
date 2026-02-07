@@ -90,9 +90,7 @@ fn resolve_reference(
             // Parameter reference ($name): look up in context only
             ctx.get_param(name)
                 .cloned()
-                .ok_or_else(|| EvalError::PhraseNotFound {
-                    name: format!("${name}"),
-                })
+                .ok_or_else(|| EvalError::UnknownParameter { name: name.clone() })
         }
         Reference::Identifier(name) => {
             // Bare identifier: look up as term/phrase in registry only
@@ -551,9 +549,7 @@ fn resolve_selector_candidates(
             // Parameterized selector: look up parameter value
             let value = ctx
                 .get_param(name)
-                .ok_or_else(|| EvalError::PhraseNotFound {
-                    name: format!("${name}"),
-                })?;
+                .ok_or_else(|| EvalError::UnknownParameter { name: name.clone() })?;
             match value {
                 Value::Number(n) => Ok(vec![plural_category(lang, *n).to_string()]),
                 Value::Float(f) => Ok(vec![plural_category(lang, *f as i64).to_string()]),
@@ -677,18 +673,15 @@ fn resolve_transform_context(
             if let Some(param) = ctx.get_param(name) {
                 Ok(Some(param.clone()))
             } else {
-                Err(EvalError::PhraseNotFound {
-                    name: format!("${name}"),
-                })
+                Err(EvalError::UnknownParameter { name: name.clone() })
             }
         }
         TransformContext::Both(static_name, dynamic_name) => {
-            let dynamic_value =
-                ctx.get_param(dynamic_name)
-                    .cloned()
-                    .ok_or_else(|| EvalError::PhraseNotFound {
-                        name: format!("${dynamic_name}"),
-                    })?;
+            let dynamic_value = ctx.get_param(dynamic_name).cloned().ok_or_else(|| {
+                EvalError::UnknownParameter {
+                    name: dynamic_name.clone(),
+                }
+            })?;
             // Combine static context with dynamic value as "static.dynamic"
             // This supports patterns like @transform:lit($param) where the
             // transform needs both pieces of information
@@ -718,8 +711,8 @@ fn eval_match_branches(
     for param_name in match_params {
         let value = ctx
             .get_param(param_name)
-            .ok_or_else(|| EvalError::PhraseNotFound {
-                name: format!("${param_name}"),
+            .ok_or_else(|| EvalError::UnknownParameter {
+                name: param_name.clone(),
             })?;
         match value {
             Value::Number(n) => {

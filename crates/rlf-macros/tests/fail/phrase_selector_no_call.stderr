@@ -1,0 +1,5 @@
+error: 'cards' is a phrase — use cards(...):other
+ --> tests/fail/phrase_selector_no_call.rs:5:11
+  |
+5 |     bad = "{cards:other}";
+  |           ^^^^^^^^^^^^^^^

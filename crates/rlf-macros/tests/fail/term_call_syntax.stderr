@@ -1,0 +1,5 @@
+error: 'card' is a term — use {card:$n}
+ --> tests/fail/term_call_syntax.rs:5:15
+  |
+5 |     bad($n) = "{card($n)}";
+  |               ^^^^^^^^^^^^
