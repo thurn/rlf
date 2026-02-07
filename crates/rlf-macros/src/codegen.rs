@@ -11,7 +11,7 @@ use quote::{format_ident, quote};
 
 use crate::input::{
     Interpolation, MacroInput, PhraseBody, PhraseDefinition, Reference, Segment, Selector,
-    Template, TransformRef,
+    Template, TransformContext, TransformRef,
 };
 
 /// Main code generation entry point.
@@ -338,15 +338,24 @@ fn reconstruct_transform(transform: &TransformRef) -> String {
     let mut result = String::from("@");
     result.push_str(&transform.name.name);
 
-    // Handle context if present (e.g., @der:acc)
-    if let Some(ref ctx) = transform.context {
-        result.push(':');
-        match ctx {
-            Selector::Literal(ident) => result.push_str(&ident.name),
-            Selector::Parameter(ident) => {
-                result.push('$');
-                result.push_str(&ident.name);
-            }
+    // Handle context: static (:literal), dynamic ($param), or both
+    match &transform.context {
+        TransformContext::None => {}
+        TransformContext::Static(ident) => {
+            result.push(':');
+            result.push_str(&ident.name);
+        }
+        TransformContext::Dynamic(ident) => {
+            result.push_str("($");
+            result.push_str(&ident.name);
+            result.push(')');
+        }
+        TransformContext::Both(static_ident, dynamic_ident) => {
+            result.push(':');
+            result.push_str(&static_ident.name);
+            result.push_str("($");
+            result.push_str(&dynamic_ident.name);
+            result.push(')');
         }
     }
 
@@ -525,6 +534,45 @@ mod tests {
         assert!(
             source.contains("{card:$n}"),
             "v2: parameter selectors should have $ prefix, got: {source}"
+        );
+    }
+
+    #[test]
+    fn test_reconstruct_dynamic_context() {
+        let input = parse_input(parse_quote! {
+            card = "card";
+            draw($n) = "抽{@count($n) card}";
+        });
+        let source = reconstruct_source(&input);
+        assert!(
+            source.contains("@count($n)"),
+            "dynamic context should use () syntax, got: {source}"
+        );
+    }
+
+    #[test]
+    fn test_reconstruct_static_context() {
+        let input = parse_input(parse_quote! {
+            karte = "Karte";
+            destroy = "Zerstöre {@der:acc karte}.";
+        });
+        let source = reconstruct_source(&input);
+        assert!(
+            source.contains("@der:acc"),
+            "static context should use : syntax, got: {source}"
+        );
+    }
+
+    #[test]
+    fn test_reconstruct_both_contexts() {
+        let input = parse_input(parse_quote! {
+            ref_term = "ref";
+            test($param) = "{@transform:lit($param) ref_term}";
+        });
+        let source = reconstruct_source(&input);
+        assert!(
+            source.contains("@transform:lit($param)"),
+            "both contexts should combine : and () syntax, got: {source}"
         );
     }
 

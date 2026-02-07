@@ -3,7 +3,7 @@
 //! These tests validate the public API of the template parser against all
 //! syntax forms documented in DESIGN_V2.md.
 
-use rlf::parser::{Reference, Segment, Selector, parse_template};
+use rlf::parser::{Reference, Segment, Selector, TransformContext, parse_template};
 
 // =============================================================================
 // Basic parsing
@@ -213,7 +213,7 @@ fn test_transform_cap() {
         } => {
             assert_eq!(transforms.len(), 1);
             assert_eq!(transforms[0].name, "cap");
-            assert!(transforms[0].context.is_none());
+            assert_eq!(transforms[0].context, TransformContext::None);
             assert_eq!(*reference, Reference::Identifier("card".into()));
         }
         Segment::Literal(_) => panic!("expected interpolation"),
@@ -267,7 +267,7 @@ fn test_transform_with_context() {
             assert_eq!(transforms[0].name, "der");
             assert_eq!(
                 transforms[0].context,
-                Some(Selector::Identifier("acc".into()))
+                TransformContext::Static("acc".into())
             );
         }
         Segment::Literal(_) => panic!("expected interpolation"),
@@ -313,9 +313,85 @@ fn test_transform_with_context_and_selector() {
             assert_eq!(transforms[0].name, "der");
             assert_eq!(
                 transforms[0].context,
-                Some(Selector::Identifier("acc".into()))
+                TransformContext::Static("acc".into())
             );
             assert_eq!(selectors, &[Selector::Identifier("one".into())]);
+        }
+        Segment::Literal(_) => panic!("expected interpolation"),
+    }
+}
+
+// =============================================================================
+// Dynamic transform context
+// =============================================================================
+
+#[test]
+fn test_transform_with_dynamic_context() {
+    let t = parse_template("{@count($n) card}").unwrap();
+    match &t.segments[0] {
+        Segment::Interpolation {
+            transforms,
+            reference,
+            ..
+        } => {
+            assert_eq!(transforms.len(), 1);
+            assert_eq!(transforms[0].name, "count");
+            assert_eq!(transforms[0].context, TransformContext::Dynamic("n".into()));
+            assert_eq!(*reference, Reference::Identifier("card".into()));
+        }
+        Segment::Literal(_) => panic!("expected interpolation"),
+    }
+}
+
+#[test]
+fn test_transform_with_both_contexts() {
+    let t = parse_template("{@transform:lit($param) ref}").unwrap();
+    match &t.segments[0] {
+        Segment::Interpolation {
+            transforms,
+            reference,
+            ..
+        } => {
+            assert_eq!(transforms.len(), 1);
+            assert_eq!(transforms[0].name, "transform");
+            assert_eq!(
+                transforms[0].context,
+                TransformContext::Both("lit".into(), "param".into())
+            );
+            assert_eq!(*reference, Reference::Identifier("ref".into()));
+        }
+        Segment::Literal(_) => panic!("expected interpolation"),
+    }
+}
+
+#[test]
+fn test_transform_dynamic_context_with_selector() {
+    let t = parse_template("{@count($n) card:$n}").unwrap();
+    match &t.segments[0] {
+        Segment::Interpolation {
+            transforms,
+            reference,
+            selectors,
+        } => {
+            assert_eq!(transforms[0].name, "count");
+            assert_eq!(transforms[0].context, TransformContext::Dynamic("n".into()));
+            assert_eq!(*reference, Reference::Identifier("card".into()));
+            assert_eq!(selectors, &[Selector::Parameter("n".into())]);
+        }
+        Segment::Literal(_) => panic!("expected interpolation"),
+    }
+}
+
+#[test]
+fn test_static_context_unchanged() {
+    let t = parse_template("{@der:acc card}").unwrap();
+    match &t.segments[0] {
+        Segment::Interpolation { transforms, .. } => {
+            assert_eq!(transforms[0].name, "der");
+            assert_eq!(
+                transforms[0].context,
+                TransformContext::Static("acc".into())
+            );
         }
         Segment::Literal(_) => panic!("expected interpolation"),
     }
@@ -541,7 +617,7 @@ fn test_auto_capitalization() {
         } => {
             assert_eq!(transforms.len(), 1);
             assert_eq!(transforms[0].name, "cap");
-            assert!(transforms[0].context.is_none());
+            assert_eq!(transforms[0].context, TransformContext::None);
             assert_eq!(*reference, Reference::Identifier("card".into()));
         }
         Segment::Literal(_) => panic!("expected interpolation"),
@@ -712,7 +788,7 @@ fn test_german_definite_article() {
             assert_eq!(transforms[0].name, "der");
             assert_eq!(
                 transforms[0].context,
-                Some(Selector::Identifier("acc".into()))
+                TransformContext::Static("acc".into())
             );
             assert_eq!(*reference, Reference::Identifier("karte".into()));
         }

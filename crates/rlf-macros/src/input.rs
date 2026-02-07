@@ -92,7 +92,22 @@ pub struct Interpolation {
 #[derive(Debug)]
 pub struct TransformRef {
     pub name: SpannedIdent,
-    pub context: Option<Selector>,
+    /// Transform context: static (`:literal`), dynamic (`($param)`), or both.
+    pub context: TransformContext,
+}
+
+/// Context for a transform: static (`:literal`), dynamic (`($param)`), or both.
+#[derive(Debug)]
+pub enum TransformContext {
+    /// No context.
+    None,
+    /// Static context literal (e.g., "acc" in `@der:acc`).
+    Static(SpannedIdent),
+    /// Dynamic context parameter name (e.g., "n" in `@count($n)`).
+    /// The SpannedIdent stores the name without the `$` prefix.
+    Dynamic(SpannedIdent),
+    /// Both static and dynamic context (e.g., `@transform:lit($param)`).
+    Both(SpannedIdent, SpannedIdent),
 }
 
 /// A reference to a parameter, term, or phrase call.

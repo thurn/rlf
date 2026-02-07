@@ -11,7 +11,8 @@ use crate::interpreter::plural::plural_category;
 use crate::interpreter::transforms::TransformRegistry;
 use crate::interpreter::{EvalContext, EvalError, PhraseRegistry};
 use crate::parser::ast::{
-    PhraseBody, PhraseDefinition, Reference, Segment, Selector, Template, Transform, VariantEntry,
+    PhraseBody, PhraseDefinition, Reference, Segment, Selector, Template, Transform,
+    TransformContext, VariantEntry,
 };
 use crate::types::{Phrase, Tag, Value, VariantKey};
 
@@ -509,27 +510,8 @@ fn apply_transforms(
                 name: transform.name.clone(),
             })?;
 
-        // Resolve context selector if present
-        let context_value = if let Some(ctx_selector) = &transform.context {
-            match ctx_selector {
-                Selector::Identifier(name) => {
-                    // Static context: use as literal string (e.g., "acc", "nom")
-                    Some(Value::String(name.clone()))
-                }
-                Selector::Parameter(name) => {
-                    // Parameterized context: look up parameter value
-                    if let Some(param) = ctx.get_param(name) {
-                        Some(param.clone())
-                    } else {
-                        return Err(EvalError::PhraseNotFound {
-                            name: format!("${name}"),
-                        });
-                    }
-                }
-            }
-        } else {
-            None
-        };
+        // Resolve transform context
+        let context_value = resolve_transform_context(&transform.context, ctx)?;
 
         // Pass full Value to transform so it can read tags (on first iteration)
         let result = transform_kind.execute(&current, context_value.as_ref(), lang)?;
@@ -538,6 +520,44 @@ fn apply_transforms(
     }
 
     Ok(current.to_string())
+}
+
+/// Resolve a transform context to an optional Value.
+///
+/// Static context becomes a literal string value. Dynamic context looks up
+/// the named parameter. Both produces a compound "static.dynamic" string
+/// when both resolve to strings, or just the dynamic value if the static
+/// part should be preserved as a prefix.
+fn resolve_transform_context(
+    context: &TransformContext,
+    ctx: &EvalContext<'_>,
+) -> Result<Option<Value>, EvalError> {
+    match context {
+        TransformContext::None => Ok(None),
+        TransformContext::Static(name) => Ok(Some(Value::String(name.clone()))),
+        TransformContext::Dynamic(name) => {
+            if let Some(param) = ctx.get_param(name) {
+                Ok(Some(param.clone()))
+            } else {
+                Err(EvalError::PhraseNotFound {
+                    name: format!("${name}"),
+                })
+            }
+        }
+        TransformContext::Both(static_name, dynamic_name) => {
+            let dynamic_value =
+                ctx.get_param(dynamic_name)
+                    .cloned()
+                    .ok_or_else(|| EvalError::PhraseNotFound {
+                        name: format!("${dynamic_name}"),
+                    })?;
+            // Combine static context with dynamic value as "static.dynamic"
+            // This supports patterns like @transform:lit($param) where the
+            // transform needs both pieces of information
+            let combined = format!("{static_name}.{}", dynamic_value);
+            Ok(Some(Value::String(combined)))
+        }
+    }
 }
 
 /// Build a Phrase from variant entries.

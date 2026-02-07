@@ -17,7 +17,8 @@ use proc_macro2::Span;
 use strsim::levenshtein;
 
 use crate::input::{
-    Interpolation, MacroInput, PhraseBody, PhraseDefinition, Reference, Segment, Selector, Template,
+    Interpolation, MacroInput, PhraseBody, PhraseDefinition, Reference, Segment, Selector,
+    Template, TransformContext,
 };
 
 /// Known transforms (universal only for Phase 5).
@@ -167,6 +168,24 @@ fn validate_interpolation(
         // This infrastructure is for Phase 6+ when @a/@an are added which require
         // the 'vowel' tag. For now, no validation needed since all transforms
         // are universal.
+
+        // Validate dynamic context parameter is declared
+        let dynamic_param = match &transform.context {
+            TransformContext::Dynamic(ident) => Some(ident),
+            TransformContext::Both(_, ident) => Some(ident),
+            TransformContext::None | TransformContext::Static(_) => None,
+        };
+        if let Some(ident) = dynamic_param
+            && !params.contains(&ident.name)
+        {
+            return Err(syn::Error::new(
+                ident.span,
+                format!(
+                    "undefined parameter '${0}' in transform context\nhelp: declare it as a parameter: name(${0})",
+                    ident.name
+                ),
+            ));
+        }
     }
 
     // Validate the reference (phrase or parameter)

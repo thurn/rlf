@@ -1,6 +1,6 @@
 //! Integration tests for .rlf file parsing
 
-use rlf::parser::{PhraseBody, Reference, Segment, parse_file};
+use rlf::parser::{PhraseBody, Reference, Segment, TransformContext, parse_file};
 use rlf::types::Tag;
 
 #[test]
@@ -446,7 +446,7 @@ fn test_auto_capitalization_adds_cap_transform() {
                 } => {
                     assert_eq!(transforms.len(), 1);
                     assert_eq!(transforms[0].name, "cap");
-                    assert!(transforms[0].context.is_none());
+                    assert_eq!(transforms[0].context, TransformContext::None);
                     assert_eq!(*reference, Reference::Identifier("card".into()));
                 }
                 Segment::Literal(_) => panic!("expected interpolation"),
@@ -587,4 +587,71 @@ fn test_multiple_tagged_variant_blocks() {
     )
     .unwrap();
     assert_eq!(phrases.len(), 5);
+}
+
+// =============================================================================
+// Dynamic transform context
+// =============================================================================
+
+#[test]
+fn test_dynamic_transform_context() {
+    let phrases = parse_file(r#"draw($n) = "抽{@count($n) card}";"#).unwrap();
+    assert_eq!(phrases.len(), 1);
+    match &phrases[0].body {
+        PhraseBody::Simple(t) => {
+            assert_eq!(t.segments.len(), 2);
+            match &t.segments[1] {
+                Segment::Interpolation {
+                    transforms,
+                    reference,
+                    ..
+                } => {
+                    assert_eq!(transforms.len(), 1);
+                    assert_eq!(transforms[0].name, "count");
+                    assert_eq!(transforms[0].context, TransformContext::Dynamic("n".into()));
+                    assert_eq!(*reference, Reference::Identifier("card".into()));
+                }
+                Segment::Literal(_) => panic!("expected interpolation"),
+            }
+        }
+        PhraseBody::Variants(_) => panic!("expected simple body"),
+    }
+}
+
+#[test]
+fn test_static_transform_context_unchanged() {
+    let phrases = parse_file(r#"destroy = "Zerstöre {@der:acc karte}.";"#).unwrap();
+    assert_eq!(phrases.len(), 1);
+    match &phrases[0].body {
+        PhraseBody::Simple(t) => match &t.segments[1] {
+            Segment::Interpolation { transforms, .. } => {
+                assert_eq!(transforms[0].name, "der");
+                assert_eq!(
+                    transforms[0].context,
+                    TransformContext::Static("acc".into())
+                );
+            }
+            Segment::Literal(_) => panic!("expected interpolation"),
+        },
+        PhraseBody::Variants(_) => panic!("expected simple body"),
+    }
+}
+
+#[test]
+fn test_both_static_and_dynamic_context() {
+    let phrases = parse_file(r#"test($n) = "{@transform:lit($n) ref}";"#).unwrap();
+    assert_eq!(phrases.len(), 1);
+    match &phrases[0].body {
+        PhraseBody::Simple(t) => match &t.segments[0] {
+            Segment::Interpolation { transforms, .. } => {
+                assert_eq!(transforms[0].name, "transform");
+                assert_eq!(
+                    transforms[0].context,
+                    TransformContext::Both("lit".into(), "n".into())
+                );
+            }
+            Segment::Literal(_) => panic!("expected interpolation"),
+        },
+        PhraseBody::Variants(_) => panic!("expected simple body"),
+    }
 }

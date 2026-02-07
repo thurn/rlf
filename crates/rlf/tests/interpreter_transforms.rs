@@ -7531,3 +7531,58 @@ fn hindi_ko_with_string_value() {
     let result = transform.execute(&value, None, "hi").unwrap();
     assert_eq!(result, "राम को");
 }
+
+// =============================================================================
+// Dynamic Transform Context (v2 syntax)
+// =============================================================================
+
+#[test]
+fn dynamic_context_chinese_count() {
+    // @count($n) syntax: dynamic context from parameter
+    let source = r#"
+        card = :zhang "牌";
+        draw($n) = "抽{@count($n) card}";
+    "#;
+
+    let mut locale = Locale::builder().language("zh").build();
+    locale.load_translations_str("zh", source).unwrap();
+
+    let result = locale.call_phrase("draw", &[Value::from(3)]).unwrap();
+    assert_eq!(result.to_string(), "抽3张牌");
+}
+
+#[test]
+fn dynamic_context_german_case() {
+    // Static context still works: @der:acc
+    let source = r#"
+        karte = :fem "Karte";
+        destroy = "Zerstöre {@der:acc karte}.";
+    "#;
+
+    let mut locale = Locale::builder().language("de").build();
+    locale.load_translations_str("de", source).unwrap();
+
+    assert_eq!(
+        locale.get_phrase("destroy").unwrap().to_string(),
+        "Zerstöre die Karte."
+    );
+}
+
+#[test]
+fn dynamic_context_resolves_number() {
+    // Dynamic context passes numeric value to transform
+    let source = r#"
+        card = :zhang "牌";
+        draw($n) = "抽{@count($n) card}";
+    "#;
+
+    let mut locale = Locale::builder().language("zh").build();
+    locale.load_translations_str("zh", source).unwrap();
+
+    // Test with different numbers
+    let one = locale.call_phrase("draw", &[Value::from(1)]).unwrap();
+    assert_eq!(one.to_string(), "抽1张牌");
+
+    let five = locale.call_phrase("draw", &[Value::from(5)]).unwrap();
+    assert_eq!(five.to_string(), "抽5张牌");
+}

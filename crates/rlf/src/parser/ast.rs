@@ -23,13 +23,27 @@ pub enum Segment {
     },
 }
 
-/// A transform applied to a reference (e.g., @cap, @a, @der:acc).
+/// A transform applied to a reference (e.g., @cap, @a, @der:acc, @count($n)).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Transform {
     /// Transform name without @ (e.g., "cap", "a", "der")
     pub name: String,
-    /// Optional context for the transform (e.g., "acc" in @der:acc)
-    pub context: Option<Selector>,
+    /// Optional context for the transform.
+    pub context: TransformContext,
+}
+
+/// Context for a transform: static (`:literal`), dynamic (`($param)`), or both.
+#[derive(Debug, Clone, PartialEq)]
+pub enum TransformContext {
+    /// No context.
+    None,
+    /// Static context literal (e.g., "acc" in `@der:acc`).
+    Static(String),
+    /// Dynamic context parameter name (e.g., "n" in `@count($n)`).
+    /// The String stores the name without the `$` prefix.
+    Dynamic(String),
+    /// Both static and dynamic context (e.g., `@transform:lit($param)`).
+    Both(String, String),
 }
 
 /// A reference to a parameter, term, or phrase.

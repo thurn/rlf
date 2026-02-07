@@ -6,7 +6,7 @@ use std::mem;
 
 use crate::input::{
     Interpolation, MacroInput, PhraseBody, PhraseDefinition, Reference, Segment, Selector,
-    SpannedIdent, Template, TransformRef, VariantEntry,
+    SpannedIdent, Template, TransformContext, TransformRef, VariantEntry,
 };
 use proc_macro2::Span;
 use syn::parse::{Parse, ParseStream};
@@ -303,9 +303,9 @@ fn parse_interpolation(content: &str, span: Span) -> syn::Result<Interpolation> 
     while rest.starts_with('@') {
         rest = &rest[1..]; // Skip @
 
-        // Find end of transform name (space, colon, or end of string)
+        // Find end of transform name (space, colon, open paren, or end of string)
         let end = rest
-            .find(|c: char| c.is_whitespace() || c == ':')
+            .find(|c: char| c.is_whitespace() || c == ':' || c == '(')
             .unwrap_or(rest.len());
 
         if end == 0 {
@@ -313,31 +313,67 @@ fn parse_interpolation(content: &str, span: Span) -> syn::Result<Interpolation> 
         }
 
         let transform_name = &rest[..end];
-        rest = rest[end..].trim_start();
+        rest = &rest[end..];
 
-        // Check for transform context (e.g., @der:acc)
-        let context = if rest.starts_with(':') && !rest[1..].starts_with(char::is_whitespace) {
-            // This could be a transform context or the start of selectors
-            // Transform context is immediately after the transform name with no space
-            // Look for the next space or end to determine
+        // Parse optional static context (:literal)
+        let static_ctx = if rest.starts_with(':') && !rest[1..].starts_with(char::is_whitespace) {
             let after_colon = &rest[1..];
             let ctx_end = after_colon
-                .find(|c: char| c.is_whitespace() || c == ':')
+                .find(|c: char| c.is_whitespace() || c == ':' || c == '(')
                 .unwrap_or(after_colon.len());
 
             if ctx_end > 0 {
-                // Check if this looks like a selector (comes after the reference)
-                // or a context (comes immediately after transform)
-                // Heuristic: if there's no reference yet and we're still parsing transforms,
-                // this is a context
                 let ctx_name = &after_colon[..ctx_end];
-                rest = after_colon[ctx_end..].trim_start();
-                Some(Selector::Literal(SpannedIdent::from_str(ctx_name, span)))
+                rest = &after_colon[ctx_end..];
+                Some(SpannedIdent::from_str(ctx_name, span))
             } else {
                 None
             }
         } else {
             None
+        };
+
+        // Parse optional dynamic context ($param)
+        let dynamic_ctx = if rest.starts_with('(') {
+            let after_paren = &rest[1..];
+            let trimmed = after_paren.trim_start();
+            if !trimmed.starts_with('$') {
+                return Err(syn::Error::new(
+                    span,
+                    "expected '$' before parameter name in transform dynamic context",
+                ));
+            }
+            let after_dollar = &trimmed[1..];
+            let param_end = after_dollar
+                .find(|c: char| !c.is_alphanumeric() && c != '_')
+                .unwrap_or(after_dollar.len());
+            if param_end == 0 {
+                return Err(syn::Error::new(
+                    span,
+                    "expected parameter name after '$' in transform context",
+                ));
+            }
+            let param_name = &after_dollar[..param_end];
+            let after_param = after_dollar[param_end..].trim_start();
+            if !after_param.starts_with(')') {
+                return Err(syn::Error::new(
+                    span,
+                    "expected ')' after parameter name in transform context",
+                ));
+            }
+            rest = &after_param[1..];
+            Some(SpannedIdent::from_str(param_name, span))
+        } else {
+            None
+        };
+
+        rest = rest.trim_start();
+
+        let context = match (static_ctx, dynamic_ctx) {
+            (Some(s), Some(d)) => TransformContext::Both(s, d),
+            (Some(s), None) => TransformContext::Static(s),
+            (None, Some(d)) => TransformContext::Dynamic(d),
+            (None, None) => TransformContext::None,
         };
 
         transforms.push(TransformRef {
@@ -355,7 +391,7 @@ fn parse_interpolation(content: &str, span: Span) -> syn::Result<Interpolation> 
             0,
             TransformRef {
                 name: SpannedIdent::from_str("cap", span),
-                context: None,
+                context: TransformContext::None,
             },
         );
     }
@@ -757,7 +793,10 @@ mod tests {
         let interp = get_interpolation(&segments[0]);
         assert_eq!(interp.transforms.len(), 1);
         assert_eq!(interp.transforms[0].name.name, "cap");
-        assert!(interp.transforms[0].context.is_none());
+        assert!(matches!(
+            interp.transforms[0].context,
+            TransformContext::None
+        ));
     }
 
     #[test]
@@ -791,11 +830,37 @@ mod tests {
         assert_eq!(interp.transforms.len(), 1);
         assert_eq!(interp.transforms[0].name.name, "der");
 
-        let ctx = interp.transforms[0]
-            .context
-            .as_ref()
-            .expect("should have context");
-        assert!(matches!(ctx, Selector::Literal(ident) if ident.name == "acc"));
+        assert!(
+            matches!(&interp.transforms[0].context, TransformContext::Static(ident) if ident.name == "acc")
+        );
+    }
+
+    #[test]
+    fn test_transform_with_dynamic_context() {
+        let segments = parse_ok("{@count($n) card}");
+        assert_eq!(segments.len(), 1);
+
+        let interp = get_interpolation(&segments[0]);
+        assert_eq!(interp.transforms.len(), 1);
+        assert_eq!(interp.transforms[0].name.name, "count");
+        assert!(
+            matches!(&interp.transforms[0].context, TransformContext::Dynamic(ident) if ident.name == "n")
+        );
+        assert!(matches!(&interp.reference, Reference::Identifier(ident) if ident.name == "card"));
+    }
+
+    #[test]
+    fn test_transform_with_both_contexts() {
+        let segments = parse_ok("{@transform:lit($param) ref}");
+        assert_eq!(segments.len(), 1);
+
+        let interp = get_interpolation(&segments[0]);
+        assert_eq!(interp.transforms.len(), 1);
+        assert_eq!(interp.transforms[0].name.name, "transform");
+        assert!(matches!(
+            &interp.transforms[0].context,
+            TransformContext::Both(s, d) if s.name == "lit" && d.name == "param"
+        ));
     }
 
     // =========================================================================

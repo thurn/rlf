@@ -9,7 +9,7 @@
 
 use super::ast::*;
 use super::error::ParseError;
-use winnow::combinator::{alt, delimited, opt, preceded, repeat, separated, terminated};
+use winnow::combinator::{alt, delimited, opt, repeat, separated, terminated};
 use winnow::error::{ContextError, ErrMode};
 use winnow::prelude::*;
 use winnow::token::{any, none_of, take_while};
@@ -134,7 +134,7 @@ fn interpolation_content(input: &mut &str) -> ModalResult<Segment> {
             0,
             Transform {
                 name: "cap".to_string(),
-                context: None,
+                context: TransformContext::None,
             },
         );
     }
@@ -153,17 +153,44 @@ fn ws(input: &mut &str) -> ModalResult<()> {
         .parse_next(input)
 }
 
-/// Parse a transform: @name or @name:context
+/// Parse a transform: @name, @name:context, @name($param), or @name:context($param)
 fn transform(input: &mut &str) -> ModalResult<Transform> {
-    preceded(
-        '@',
-        (identifier, opt(preceded(':', transform_context_identifier))),
-    )
-    .map(|(name, context)| Transform {
+    let _ = '@'.parse_next(input)?;
+    let name: &str = identifier(input)?;
+
+    // Parse optional static context (:literal)
+    let static_ctx =
+        if input.starts_with(':') && !input[1..].starts_with(|c: char| c.is_whitespace()) {
+            let _ = ':'.parse_next(input)?;
+            Some(transform_context_identifier(input)?.to_string())
+        } else {
+            None
+        };
+
+    // Parse optional dynamic context ($param)
+    let dynamic_ctx = if input.starts_with('(') {
+        let _ = '('.parse_next(input)?;
+        ws(input)?;
+        let _ = '$'.parse_next(input)?;
+        let param: &str = identifier(input)?;
+        ws(input)?;
+        let _ = ')'.parse_next(input)?;
+        Some(param.to_string())
+    } else {
+        None
+    };
+
+    let context = match (static_ctx, dynamic_ctx) {
+        (Some(s), Some(d)) => TransformContext::Both(s, d),
+        (Some(s), None) => TransformContext::Static(s),
+        (None, Some(d)) => TransformContext::Dynamic(d),
+        (None, None) => TransformContext::None,
+    };
+
+    Ok(Transform {
         name: name.to_string(),
-        context: context.map(|s| Selector::Identifier(s.to_string())),
+        context,
     })
-    .parse_next(input)
 }
 
 /// Parse a transform context identifier (alphanumeric, underscores, and dots).
