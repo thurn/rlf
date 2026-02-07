@@ -161,7 +161,17 @@ impl Parse for PhraseBody {
 
             let mut entries = Vec::new();
             while !content.is_empty() {
-                entries.push(content.parse()?);
+                entries.push(content.parse::<VariantEntry>()?);
+            }
+
+            // Validate: at most one * per variant block
+            let default_count = entries.iter().filter(|e| e.is_default).count();
+            if default_count > 1 {
+                let second_default = entries.iter().filter(|e| e.is_default).nth(1).unwrap();
+                return Err(syn::Error::new(
+                    second_default.keys[0].span,
+                    "multiple '*' default markers in variant block — at most one is allowed",
+                ));
             }
 
             Ok(PhraseBody::Variants(entries))
@@ -174,6 +184,12 @@ impl Parse for PhraseBody {
 
 impl Parse for VariantEntry {
     fn parse(input: ParseStream) -> syn::Result<Self> {
+        // Check for * default marker
+        let is_default = input.peek(Token![*]);
+        if is_default {
+            input.parse::<Token![*]>()?;
+        }
+
         // Parse keys (comma-separated identifiers, possibly with dots)
         // Format: key1, key2: "template"
         // Or: nom.one, nom.few: "template"
@@ -208,6 +224,17 @@ impl Parse for VariantEntry {
             break;
         }
 
+        // Validate: * cannot appear on multi-dimensional keys
+        if is_default && keys.iter().any(|k| k.name.contains('.')) {
+            return Err(syn::Error::new(
+                keys[0].span,
+                format!(
+                    "'*' cannot be used on multi-dimensional key '{}'",
+                    keys[0].name
+                ),
+            ));
+        }
+
         // Parse colon
         input.parse::<Token![:]>()?;
 
@@ -219,7 +246,11 @@ impl Parse for VariantEntry {
             input.parse::<Token![,]>()?;
         }
 
-        Ok(VariantEntry { keys, template })
+        Ok(VariantEntry {
+            keys,
+            template,
+            is_default,
+        })
     }
 }
 

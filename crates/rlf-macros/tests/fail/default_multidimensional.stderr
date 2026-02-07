@@ -1,0 +1,5 @@
+error: '*' cannot be used on multi-dimensional key 'nom.one'
+ --> tests/fail/default_multidimensional.rs:4:15
+  |
+4 |     card = { *nom.one: "card", other: "cards" };
+  |               ^^^

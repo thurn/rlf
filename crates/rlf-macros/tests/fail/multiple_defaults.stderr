@@ -1,0 +1,5 @@
+error: multiple '*' default markers in variant block — at most one is allowed
+ --> tests/fail/multiple_defaults.rs:4:29
+  |
+4 |     card = { *one: "card", *other: "cards" };
+  |                             ^^^^^

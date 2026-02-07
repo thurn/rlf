@@ -79,6 +79,41 @@ fn validate_definitions(definitions: &[PhraseDefinition]) -> Result<(), ParseErr
                 message: format!(":from requires parameters on definition '{}'", def.name),
             });
         }
+
+        // Validate * default markers in variant blocks
+        if let PhraseBody::Variants(entries) = &def.body {
+            let mut default_count = 0;
+            for entry in entries {
+                if entry.is_default {
+                    default_count += 1;
+
+                    // * cannot appear on multi-dimensional keys (keys containing a dot)
+                    if entry.keys.iter().any(|k| k.contains('.')) {
+                        return Err(ParseError::Syntax {
+                            line: 0,
+                            column: 0,
+                            message: format!(
+                                "'*' cannot be used on multi-dimensional key '{}' in definition '{}'",
+                                entry.keys.first().unwrap_or(&String::new()),
+                                def.name
+                            ),
+                        });
+                    }
+                }
+            }
+
+            // At most one * per variant block
+            if default_count > 1 {
+                return Err(ParseError::Syntax {
+                    line: 0,
+                    column: 0,
+                    message: format!(
+                        "multiple '*' default markers in variant block of '{}' — at most one is allowed",
+                        def.name
+                    ),
+                });
+            }
+        }
     }
     Ok(())
 }
@@ -260,15 +295,22 @@ fn variant_entries(input: &mut &str) -> ModalResult<Vec<VariantEntry>> {
     Ok(entries)
 }
 
-/// Parse a single variant entry: key1, key2: "template"
+/// Parse a single variant entry: *? key1, key2: "template"
 fn variant_entry(input: &mut &str) -> ModalResult<VariantEntry> {
+    // Check for * default marker
+    let is_default = opt('*').parse_next(input)?.is_some();
+
     let keys = variant_keys(input)?;
     skip_ws_and_comments(input)?;
     ':'.parse_next(input)?;
     skip_ws_and_comments(input)?;
     let template = template_string(input)?;
 
-    Ok(VariantEntry { keys, template })
+    Ok(VariantEntry {
+        keys,
+        template,
+        is_default,
+    })
 }
 
 /// Parse variant keys: key1, key2, key3 (before the colon).

@@ -74,6 +74,8 @@ pub struct VariantEntry {
     /// Variant keys (multiple keys share the same template).
     pub keys: Vec<SpannedIdent>,
     pub template: Template,
+    /// Whether this entry is marked as the default with `*`.
+    pub is_default: bool,
 }
 
 /// A template string with interpolations.

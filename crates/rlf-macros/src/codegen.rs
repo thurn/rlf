@@ -269,8 +269,10 @@ fn reconstruct_source(input: &MacroInput) -> String {
                     .iter()
                     .map(|v| {
                         let keys: Vec<_> = v.keys.iter().map(|k| k.name.as_str()).collect();
+                        let default_marker = if v.is_default { "*" } else { "" };
                         format!(
-                            "{}: \"{}\"",
+                            "{}{}: \"{}\"",
+                            default_marker,
                             keys.join(", "),
                             reconstruct_template(&v.template)
                         )

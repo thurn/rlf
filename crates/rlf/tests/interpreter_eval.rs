@@ -2295,3 +2295,81 @@ fn error_selector_on_phrase_message_format() {
     assert!(msg.contains("{cards(...)}"));
     assert!(msg.contains("{cards(...):variant}"));
 }
+
+// =============================================================================
+// Default Variant Marker (*) Tests
+// =============================================================================
+
+#[test]
+fn eval_bare_ref_uses_star_default() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        card = { *one: "card", other: "cards" };
+        example = "{card}";
+    "#,
+        )
+        .unwrap();
+    let result = registry.get_phrase("en", "example").unwrap();
+    assert_eq!(result.to_string(), "card");
+}
+
+#[test]
+fn eval_bare_ref_star_on_second_variant() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        card = { one: "card", *other: "cards" };
+        example = "{card}";
+    "#,
+        )
+        .unwrap();
+    let result = registry.get_phrase("en", "example").unwrap();
+    assert_eq!(result.to_string(), "cards");
+}
+
+#[test]
+fn eval_bare_ref_no_star_uses_first_variant() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        card = { one: "card", other: "cards" };
+        example = "{card}";
+    "#,
+        )
+        .unwrap();
+    let result = registry.get_phrase("en", "example").unwrap();
+    assert_eq!(result.to_string(), "card");
+}
+
+#[test]
+fn eval_star_default_with_selectors_still_works() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        card = { *one: "card", other: "cards" };
+        all_cards = "All {card:other}.";
+    "#,
+        )
+        .unwrap();
+    let result = registry.get_phrase("en", "all_cards").unwrap();
+    assert_eq!(result.to_string(), "All cards.");
+}
+
+#[test]
+fn eval_term_default_text_reflects_star() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        go = { present: "go", *past: "went", participle: "gone" };
+    "#,
+        )
+        .unwrap();
+    let result = registry.get_phrase("en", "go").unwrap();
+    assert_eq!(result.to_string(), "went");
+}

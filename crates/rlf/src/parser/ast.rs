@@ -123,4 +123,6 @@ pub struct VariantEntry {
     pub keys: Vec<String>,
     /// Template for this variant.
     pub template: Template,
+    /// Whether this entry is marked as the default with `*`.
+    pub is_default: bool,
 }

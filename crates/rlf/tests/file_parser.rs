@@ -863,3 +863,106 @@ fn test_mixed_terms_and_phrases() {
     assert_eq!(phrases[0].kind, DefinitionKind::Term);
     assert_eq!(phrases[1].kind, DefinitionKind::Phrase);
 }
+
+// =============================================================================
+// Default variant marker (*) tests
+// =============================================================================
+
+#[test]
+fn test_default_marker_on_variant() {
+    let phrases = parse_file(
+        r#"
+        card = { *one: "card", other: "cards" };
+    "#,
+    )
+    .unwrap();
+    match &phrases[0].body {
+        PhraseBody::Variants(entries) => {
+            assert_eq!(entries.len(), 2);
+            assert!(entries[0].is_default);
+            assert!(!entries[1].is_default);
+        }
+        PhraseBody::Simple(_) => panic!("expected variants"),
+    }
+}
+
+#[test]
+fn test_no_default_marker() {
+    let phrases = parse_file(
+        r#"
+        card = { one: "card", other: "cards" };
+    "#,
+    )
+    .unwrap();
+    match &phrases[0].body {
+        PhraseBody::Variants(entries) => {
+            assert!(!entries[0].is_default);
+            assert!(!entries[1].is_default);
+        }
+        PhraseBody::Simple(_) => panic!("expected variants"),
+    }
+}
+
+#[test]
+fn test_default_marker_on_second_variant() {
+    let phrases = parse_file(
+        r#"
+        card = { one: "card", *other: "cards" };
+    "#,
+    )
+    .unwrap();
+    match &phrases[0].body {
+        PhraseBody::Variants(entries) => {
+            assert!(!entries[0].is_default);
+            assert!(entries[1].is_default);
+        }
+        PhraseBody::Simple(_) => panic!("expected variants"),
+    }
+}
+
+#[test]
+fn test_multiple_default_markers_is_error() {
+    let result = parse_file(
+        r#"
+        card = { *one: "card", *other: "cards" };
+    "#,
+    );
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("multiple '*'"),
+        "expected multiple * error, got: {err}"
+    );
+}
+
+#[test]
+fn test_default_marker_on_multidimensional_key_is_error() {
+    let result = parse_file(
+        r#"
+        card = { *nom.one: "card", other: "cards" };
+    "#,
+    );
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("multi-dimensional"),
+        "expected multi-dimensional error, got: {err}"
+    );
+}
+
+#[test]
+fn test_default_marker_with_tags() {
+    let phrases = parse_file(
+        r#"
+        card = :a { *one: "card", other: "cards" };
+    "#,
+    )
+    .unwrap();
+    assert_eq!(phrases[0].tags, vec![Tag::new("a")]);
+    match &phrases[0].body {
+        PhraseBody::Variants(entries) => {
+            assert!(entries[0].is_default);
+        }
+        PhraseBody::Simple(_) => panic!("expected variants"),
+    }
+}

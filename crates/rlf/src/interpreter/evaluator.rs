@@ -565,8 +565,10 @@ fn resolve_transform_context(
 /// Build a Phrase from variant entries.
 ///
 /// Evaluates each variant template and populates the variants HashMap.
-/// When a string context is set, uses the context-matching variant as the
-/// default text. Otherwise, uses the first entry's text.
+/// Default text priority:
+/// 1. String context match (if set)
+/// 2. `*`-marked default variant
+/// 3. First entry's text (backward compatibility)
 fn build_phrase_from_variants(
     entries: &[VariantEntry],
     ctx: &mut EvalContext<'_>,
@@ -575,15 +577,21 @@ fn build_phrase_from_variants(
     lang: &str,
 ) -> Result<(String, HashMap<VariantKey, String>), EvalError> {
     let mut variants = HashMap::new();
-    let mut default_text = String::new();
+    let mut first_text = String::new();
+    let mut default_text: Option<String> = None;
     let mut context_text: Option<String> = None;
 
     for (i, entry) in entries.iter().enumerate() {
         let text = eval_template(&entry.template, ctx, registry, transform_registry, lang)?;
 
-        // First variant's text becomes the default
+        // First variant's text becomes the fallback default
         if i == 0 {
-            default_text = text.clone();
+            first_text = text.clone();
+        }
+
+        // *-marked variant becomes the default
+        if entry.is_default && default_text.is_none() {
+            default_text = Some(text.clone());
         }
 
         // Check if any key matches the string context
@@ -604,10 +612,8 @@ fn build_phrase_from_variants(
         }
     }
 
-    // Prefer context-matching variant as default text
-    if let Some(ctx_text) = context_text {
-        default_text = ctx_text;
-    }
+    // Priority: context match > *-marked default > first entry
+    let result_text = context_text.or(default_text).unwrap_or(first_text);
 
-    Ok((default_text, variants))
+    Ok((result_text, variants))
 }
