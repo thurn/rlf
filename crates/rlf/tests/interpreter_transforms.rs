@@ -795,6 +795,99 @@ fn english_upper_a_card() {
 }
 
 // =============================================================================
+// English Plural Transform (@plural)
+// =============================================================================
+
+#[test]
+fn english_plural_on_phrase_with_variants() {
+    let phrase = Phrase::builder()
+        .text("card".to_string())
+        .variants(HashMap::from([
+            (VariantKey::new("one"), "card".to_string()),
+            (VariantKey::new("other"), "cards".to_string()),
+        ]))
+        .build();
+    let value = Value::Phrase(phrase);
+    let transform = TransformKind::EnglishPlural;
+    let result = transform.execute(&value, None, "en").unwrap();
+    assert_eq!(result, "cards");
+}
+
+#[test]
+fn english_plural_on_plain_string() {
+    let value = Value::String("card".to_string());
+    let transform = TransformKind::EnglishPlural;
+    let result = transform.execute(&value, None, "en").unwrap();
+    assert_eq!(result, "card");
+}
+
+#[test]
+fn english_plural_registry_lookup() {
+    let registry = TransformRegistry::new();
+    let transform = registry.get("plural", "en");
+    assert_eq!(transform, Some(TransformKind::EnglishPlural));
+}
+
+#[test]
+fn english_plural_not_available_for_other_languages() {
+    let registry = TransformRegistry::new();
+    assert_eq!(registry.get("plural", "de"), None);
+    assert_eq!(registry.get("plural", "fr"), None);
+}
+
+#[test]
+fn english_plural_in_template() {
+    let source = r#"
+        card = { one: "card", other: "cards" };
+        many_cards = "{@plural card}";
+    "#;
+
+    let mut locale = Locale::builder().language("en").build();
+    locale.load_translations_str("en", source).unwrap();
+
+    assert_eq!(
+        locale.get_phrase("many_cards").unwrap().to_string(),
+        "cards"
+    );
+}
+
+#[test]
+fn english_plural_with_phrase_call() {
+    let source = r#"
+        subtype = { one: "subtype", other: "subtypes" };
+        label(s) = "{@plural subtype}";
+    "#;
+
+    let mut locale = Locale::builder().language("en").build();
+    locale.load_translations_str("en", source).unwrap();
+
+    assert_eq!(
+        locale
+            .call_phrase("label", &[Value::from("anything")])
+            .unwrap()
+            .to_string(),
+        "subtypes"
+    );
+}
+
+#[test]
+fn english_plural_with_cap() {
+    let source = r#"
+        card = { one: "card", other: "cards" };
+        many_cards_cap = "{@cap @plural card}";
+    "#;
+
+    let mut locale = Locale::builder().language("en").build();
+    locale.load_translations_str("en", source).unwrap();
+
+    // Right-to-left: @plural first ("cards"), then @cap ("Cards")
+    assert_eq!(
+        locale.get_phrase("many_cards_cap").unwrap().to_string(),
+        "Cards"
+    );
+}
+
+// =============================================================================
 // German Article Transforms (@der/@die/@das, @ein/@eine)
 // =============================================================================
 

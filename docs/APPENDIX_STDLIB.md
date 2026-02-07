@@ -45,6 +45,7 @@ The `@cap` transform skips leading HTML-like markup tags (e.g., `<b>`, `<color=#
 |-----------|---------|-------|--------|
 | `@a` | `@an` | `:a`, `:an` (required) | Prepend indefinite article; errors if tag missing |
 | `@the` | - | - | Prepend "the" |
+| `@plural` | - | - | Select `:other` variant (plural form) |
 
 **Plural categories**: `one`, `other`
 
@@ -60,6 +61,7 @@ rlf! {
     draw_one = "Draw {@a card}.";      // → "Draw a card."
     play_one = "Play {@a event}.";     // → "Play an event."
     the_card = "{@the card}";          // → "the card"
+    many_cards = "{@cap @plural card}"; // → "Cards"
 }
 ```
 

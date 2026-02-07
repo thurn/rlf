@@ -27,6 +27,8 @@ pub enum TransformKind {
     EnglishA,
     /// @the - English definite article "the"
     EnglishThe,
+    /// @plural - English plural form (selects :other variant)
+    EnglishPlural,
     // German transforms (Phase 6)
     /// @der/@die/@das - German definite article with case context
     GermanDer,
@@ -152,6 +154,7 @@ impl TransformKind {
             // English transforms need full Value to read tags
             TransformKind::EnglishA => english_a_transform(value),
             TransformKind::EnglishThe => english_the_transform(value),
+            TransformKind::EnglishPlural => english_plural_transform(value),
             // German transforms need Value (for tags) and context (for case)
             TransformKind::GermanDer => german_der_transform(value, context),
             TransformKind::GermanEin => german_ein_transform(value, context),
@@ -321,6 +324,16 @@ fn english_a_transform(value: &Value) -> Result<String, EvalError> {
 /// Unconditionally prepends "the " to the value's text.
 fn english_the_transform(value: &Value) -> Result<String, EvalError> {
     Ok(format!("the {value}"))
+}
+
+/// English plural transform (@plural).
+///
+/// Selects the `:other` variant from a Phrase value.
+fn english_plural_transform(value: &Value) -> Result<String, EvalError> {
+    Ok(resolve_text_with_context(
+        value,
+        Some(&Value::String("other".to_string())),
+    ))
 }
 
 // =============================================================================
@@ -2473,6 +2486,7 @@ impl TransformRegistry {
         match (lang, canonical) {
             ("en", "a") => Some(TransformKind::EnglishA),
             ("en", "the") => Some(TransformKind::EnglishThe),
+            ("en", "plural") => Some(TransformKind::EnglishPlural),
             ("de", "der") => Some(TransformKind::GermanDer),
             ("de", "ein") => Some(TransformKind::GermanEin),
             ("nl", "de") => Some(TransformKind::DutchDe),
