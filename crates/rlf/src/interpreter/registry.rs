@@ -5,7 +5,7 @@ use std::sync::RwLock;
 
 use crate::interpreter::transforms::TransformRegistry;
 use crate::interpreter::{EvalContext, EvalError, eval_phrase_def, eval_template};
-use crate::parser::ast::{PhraseDefinition, Template};
+use crate::parser::ast::{DefinitionKind, PhraseDefinition, Template};
 use crate::parser::{ParseError, parse_file, parse_template};
 use crate::types::{Phrase, PhraseId, Value};
 
@@ -328,6 +328,11 @@ impl PhraseRegistry {
     /// Returns an iterator over all phrase names in this registry.
     pub fn phrase_names(&self) -> impl Iterator<Item = &str> {
         self.phrases.keys().map(String::as_str)
+    }
+
+    /// Get the definition kind (term or phrase) for a given name.
+    pub fn definition_kind(&self, name: &str) -> Option<DefinitionKind> {
+        self.phrases.get(name).map(|def| def.kind)
     }
 
     /// Returns the number of phrases in this registry.

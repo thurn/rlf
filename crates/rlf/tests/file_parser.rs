@@ -1,6 +1,6 @@
 //! Integration tests for .rlf file parsing
 
-use rlf::parser::{PhraseBody, Reference, Segment, TransformContext, parse_file};
+use rlf::parser::{DefinitionKind, PhraseBody, Reference, Segment, TransformContext, parse_file};
 use rlf::types::Tag;
 
 #[test]
@@ -662,9 +662,10 @@ fn test_both_static_and_dynamic_context() {
 
 #[test]
 fn test_phrase_call_with_number_literal() {
+    // v2: phrases with params use simple template bodies, not variant blocks
     let phrases = parse_file(
         r#"
-        cards($n) = { one: "a card", other: "{$n} cards" };
+        cards($n) = "{$n} cards";
         pair = "You have {cards(2)}.";
     "#,
     )
@@ -769,4 +770,96 @@ fn test_phrase_call_mixed_literal_args() {
         PhraseBody::Variants(_) => panic!("expected simple body"),
     }
     drop(phrases);
+}
+
+// =============================================================================
+// DefinitionKind tests (Term vs Phrase)
+// =============================================================================
+
+#[test]
+fn test_definition_with_params_is_phrase() {
+    let phrases = parse_file(r#"greet($name) = "Hello, {$name}!";"#).unwrap();
+    assert_eq!(phrases[0].kind, DefinitionKind::Phrase);
+}
+
+#[test]
+fn test_definition_without_params_is_term() {
+    let phrases = parse_file(r#"hello = "Hello, world!";"#).unwrap();
+    assert_eq!(phrases[0].kind, DefinitionKind::Term);
+}
+
+#[test]
+fn test_term_with_variants_is_valid() {
+    let phrases = parse_file(
+        r#"
+        card = { one: "card", other: "cards" };
+    "#,
+    )
+    .unwrap();
+    assert_eq!(phrases[0].kind, DefinitionKind::Term);
+    assert!(matches!(phrases[0].body, PhraseBody::Variants(_)));
+}
+
+#[test]
+fn test_params_with_variant_block_is_error() {
+    let result = parse_file(
+        r#"
+        cards($n) = { one: "{$n} card", other: "{$n} cards" };
+    "#,
+    );
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("variant block"),
+        "expected variant block error, got: {err}"
+    );
+}
+
+#[test]
+fn test_empty_parens_is_error() {
+    let result = parse_file(r#"name() = "x";"#);
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("empty parameter list"),
+        "expected empty parameter list error, got: {err}"
+    );
+}
+
+#[test]
+fn test_from_without_params_is_error() {
+    let result = parse_file(r#"thing = :from($s) "text";"#);
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains(":from requires parameters"),
+        "expected :from requires parameters error, got: {err}"
+    );
+}
+
+#[test]
+fn test_phrase_with_simple_body_is_valid() {
+    let phrases = parse_file(r#"greet($name) = "Hello, {$name}!";"#).unwrap();
+    assert_eq!(phrases[0].kind, DefinitionKind::Phrase);
+    assert!(matches!(phrases[0].body, PhraseBody::Simple(_)));
+}
+
+#[test]
+fn test_phrase_with_from_is_valid() {
+    let phrases = parse_file(r#"subtype($s) = :from($s) "<b>{$s}</b>";"#).unwrap();
+    assert_eq!(phrases[0].kind, DefinitionKind::Phrase);
+    assert_eq!(phrases[0].from_param, Some("s".to_string()));
+}
+
+#[test]
+fn test_mixed_terms_and_phrases() {
+    let phrases = parse_file(
+        r#"
+        card = :a { one: "card", other: "cards" };
+        draw($n) = "Draw {$n} {card:$n}.";
+    "#,
+    )
+    .unwrap();
+    assert_eq!(phrases[0].kind, DefinitionKind::Term);
+    assert_eq!(phrases[1].kind, DefinitionKind::Phrase);
 }

@@ -1751,12 +1751,14 @@ fn eval_russian_dative_case() {
 
 #[test]
 fn eval_phrase_call_replaces_auto_forward() {
+    // v2: phrases with params cannot have variant blocks. Use a term with
+    // parameterized selection and a simple phrase that calls into it.
     let mut registry = PhraseRegistry::new();
     registry
         .load_phrases(
             r#"
-        cards($n) = { one: "{$n} card", other: "{$n} cards" };
-        draw($n) = "Draw {cards($n)}.";
+        card = { one: "card", other: "cards" };
+        draw($n) = "Draw {$n} {card:$n}.";
     "#,
         )
         .unwrap();
@@ -1774,11 +1776,12 @@ fn eval_phrase_call_replaces_auto_forward() {
 
 #[test]
 fn eval_bare_identifier_on_parameterized_phrase_is_error() {
+    // v2: phrases with params use simple template bodies.
     let mut registry = PhraseRegistry::new();
     registry
         .load_phrases(
             r#"
-        cards($n) = { one: "{$n} card", other: "{$n} cards" };
+        cards($n) = "{$n} cards";
         bad = "{cards}";
     "#,
         )
@@ -1868,91 +1871,84 @@ fn eval_multi_tag_selector_uses_all_tags() {
 // =============================================================================
 
 #[test]
-fn eval_variant_phrase_auto_selects_by_numeric_param() {
+fn eval_variant_phrase_with_params_is_error() {
+    // v2: phrases with parameters cannot have variant blocks
     let mut registry = PhraseRegistry::new();
-    registry
-        .load_phrases(
-            r#"
+    let result = registry.load_phrases(
+        r#"
         text_number($n) = {
             one: "one",
             other: "{$n}",
         };
     "#,
-        )
-        .unwrap();
-
-    let one = registry
-        .call_phrase("en", "text_number", &[Value::from(1)])
-        .unwrap();
-    assert_eq!(one.to_string(), "one");
-
-    let three = registry
-        .call_phrase("en", "text_number", &[Value::from(3)])
-        .unwrap();
-    assert_eq!(three.to_string(), "3");
+    );
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(err.contains("variant block"));
 }
 
 #[test]
-fn eval_variant_phrase_auto_selects_this_turn_times() {
+fn eval_variant_term_selects_by_key() {
+    // v2: variant blocks are for terms only
     let mut registry = PhraseRegistry::new();
     registry
         .load_phrases(
             r#"
-        this_turn_times($n) = {
+        this_turn = {
             one: "this turn",
-            other: "this turn {$n} times",
+            other: "this turn many times",
         };
+        report($n) = "{this_turn:$n}";
     "#,
         )
         .unwrap();
 
     let one = registry
-        .call_phrase("en", "this_turn_times", &[Value::from(1)])
+        .call_phrase("en", "report", &[Value::from(1)])
         .unwrap();
     assert_eq!(one.to_string(), "this turn");
 
     let three = registry
-        .call_phrase("en", "this_turn_times", &[Value::from(3)])
+        .call_phrase("en", "report", &[Value::from(3)])
         .unwrap();
-    assert_eq!(three.to_string(), "this turn 3 times");
+    assert_eq!(three.to_string(), "this turn many times");
 }
 
 #[test]
-fn eval_variant_phrase_auto_selects_preserves_variants() {
+fn eval_variant_term_preserves_variants() {
+    // v2: variant blocks are for terms only; test variant access
     let mut registry = PhraseRegistry::new();
     registry
         .load_phrases(
             r#"
-        items($n) = {
-            one: "{$n} item",
-            other: "{$n} items",
+        item = {
+            one: "item",
+            other: "items",
         };
     "#,
         )
         .unwrap();
 
-    // The returned phrase should have the auto-selected default text
-    // AND still have all variants accessible
-    let result = registry
-        .call_phrase("en", "items", &[Value::from(5)])
-        .unwrap();
-    assert_eq!(result.to_string(), "5 items");
-    assert_eq!(result.variant("one"), "5 item");
-    assert_eq!(result.variant("other"), "5 items");
+    let result = registry.get_phrase("en", "item").unwrap();
+    assert_eq!(result.to_string(), "item");
+    assert_eq!(result.variant("one"), "item");
+    assert_eq!(result.variant("other"), "items");
 }
 
 #[test]
-fn eval_variant_phrase_auto_selects_russian_plural() {
+fn eval_variant_term_russian_plural_selection() {
+    // v2: variant blocks are for terms only; test parameterized selection
     let mut registry = PhraseRegistry::new();
     registry
         .load_phrases(
             r#"
-        counted_cards($n) = {
-            one: "{$n} карта",
-            few: "{$n} карты",
-            many: "{$n} карт",
-            other: "{$n} карты",
+        card_ru = {
+            one: "карта",
+            few: "карты",
+            many: "карт",
+            other: "карты",
         };
+        counted_cards($n) = "{$n} {card_ru:$n}";
     "#,
         )
         .unwrap();
@@ -1974,51 +1970,44 @@ fn eval_variant_phrase_auto_selects_russian_plural() {
 }
 
 #[test]
-fn eval_variant_phrase_auto_selects_with_non_numeric_param_uses_first() {
+fn eval_variant_phrase_with_params_and_non_numeric_is_error() {
+    // v2: phrases with parameters cannot have variant blocks
     let mut registry = PhraseRegistry::new();
-    registry
-        .load_phrases(
-            r#"
+    let result = registry.load_phrases(
+        r#"
         greeting($name) = {
             formal: "Good day, {$name}.",
             casual: "Hey {$name}!",
         };
     "#,
-        )
-        .unwrap();
-
-    // With a string parameter that doesn't match any variant key,
-    // should fall back to first variant as default
-    let result = registry
-        .call_phrase("en", "greeting", &[Value::from("Alice")])
-        .unwrap();
-    assert_eq!(result.to_string(), "Good day, Alice.");
+    );
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(err.contains("variant block"));
 }
 
 #[test]
-fn eval_variant_phrase_auto_selects_via_locale() {
+fn eval_variant_term_selects_via_locale() {
+    // v2: variant blocks are for terms only; test via Locale API
     let mut locale = Locale::builder().language("en").build();
     locale
         .load_translations_str(
             "en",
             r#"
-        this_turn_times($n) = {
+        this_turn = {
             one: "this turn",
-            other: "this turn {$n} times",
+            other: "this turn many times",
         };
+        report($n) = "{this_turn:$n}";
     "#,
         )
         .unwrap();
 
-    let one = locale
-        .call_phrase("this_turn_times", &[Value::from(1)])
-        .unwrap();
+    let one = locale.call_phrase("report", &[Value::from(1)]).unwrap();
     assert_eq!(one.to_string(), "this turn");
 
-    let three = locale
-        .call_phrase("this_turn_times", &[Value::from(3)])
-        .unwrap();
-    assert_eq!(three.to_string(), "this turn 3 times");
+    let three = locale.call_phrase("report", &[Value::from(3)]).unwrap();
+    assert_eq!(three.to_string(), "this turn many times");
 }
 
 // =============================================================================
@@ -2031,7 +2020,7 @@ fn eval_phrase_call_with_number_literal() {
     registry
         .load_phrases(
             r#"
-        cards($n) = { one: "a card", other: "{$n} cards" };
+        cards($n) = "{$n} cards";
         pair = "You have {cards(2)}.";
     "#,
         )
@@ -2046,13 +2035,13 @@ fn eval_phrase_call_with_number_literal_match() {
     registry
         .load_phrases(
             r#"
-        cards($n) = { one: "a card", other: "{$n} cards" };
-        one_card = "{cards(1)}";
+        label($n) = "count: {$n}";
+        one_label = "{label(1)}";
     "#,
         )
         .unwrap();
-    let result = registry.get_phrase("en", "one_card").unwrap();
-    assert_eq!(result.to_string(), "a card");
+    let result = registry.get_phrase("en", "one_label").unwrap();
+    assert_eq!(result.to_string(), "count: 1");
 }
 
 #[test]
@@ -2091,7 +2080,7 @@ fn eval_phrase_call_with_number_literal_zero() {
     registry
         .load_phrases(
             r#"
-        items($n) = { one: "one item", other: "{$n} items" };
+        items($n) = "{$n} items";
         none = "{items(0)}";
     "#,
         )

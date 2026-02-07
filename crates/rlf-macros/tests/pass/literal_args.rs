@@ -2,8 +2,8 @@
 use rlf::{rlf, Locale};
 
 rlf! {
-    // Phrase with :match for numeric branching
-    cards($n) = { one: "a card", other: "{$n} cards" };
+    // Phrase with a simple template body
+    cards($n) = "{$n} cards";
 
     // Phrase call with literal number
     pair = "You have {cards(2)}.";

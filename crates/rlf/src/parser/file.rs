@@ -18,6 +18,8 @@ pub fn parse_file(input: &str) -> Result<Vec<PhraseDefinition>, ParseError> {
             // Skip any trailing whitespace/comments
             let _ = skip_ws_and_comments(&mut remaining);
             if remaining.is_empty() {
+                // Validate term/phrase restrictions
+                validate_definitions(&phrases)?;
                 Ok(phrases)
             } else {
                 let (line, column) = calculate_position(input, remaining);
@@ -40,6 +42,45 @@ pub fn parse_file(input: &str) -> Result<Vec<PhraseDefinition>, ParseError> {
             })
         }
     }
+}
+
+/// Validate term/phrase restrictions on parsed definitions.
+fn validate_definitions(definitions: &[PhraseDefinition]) -> Result<(), ParseError> {
+    for def in definitions {
+        // Empty parameter list: name() = ... should use a term instead
+        if def.has_empty_parens {
+            return Err(ParseError::Syntax {
+                line: 0,
+                column: 0,
+                message: format!(
+                    "empty parameter list on '{}' — use a term instead (remove the parentheses)",
+                    def.name
+                ),
+            });
+        }
+
+        // Phrases cannot have variant block bodies (until :match is added in M4)
+        if def.kind == DefinitionKind::Phrase && matches!(def.body, PhraseBody::Variants(_)) {
+            return Err(ParseError::Syntax {
+                line: 0,
+                column: 0,
+                message: format!(
+                    "phrase '{}' cannot have a variant block — use :match for branching",
+                    def.name
+                ),
+            });
+        }
+
+        // :from requires parameters (must be a phrase)
+        if def.kind == DefinitionKind::Term && def.from_param.is_some() {
+            return Err(ParseError::Syntax {
+                line: 0,
+                column: 0,
+                message: format!(":from requires parameters on definition '{}'", def.name),
+            });
+        }
+    }
+    Ok(())
 }
 
 /// Calculate line and column from original input and remaining input.
@@ -84,8 +125,10 @@ fn phrase_definition(input: &mut &str) -> ModalResult<PhraseDefinition> {
     let name = snake_case_identifier(input)?;
     skip_ws_and_comments(input)?;
 
-    // Optional parameter list
-    let parameters: Vec<String> = opt(parameter_list).parse_next(input)?.unwrap_or_default();
+    // Optional parameter list — track whether parens were present
+    let parsed_params: Option<Vec<String>> = opt(parameter_list).parse_next(input)?;
+    let has_empty_parens = matches!(&parsed_params, Some(v) if v.is_empty());
+    let parameters: Vec<String> = parsed_params.unwrap_or_default();
     skip_ws_and_comments(input)?;
 
     // Equals sign
@@ -106,12 +149,21 @@ fn phrase_definition(input: &mut &str) -> ModalResult<PhraseDefinition> {
     // Semicolon
     ';'.parse_next(input)?;
 
+    // Determine kind: parameters present -> Phrase, else -> Term
+    let kind = if parameters.is_empty() {
+        DefinitionKind::Term
+    } else {
+        DefinitionKind::Phrase
+    };
+
     Ok(PhraseDefinition {
+        kind,
         name,
         parameters,
         tags,
         from_param,
         body,
+        has_empty_parens,
     })
 }
 
@@ -129,7 +181,7 @@ fn snake_case_identifier(input: &mut &str) -> ModalResult<String> {
     Ok(ident.to_string())
 }
 
-/// Parse a parameter list: (param1, param2, ...)
+/// Parse a parameter list: ($param1, $param2, ...)
 fn parameter_list(input: &mut &str) -> ModalResult<Vec<String>> {
     delimited(
         '(',

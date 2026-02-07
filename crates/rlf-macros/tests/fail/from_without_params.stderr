@@ -1,0 +1,5 @@
+error: :from requires parameters
+ --> tests/fail/from_without_params.rs:4:20
+  |
+4 |     thing = :from($s) "<b>{$s}</b>";
+  |                    ^

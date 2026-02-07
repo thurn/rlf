@@ -76,9 +76,20 @@ pub enum Selector {
 // File-level AST types (phrase definitions)
 // =============================================================================
 
+/// Whether a definition is a term (no parameters) or a phrase (with parameters).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DefinitionKind {
+    /// A term has no parameters and can have variant blocks.
+    Term,
+    /// A phrase has one or more parameters and uses a simple template body.
+    Phrase,
+}
+
 /// A parsed phrase definition from a .rlf file.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PhraseDefinition {
+    /// Whether this definition is a term or a phrase.
+    pub kind: DefinitionKind,
     /// Phrase name (snake_case identifier).
     pub name: String,
     /// Parameter names (empty if no parameters).
@@ -89,6 +100,11 @@ pub struct PhraseDefinition {
     pub from_param: Option<String>,
     /// Phrase body (simple template or variants).
     pub body: PhraseBody,
+    /// Whether the definition had an explicit empty parameter list `()`.
+    ///
+    /// This is used for validation: `name() = ...` is an error because empty
+    /// parameter lists should be terms instead.
+    pub has_empty_parens: bool,
 }
 
 /// The body of a phrase definition.

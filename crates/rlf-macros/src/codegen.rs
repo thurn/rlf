@@ -10,8 +10,8 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
 use crate::input::{
-    Interpolation, MacroInput, PhraseBody, PhraseDefinition, Reference, Segment, Selector,
-    Template, TransformContext, TransformRef,
+    DefinitionKind, Interpolation, MacroInput, PhraseBody, PhraseDefinition, Reference, Segment,
+    Selector, Template, TransformContext, TransformRef,
 };
 
 /// Main code generation entry point.
@@ -62,7 +62,11 @@ fn generate_function(phrase: &PhraseDefinition) -> TokenStream {
 fn generate_function_explicit(phrase: &PhraseDefinition) -> TokenStream {
     let fn_name = format_ident!("{}", phrase.name.name);
     let phrase_name = &phrase.name.name;
-    let doc = format!("Returns the \"{}\" phrase.", phrase_name);
+    let kind_label = match phrase.kind {
+        DefinitionKind::Term => "term",
+        DefinitionKind::Phrase => "phrase",
+    };
+    let doc = format!("Returns the \"{phrase_name}\" {kind_label}.");
 
     if phrase.parameters.is_empty() {
         quote! {
@@ -103,7 +107,11 @@ fn generate_function_explicit(phrase: &PhraseDefinition) -> TokenStream {
 fn generate_function_global(phrase: &PhraseDefinition) -> TokenStream {
     let fn_name = format_ident!("{}", phrase.name.name);
     let phrase_name = &phrase.name.name;
-    let doc = format!("Returns the \"{}\" phrase.", phrase_name);
+    let kind_label = match phrase.kind {
+        DefinitionKind::Term => "term",
+        DefinitionKind::Phrase => "phrase",
+    };
+    let doc = format!("Returns the \"{phrase_name}\" {kind_label}.");
 
     if phrase.parameters.is_empty() {
         quote! {
@@ -416,13 +424,16 @@ fn generate_phrase_id_constant(phrase: &PhraseDefinition) -> TokenStream {
     let const_name = format_ident!("{}", to_screaming_case(phrase_name));
 
     // Doc comment with parameter info if applicable
+    let kind_label = match phrase.kind {
+        DefinitionKind::Term => "term",
+        DefinitionKind::Phrase => "phrase",
+    };
     let doc = if phrase.parameters.is_empty() {
-        format!("ID for the \"{}\" phrase.", phrase_name)
+        format!("ID for the \"{phrase_name}\" {kind_label}.")
     } else {
         let param_names: Vec<_> = phrase.parameters.iter().map(|p| p.name.as_str()).collect();
         format!(
-            "ID for the \"{}\" phrase. Call with {} argument(s) ({}).",
-            phrase_name,
+            "ID for the \"{phrase_name}\" {kind_label}. Call with {} argument(s) ({}).",
             phrase.parameters.len(),
             param_names.join(", ")
         )

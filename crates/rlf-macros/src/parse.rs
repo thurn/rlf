@@ -5,8 +5,8 @@
 use std::mem;
 
 use crate::input::{
-    Interpolation, MacroInput, PhraseBody, PhraseDefinition, Reference, Segment, Selector,
-    SpannedIdent, Template, TransformContext, TransformRef, VariantEntry,
+    DefinitionKind, Interpolation, MacroInput, PhraseBody, PhraseDefinition, Reference, Segment,
+    Selector, SpannedIdent, Template, TransformContext, TransformRef, VariantEntry,
 };
 use proc_macro2::Span;
 use syn::parse::{Parse, ParseStream};
@@ -72,7 +72,7 @@ impl Parse for PhraseDefinition {
         // Parse optional parameters (v2: $-prefixed)
         let parameters = if input.peek(Paren) {
             let content;
-            syn::parenthesized!(content in input);
+            let paren = syn::parenthesized!(content in input);
             let mut params = Vec::new();
             while !content.is_empty() {
                 // Require $ prefix
@@ -90,6 +90,15 @@ impl Parse for PhraseDefinition {
                     content.parse::<Token![,]>()?;
                 }
             }
+
+            // Empty parameter list is an error
+            if params.is_empty() {
+                return Err(syn::Error::new(
+                    paren.span.join(),
+                    "empty parameter list — use a term instead (remove the parentheses)",
+                ));
+            }
+
             params
         } else {
             Vec::new()
@@ -102,12 +111,38 @@ impl Parse for PhraseDefinition {
         let TagsAndFrom { tags, from_param } = parse_tags_and_from(input)?;
 
         // Parse body
-        let body = input.parse()?;
+        let body: PhraseBody = input.parse()?;
 
         // Parse ;
         input.parse::<Token![;]>()?;
 
+        // Determine kind: parameters present -> Phrase, else -> Term
+        let kind = if parameters.is_empty() {
+            DefinitionKind::Term
+        } else {
+            DefinitionKind::Phrase
+        };
+
+        // Validate: phrases cannot have variant block bodies (until :match in M4)
+        if kind == DefinitionKind::Phrase && matches!(body, PhraseBody::Variants(_)) {
+            return Err(syn::Error::new(
+                name.span,
+                format!(
+                    "phrase '{}' cannot have a variant block — use :match for branching",
+                    name.name
+                ),
+            ));
+        }
+
+        // Validate: :from requires parameters (must be a phrase)
+        if kind == DefinitionKind::Term
+            && let Some(ref from) = from_param
+        {
+            return Err(syn::Error::new(from.span, ":from requires parameters"));
+        }
+
         Ok(PhraseDefinition {
+            kind,
             name,
             parameters,
             tags,

@@ -16,9 +16,20 @@ pub struct MacroInput {
     pub phrases: Vec<PhraseDefinition>,
 }
 
+/// Whether a definition is a term (no parameters) or a phrase (with parameters).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DefinitionKind {
+    /// A term has no parameters and can have variant blocks.
+    Term,
+    /// A phrase has one or more parameters and uses a simple template body.
+    Phrase,
+}
+
 /// A single phrase definition: `name(params) = body;`
 #[derive(Debug)]
 pub struct PhraseDefinition {
+    /// Whether this definition is a term or a phrase.
+    pub kind: DefinitionKind,
     pub name: SpannedIdent,
     pub parameters: Vec<SpannedIdent>,
     pub tags: Vec<SpannedIdent>,
