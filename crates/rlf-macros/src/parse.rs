@@ -10,7 +10,6 @@ use crate::input::{
 };
 use proc_macro2::Span;
 use syn::parse::{Parse, ParseStream};
-use syn::punctuated::Punctuated;
 use syn::token::{Brace, Paren};
 use syn::{Ident, LitStr, Token};
 
@@ -45,6 +44,15 @@ fn parse_tags_and_from(input: ParseStream) -> syn::Result<TagsAndFrom> {
         if ident == "from" {
             let content;
             syn::parenthesized!(content in input);
+            // v2: require $ prefix on :from parameter
+            if content.peek(Token![$]) {
+                content.parse::<Token![$]>()?;
+            } else {
+                return Err(syn::Error::new(
+                    content.span(),
+                    "expected '$' before parameter name in :from",
+                ));
+            }
             let param: Ident = content.parse()?;
             from_param = Some(SpannedIdent::new(&param));
         } else {
@@ -61,12 +69,28 @@ impl Parse for PhraseDefinition {
         let name_ident: Ident = input.parse()?;
         let name = SpannedIdent::new(&name_ident);
 
-        // Parse optional parameters
+        // Parse optional parameters (v2: $-prefixed)
         let parameters = if input.peek(Paren) {
             let content;
             syn::parenthesized!(content in input);
-            let params: Punctuated<Ident, Token![,]> = Punctuated::parse_terminated(&content)?;
-            params.iter().map(SpannedIdent::new).collect()
+            let mut params = Vec::new();
+            while !content.is_empty() {
+                // Require $ prefix
+                if content.peek(Token![$]) {
+                    content.parse::<Token![$]>()?;
+                } else {
+                    return Err(syn::Error::new(
+                        content.span(),
+                        "expected '$' before parameter name",
+                    ));
+                }
+                let ident: Ident = content.parse()?;
+                params.push(SpannedIdent::new(&ident));
+                if content.peek(Token![,]) {
+                    content.parse::<Token![,]>()?;
+                }
+            }
+            params
         } else {
             Vec::new()
         };
@@ -251,6 +275,11 @@ pub(crate) fn parse_template_string(s: &str, span: Span) -> syn::Result<Vec<Segm
                 chars.next();
                 current_literal.push(':');
             }
+            '$' if chars.peek() == Some(&'$') => {
+                // Escaped dollar sign
+                chars.next();
+                current_literal.push('$');
+            }
             _ => {
                 current_literal.push(c);
             }
@@ -303,9 +332,7 @@ fn parse_interpolation(content: &str, span: Span) -> syn::Result<Interpolation> 
                 // this is a context
                 let ctx_name = &after_colon[..ctx_end];
                 rest = after_colon[ctx_end..].trim_start();
-                Some(Selector {
-                    name: SpannedIdent::from_str(ctx_name, span),
-                })
+                Some(Selector::Literal(SpannedIdent::from_str(ctx_name, span)))
             } else {
                 None
             }
@@ -346,14 +373,37 @@ fn parse_interpolation(content: &str, span: Span) -> syn::Result<Interpolation> 
 
 /// Parse a reference from a string, returning the Reference, auto-cap flag, and remaining content.
 ///
+/// v2: `$name` -> Parameter reference. Bare `name` -> Identifier (term) reference.
 /// Auto-capitalization: if the identifier starts with an uppercase ASCII letter,
-/// the first character is lowercased and `auto_cap` is set to true. The caller
-/// should prepend `@cap` to the transform list.
+/// the first character is lowercased and `auto_cap` is set to true. Only applies
+/// to bare identifiers, not `$` parameters. The caller should prepend `@cap` to
+/// the transform list.
 fn parse_reference(content: &str, span: Span) -> syn::Result<(Reference, String, bool)> {
     let content = content.trim();
 
     if content.is_empty() {
         return Err(syn::Error::new(span, "empty reference in interpolation"));
+    }
+
+    // v2: Check for $ prefix (parameter reference)
+    if let Some(after_dollar) = content.strip_prefix('$') {
+        let ident_end = after_dollar
+            .find(|c: char| !c.is_alphanumeric() && c != '_')
+            .unwrap_or(after_dollar.len());
+
+        if ident_end == 0 {
+            return Err(syn::Error::new(span, "expected parameter name after '$'"));
+        }
+
+        let ident = &after_dollar[..ident_end];
+        let rest = &after_dollar[ident_end..];
+
+        // No auto-capitalization for parameter references
+        return Ok((
+            Reference::Parameter(SpannedIdent::from_str(ident, span)),
+            rest.to_string(),
+            false,
+        ));
     }
 
     // Find the identifier
@@ -364,14 +414,14 @@ fn parse_reference(content: &str, span: Span) -> syn::Result<(Reference, String,
     if ident_end == 0 {
         return Err(syn::Error::new(
             span,
-            format!("invalid reference: {}", content),
+            format!("invalid reference: {content}"),
         ));
     }
 
     let ident = &content[..ident_end];
     let rest = &content[ident_end..];
 
-    // Detect auto-capitalization: uppercase first ASCII letter
+    // Detect auto-capitalization: uppercase first ASCII letter (bare identifiers only)
     let first_char = ident.chars().next().unwrap();
     let auto_cap = first_char.is_ascii_uppercase();
     let actual_ident = if auto_cap {
@@ -421,7 +471,7 @@ fn parse_reference(content: &str, span: Span) -> syn::Result<(Reference, String,
         let args_str = &rest[1..end]; // Content between parens
         let after_call = &rest[end + 1..];
 
-        // Parse arguments (comma-separated references)
+        // Parse arguments (comma-separated references: $param or bare term name)
         let mut args = Vec::new();
         if !args_str.is_empty() {
             for arg in args_str.split(',') {
@@ -448,6 +498,8 @@ fn parse_reference(content: &str, span: Span) -> syn::Result<(Reference, String,
 }
 
 /// Extract selectors from the remaining content after a reference.
+///
+/// v2: After `:`, if `$` -> `Selector::Parameter`, otherwise -> `Selector::Literal`.
 fn extract_selectors(content: &str, span: Span) -> syn::Result<Vec<Selector>> {
     let mut selectors = Vec::new();
     let mut rest = content.trim();
@@ -455,27 +507,46 @@ fn extract_selectors(content: &str, span: Span) -> syn::Result<Vec<Selector>> {
     while rest.starts_with(':') {
         rest = &rest[1..]; // Skip :
 
-        // Find end of selector name
-        let end = rest
-            .find(|c: char| c.is_whitespace() || c == ':')
-            .unwrap_or(rest.len());
+        // v2: Check for $ prefix (parameterized selector)
+        if rest.starts_with('$') {
+            rest = &rest[1..]; // Skip $
+            let end = rest
+                .find(|c: char| c.is_whitespace() || c == ':')
+                .unwrap_or(rest.len());
 
-        if end == 0 {
-            return Err(syn::Error::new(span, "empty selector after :"));
+            if end == 0 {
+                return Err(syn::Error::new(span, "expected parameter name after ':$'"));
+            }
+
+            let selector_name = &rest[..end];
+            selectors.push(Selector::Parameter(SpannedIdent::from_str(
+                selector_name,
+                span,
+            )));
+            rest = rest[end..].trim_start();
+        } else {
+            // Literal selector
+            let end = rest
+                .find(|c: char| c.is_whitespace() || c == ':')
+                .unwrap_or(rest.len());
+
+            if end == 0 {
+                return Err(syn::Error::new(span, "empty selector after :"));
+            }
+
+            let selector_name = &rest[..end];
+            selectors.push(Selector::Literal(SpannedIdent::from_str(
+                selector_name,
+                span,
+            )));
+            rest = rest[end..].trim_start();
         }
-
-        let selector_name = &rest[..end];
-        selectors.push(Selector {
-            name: SpannedIdent::from_str(selector_name, span),
-        });
-
-        rest = rest[end..].trim_start();
     }
 
     if !rest.is_empty() {
         return Err(syn::Error::new(
             span,
-            format!("unexpected content after selectors: {}", rest),
+            format!("unexpected content after selectors: {rest}"),
         ));
     }
 
@@ -521,6 +592,14 @@ mod tests {
         match segment {
             Segment::Interpolation(i) => i,
             Segment::Literal(_) => panic!("expected Interpolation segment"),
+        }
+    }
+
+    /// Helper to extract the name from a Selector.
+    fn selector_name(sel: &Selector) -> &str {
+        match sel {
+            Selector::Literal(ident) => &ident.name,
+            Selector::Parameter(ident) => &ident.name,
         }
     }
 
@@ -588,12 +667,19 @@ mod tests {
         assert_eq!(get_literal(&segments[0]), "@ and : together");
     }
 
+    #[test]
+    fn test_escaped_dollar_sign() {
+        let segments = parse_ok("Use $$ for literal dollar.");
+        assert_eq!(segments.len(), 1);
+        assert_eq!(get_literal(&segments[0]), "Use $ for literal dollar.");
+    }
+
     // =========================================================================
     // Single interpolation
     // =========================================================================
 
     #[test]
-    fn test_single_interpolation() {
+    fn test_single_identifier_interpolation() {
         let segments = parse_ok("{name}");
         assert_eq!(segments.len(), 1);
         assert_eq!(count_interpolations(&segments), 1);
@@ -601,10 +687,19 @@ mod tests {
         let interp = get_interpolation(&segments[0]);
         assert!(interp.transforms.is_empty());
         assert!(interp.selectors.is_empty());
-        match &interp.reference {
-            Reference::Identifier(ident) => assert_eq!(ident.name, "name"),
-            Reference::Call { .. } => panic!("expected Identifier reference"),
-        }
+        assert!(matches!(&interp.reference, Reference::Identifier(ident) if ident.name == "name"));
+    }
+
+    #[test]
+    fn test_single_parameter_interpolation() {
+        let segments = parse_ok("{$name}");
+        assert_eq!(segments.len(), 1);
+        assert_eq!(count_interpolations(&segments), 1);
+
+        let interp = get_interpolation(&segments[0]);
+        assert!(interp.transforms.is_empty());
+        assert!(interp.selectors.is_empty());
+        assert!(matches!(&interp.reference, Reference::Parameter(ident) if ident.name == "name"));
     }
 
     // =========================================================================
@@ -613,17 +708,14 @@ mod tests {
 
     #[test]
     fn test_mixed_literal_interpolation() {
-        let segments = parse_ok("Hello, {name}!");
+        let segments = parse_ok("Hello, {$name}!");
         assert_eq!(segments.len(), 3);
         assert_eq!(count_literals(&segments), 2);
         assert_eq!(count_interpolations(&segments), 1);
 
         assert_eq!(get_literal(&segments[0]), "Hello, ");
         let interp = get_interpolation(&segments[1]);
-        match &interp.reference {
-            Reference::Identifier(ident) => assert_eq!(ident.name, "name"),
-            Reference::Call { .. } => panic!("expected Identifier reference"),
-        }
+        assert!(matches!(&interp.reference, Reference::Parameter(ident) if ident.name == "name"));
         assert_eq!(get_literal(&segments[2]), "!");
     }
 
@@ -638,18 +730,12 @@ mod tests {
         assert_eq!(count_interpolations(&segments), 2);
 
         let interp1 = get_interpolation(&segments[0]);
-        match &interp1.reference {
-            Reference::Identifier(ident) => assert_eq!(ident.name, "a"),
-            Reference::Call { .. } => panic!("expected Identifier"),
-        }
+        assert!(matches!(&interp1.reference, Reference::Identifier(ident) if ident.name == "a"));
 
         assert_eq!(get_literal(&segments[1]), " and ");
 
         let interp2 = get_interpolation(&segments[2]);
-        match &interp2.reference {
-            Reference::Identifier(ident) => assert_eq!(ident.name, "b"),
-            Reference::Call { .. } => panic!("expected Identifier"),
-        }
+        assert!(matches!(&interp2.reference, Reference::Identifier(ident) if ident.name == "b"));
     }
 
     #[test]
@@ -672,6 +758,17 @@ mod tests {
         assert_eq!(interp.transforms.len(), 1);
         assert_eq!(interp.transforms[0].name.name, "cap");
         assert!(interp.transforms[0].context.is_none());
+    }
+
+    #[test]
+    fn test_transform_on_parameter() {
+        let segments = parse_ok("{@cap $name}");
+        assert_eq!(segments.len(), 1);
+
+        let interp = get_interpolation(&segments[0]);
+        assert_eq!(interp.transforms.len(), 1);
+        assert_eq!(interp.transforms[0].name.name, "cap");
+        assert!(matches!(&interp.reference, Reference::Parameter(ident) if ident.name == "name"));
     }
 
     #[test]
@@ -698,7 +795,7 @@ mod tests {
             .context
             .as_ref()
             .expect("should have context");
-        assert_eq!(ctx.name.name, "acc");
+        assert!(matches!(ctx, Selector::Literal(ident) if ident.name == "acc"));
     }
 
     // =========================================================================
@@ -706,24 +803,57 @@ mod tests {
     // =========================================================================
 
     #[test]
-    fn test_single_selector() {
+    fn test_single_literal_selector() {
         let segments = parse_ok("{noun:case}");
         assert_eq!(segments.len(), 1);
 
         let interp = get_interpolation(&segments[0]);
         assert_eq!(interp.selectors.len(), 1);
-        assert_eq!(interp.selectors[0].name.name, "case");
+        assert!(matches!(&interp.selectors[0], Selector::Literal(ident) if ident.name == "case"));
     }
 
     #[test]
-    fn test_multiple_selectors() {
+    fn test_multiple_literal_selectors() {
         let segments = parse_ok("{noun:case:number}");
         assert_eq!(segments.len(), 1);
 
         let interp = get_interpolation(&segments[0]);
         assert_eq!(interp.selectors.len(), 2);
-        assert_eq!(interp.selectors[0].name.name, "case");
-        assert_eq!(interp.selectors[1].name.name, "number");
+        assert_eq!(selector_name(&interp.selectors[0]), "case");
+        assert_eq!(selector_name(&interp.selectors[1]), "number");
+    }
+
+    #[test]
+    fn test_parameter_selector() {
+        let segments = parse_ok("{card:$n}");
+        assert_eq!(segments.len(), 1);
+
+        let interp = get_interpolation(&segments[0]);
+        assert_eq!(interp.selectors.len(), 1);
+        assert!(matches!(&interp.selectors[0], Selector::Parameter(ident) if ident.name == "n"));
+    }
+
+    #[test]
+    fn test_mixed_selectors() {
+        let segments = parse_ok("{card:acc:$n}");
+        assert_eq!(segments.len(), 1);
+
+        let interp = get_interpolation(&segments[0]);
+        assert_eq!(interp.selectors.len(), 2);
+        assert!(matches!(&interp.selectors[0], Selector::Literal(ident) if ident.name == "acc"));
+        assert!(matches!(&interp.selectors[1], Selector::Parameter(ident) if ident.name == "n"));
+    }
+
+    #[test]
+    fn test_parameter_with_literal_selectors() {
+        let segments = parse_ok("{$base:nom:one}");
+        assert_eq!(segments.len(), 1);
+
+        let interp = get_interpolation(&segments[0]);
+        assert!(matches!(&interp.reference, Reference::Parameter(ident) if ident.name == "base"));
+        assert_eq!(interp.selectors.len(), 2);
+        assert_eq!(selector_name(&interp.selectors[0]), "nom");
+        assert_eq!(selector_name(&interp.selectors[1]), "one");
     }
 
     // =========================================================================
@@ -731,7 +861,7 @@ mod tests {
     // =========================================================================
 
     #[test]
-    fn test_phrase_call() {
+    fn test_phrase_call_with_term_arg() {
         let segments = parse_ok("{foo(bar)}");
         assert_eq!(segments.len(), 1);
 
@@ -740,13 +870,62 @@ mod tests {
             Reference::Call { name, args } => {
                 assert_eq!(name.name, "foo");
                 assert_eq!(args.len(), 1);
-                match &args[0] {
-                    Reference::Identifier(ident) => assert_eq!(ident.name, "bar"),
-                    Reference::Call { .. } => panic!("expected Identifier arg"),
-                }
+                assert!(matches!(&args[0], Reference::Identifier(ident) if ident.name == "bar"));
             }
-            Reference::Identifier(_) => panic!("expected Call reference"),
+            _ => panic!("expected Call reference"),
         }
+    }
+
+    #[test]
+    fn test_phrase_call_with_param_arg() {
+        let segments = parse_ok("{foo($bar)}");
+        assert_eq!(segments.len(), 1);
+
+        let interp = get_interpolation(&segments[0]);
+        match &interp.reference {
+            Reference::Call { name, args } => {
+                assert_eq!(name.name, "foo");
+                assert_eq!(args.len(), 1);
+                assert!(matches!(&args[0], Reference::Parameter(ident) if ident.name == "bar"));
+            }
+            _ => panic!("expected Call reference"),
+        }
+    }
+
+    #[test]
+    fn test_phrase_call_mixed_args() {
+        let segments = parse_ok("{foo($a, term, $b)}");
+        assert_eq!(segments.len(), 1);
+
+        let interp = get_interpolation(&segments[0]);
+        match &interp.reference {
+            Reference::Call { name, args } => {
+                assert_eq!(name.name, "foo");
+                assert_eq!(args.len(), 3);
+                assert!(matches!(&args[0], Reference::Parameter(ident) if ident.name == "a"));
+                assert!(matches!(&args[1], Reference::Identifier(ident) if ident.name == "term"));
+                assert!(matches!(&args[2], Reference::Parameter(ident) if ident.name == "b"));
+            }
+            _ => panic!("expected Call reference"),
+        }
+    }
+
+    #[test]
+    fn test_phrase_call_with_selectors() {
+        let segments = parse_ok("{subtype($s):other}");
+        assert_eq!(segments.len(), 1);
+
+        let interp = get_interpolation(&segments[0]);
+        match &interp.reference {
+            Reference::Call { name, args } => {
+                assert_eq!(name.name, "subtype");
+                assert_eq!(args.len(), 1);
+                assert!(matches!(&args[0], Reference::Parameter(ident) if ident.name == "s"));
+            }
+            _ => panic!("expected Call reference"),
+        }
+        assert_eq!(interp.selectors.len(), 1);
+        assert!(matches!(&interp.selectors[0], Selector::Literal(ident) if ident.name == "other"));
     }
 
     #[test]
@@ -766,15 +945,15 @@ mod tests {
                     } => {
                         assert_eq!(inner.name, "bar");
                         assert_eq!(inner_args.len(), 1);
-                        match &inner_args[0] {
-                            Reference::Identifier(ident) => assert_eq!(ident.name, "baz"),
-                            Reference::Call { .. } => panic!("expected Identifier"),
-                        }
+                        assert!(matches!(
+                            &inner_args[0],
+                            Reference::Identifier(ident) if ident.name == "baz"
+                        ));
                     }
-                    Reference::Identifier(_) => panic!("expected nested Call"),
+                    _ => panic!("expected nested Call"),
                 }
             }
-            Reference::Identifier(_) => panic!("expected Call reference"),
+            _ => panic!("expected Call reference"),
         }
     }
 
@@ -789,7 +968,7 @@ mod tests {
                 assert_eq!(name.name, "foo");
                 assert_eq!(args.len(), 3);
             }
-            Reference::Identifier(_) => panic!("expected Call reference"),
+            _ => panic!("expected Call reference"),
         }
     }
 
@@ -815,6 +994,12 @@ mod tests {
         assert!(err.to_string().contains("unexpected"));
     }
 
+    #[test]
+    fn test_error_dollar_without_name() {
+        let err = parse_err("{$}");
+        assert!(err.to_string().contains("expected parameter name"));
+    }
+
     // =========================================================================
     // Complex cases
     // =========================================================================
@@ -828,30 +1013,41 @@ mod tests {
         assert_eq!(interp.transforms.len(), 1);
         assert_eq!(interp.transforms[0].name.name, "cap");
         assert_eq!(interp.selectors.len(), 1);
-        assert_eq!(interp.selectors[0].name.name, "case");
+        assert_eq!(selector_name(&interp.selectors[0]), "case");
     }
 
     #[test]
-    fn test_full_syntax() {
-        // A realistic complex template: "Draw {n} {@cap card:n}."
-        // Segments: "Draw " | {n} | " " | {@cap card:n} | "."
-        let segments = parse_ok("Draw {n} {@cap card:n}.");
+    fn test_full_v2_syntax() {
+        // v2 realistic template: "Draw {$n} {@cap card:$n}."
+        let segments = parse_ok("Draw {$n} {@cap card:$n}.");
         assert_eq!(segments.len(), 5);
         assert_eq!(get_literal(&segments[0]), "Draw ");
         assert_eq!(get_literal(&segments[4]), ".");
 
         let interp1 = get_interpolation(&segments[1]);
-        match &interp1.reference {
-            Reference::Identifier(ident) => assert_eq!(ident.name, "n"),
-            Reference::Call { .. } => panic!("expected Identifier"),
-        }
+        assert!(matches!(&interp1.reference, Reference::Parameter(ident) if ident.name == "n"));
 
         assert_eq!(get_literal(&segments[2]), " ");
 
         let interp2 = get_interpolation(&segments[3]);
         assert_eq!(interp2.transforms.len(), 1);
         assert_eq!(interp2.transforms[0].name.name, "cap");
+        assert!(matches!(&interp2.reference, Reference::Identifier(ident) if ident.name == "card"));
         assert_eq!(interp2.selectors.len(), 1);
-        assert_eq!(interp2.selectors[0].name.name, "n");
+        assert!(matches!(&interp2.selectors[0], Selector::Parameter(ident) if ident.name == "n"));
+    }
+
+    #[test]
+    fn test_full_v1_compat_syntax() {
+        // v1-style template (bare names are identifiers): "Draw {n} {@cap card:n}."
+        let segments = parse_ok("Draw {n} {@cap card:n}.");
+        assert_eq!(segments.len(), 5);
+
+        let interp1 = get_interpolation(&segments[1]);
+        assert!(matches!(&interp1.reference, Reference::Identifier(ident) if ident.name == "n"));
+
+        let interp2 = get_interpolation(&segments[3]);
+        assert_eq!(interp2.selectors.len(), 1);
+        assert!(matches!(&interp2.selectors[0], Selector::Literal(ident) if ident.name == "n"));
     }
 }

@@ -3,21 +3,21 @@ use rlf::{rlf, Locale};
 
 rlf! {
     // Single parameter
-    greet(name) = "Hello, {name}!";
+    greet($name) = "Hello, {$name}!";
 
     // Multiple parameters
-    introduce(name, title) = "{title} {name}";
+    introduce($name, $title) = "{$title} {$name}";
 
     // Parameter used multiple times
-    echo(msg) = "{msg} {msg} {msg}";
+    echo($msg) = "{$msg} {$msg} {$msg}";
 
     // Parameter with selectors
     card = { one: "card", other: "cards" };
-    draw(n) = "Draw {n} {card:n}.";
+    draw($n) = "Draw {$n} {card:$n}.";
 
     // Multiple parameters with variants
     item = { one: "item", other: "items" };
-    take(count, actor) = "{actor} takes {count} {item:count}.";
+    take($count, $actor) = "{$actor} takes {$count} {item:$count}.";
 }
 
 fn main() {

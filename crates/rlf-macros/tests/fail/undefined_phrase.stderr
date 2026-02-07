@@ -1,6 +1,6 @@
-error: unknown phrase or parameter 'cards'
+error: unknown phrase 'cards'
        help: did you mean 'card'?
- --> tests/fail/undefined_phrase.rs:5:15
+ --> tests/fail/undefined_phrase.rs:5:16
   |
-5 |     draw(n) = "Draw {n} {cards:n}.";
-  |               ^^^^^^^^^^^^^^^^^^^^^
+5 |     draw($n) = "Draw {$n} {cards:$n}.";
+  |                ^^^^^^^^^^^^^^^^^^^^^^^

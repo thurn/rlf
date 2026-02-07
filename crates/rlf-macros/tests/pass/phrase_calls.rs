@@ -10,7 +10,7 @@ rlf! {
     hello = "{greeting}, {name}!";
 
     // Phrase with parameter calling another phrase
-    greet(who) = "{greeting}, {who}!";
+    greet($who) = "{greeting}, {$who}!";
 
     // Nested phrase references
     formal = "{@cap greeting}";

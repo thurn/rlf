@@ -1,4 +1,4 @@
-// Test :from(param) metadata inheritance syntax
+// Test :from($param) metadata inheritance syntax
 use rlf::{rlf, Locale, Value};
 
 rlf! {
@@ -9,10 +9,10 @@ rlf! {
     };
 
     // :from modifier inherits tags and variants from parameter
-    subtype(s) = :from(s) "<b>{s}</b>";
+    subtype($s) = :from($s) "<b>{$s}</b>";
 
     // :from with explicit tags
-    decorated(s) = :masc :from(s) "[{s}]";
+    decorated($s) = :masc :from($s) "[{$s}]";
 }
 
 fn main() {

@@ -9,7 +9,7 @@ mod strings {
 
     rlf! {
         card = { one: "card", other: "cards" };
-        draw(n) = "Draw {n} {card:n}.";
+        draw($n) = "Draw {$n} {card:$n}.";
         hello = "Hello!";
     }
 }

@@ -6,14 +6,12 @@
 //! - register_source_phrases() function for loading
 //! - phrase_ids module with PhraseId constants
 
-use std::collections::HashSet;
-
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
 use crate::input::{
-    Interpolation, MacroInput, PhraseBody, PhraseDefinition, Reference, Segment, Template,
-    TransformRef,
+    Interpolation, MacroInput, PhraseBody, PhraseDefinition, Reference, Segment, Selector,
+    Template, TransformRef,
 };
 
 /// Main code generation entry point.
@@ -218,8 +216,6 @@ fn reconstruct_source(input: &MacroInput) -> String {
 
     for phrase in &input.phrases {
         let mut line = String::new();
-        let param_names: HashSet<&str> =
-            phrase.parameters.iter().map(|p| p.name.as_str()).collect();
 
         // Name
         line.push_str(&phrase.name.name);
@@ -256,7 +252,7 @@ fn reconstruct_source(input: &MacroInput) -> String {
         match &phrase.body {
             PhraseBody::Simple(template) => {
                 line.push('"');
-                line.push_str(&reconstruct_template(template, &param_names));
+                line.push_str(&reconstruct_template(template));
                 line.push('"');
             }
             PhraseBody::Variants(variants) => {
@@ -268,7 +264,7 @@ fn reconstruct_source(input: &MacroInput) -> String {
                         format!(
                             "{}: \"{}\"",
                             keys.join(", "),
-                            reconstruct_template(&v.template, &param_names)
+                            reconstruct_template(&v.template)
                         )
                     })
                     .collect();
@@ -285,7 +281,7 @@ fn reconstruct_source(input: &MacroInput) -> String {
 }
 
 /// Reconstruct a template string from Template AST.
-fn reconstruct_template(template: &Template, params: &HashSet<&str>) -> String {
+fn reconstruct_template(template: &Template) -> String {
     let mut result = String::new();
 
     for segment in &template.segments {
@@ -301,7 +297,7 @@ fn reconstruct_template(template: &Template, params: &HashSet<&str>) -> String {
                 result.push_str(&escaped);
             }
             Segment::Interpolation(interp) => {
-                result.push_str(&reconstruct_interpolation(interp, params));
+                result.push_str(&reconstruct_interpolation(interp));
             }
         }
     }
@@ -310,7 +306,7 @@ fn reconstruct_template(template: &Template, params: &HashSet<&str>) -> String {
 }
 
 /// Reconstruct an interpolation from Interpolation AST.
-fn reconstruct_interpolation(interp: &Interpolation, params: &HashSet<&str>) -> String {
+fn reconstruct_interpolation(interp: &Interpolation) -> String {
     let mut result = String::from("{");
 
     // Transforms
@@ -319,15 +315,18 @@ fn reconstruct_interpolation(interp: &Interpolation, params: &HashSet<&str>) -> 
     }
 
     // Reference (v2: $-prefix for parameters)
-    result.push_str(&reconstruct_reference(&interp.reference, params));
+    result.push_str(&reconstruct_reference(&interp.reference));
 
-    // Selectors (v2: $-prefix for parameter-based selectors)
+    // Selectors (v2: already typed as Literal/Parameter)
     for selector in &interp.selectors {
         result.push(':');
-        if params.contains(selector.name.name.as_str()) {
-            result.push('$');
+        match selector {
+            Selector::Literal(ident) => result.push_str(&ident.name),
+            Selector::Parameter(ident) => {
+                result.push('$');
+                result.push_str(&ident.name);
+            }
         }
-        result.push_str(&selector.name.name);
     }
 
     result.push('}');
@@ -339,31 +338,29 @@ fn reconstruct_transform(transform: &TransformRef) -> String {
     let mut result = String::from("@");
     result.push_str(&transform.name.name);
 
-    // Handle context if present (e.g., @a:context)
+    // Handle context if present (e.g., @der:acc)
     if let Some(ref ctx) = transform.context {
         result.push(':');
-        result.push_str(&ctx.name.name);
+        match ctx {
+            Selector::Literal(ident) => result.push_str(&ident.name),
+            Selector::Parameter(ident) => {
+                result.push('$');
+                result.push_str(&ident.name);
+            }
+        }
     }
 
     result.push(' ');
     result
 }
 
-/// Reconstruct a reference (identifier or call).
-fn reconstruct_reference(reference: &Reference, params: &HashSet<&str>) -> String {
+/// Reconstruct a reference (identifier, parameter, or call).
+fn reconstruct_reference(reference: &Reference) -> String {
     match reference {
-        Reference::Identifier(ident) => {
-            if params.contains(ident.name.as_str()) {
-                format!("${}", ident.name)
-            } else {
-                ident.name.clone()
-            }
-        }
+        Reference::Identifier(ident) => ident.name.clone(),
+        Reference::Parameter(ident) => format!("${}", ident.name),
         Reference::Call { name, args } => {
-            let arg_strs: Vec<String> = args
-                .iter()
-                .map(|a| reconstruct_reference(a, params))
-                .collect();
+            let arg_strs: Vec<String> = args.iter().map(reconstruct_reference).collect();
             format!("{}({})", name.name, arg_strs.join(", "))
         }
     }
@@ -497,9 +494,9 @@ mod tests {
     }
 
     #[test]
-    fn test_reconstruct_interpolation() {
+    fn test_reconstruct_parameter_interpolation() {
         let input = parse_input(parse_quote! {
-            greet(name) = "Hello, {name}!";
+            greet($name) = "Hello, {$name}!";
         });
         let source = reconstruct_source(&input);
         assert!(
@@ -519,10 +516,10 @@ mod tests {
     }
 
     #[test]
-    fn test_reconstruct_selectors() {
+    fn test_reconstruct_parameter_selectors() {
         let input = parse_input(parse_quote! {
             card = { one: "card", other: "cards" };
-            draw(n) = "Draw {card:n}.";
+            draw($n) = "Draw {card:$n}.";
         });
         let source = reconstruct_source(&input);
         assert!(
@@ -547,7 +544,7 @@ mod tests {
     #[test]
     fn test_reconstruct_phrase_with_params() {
         let input = parse_input(parse_quote! {
-            greet(name, title) = "Hello, {title} {name}!";
+            greet($name, $title) = "Hello, {$title} {$name}!";
         });
         let source = reconstruct_source(&input);
         assert!(
@@ -580,7 +577,7 @@ mod tests {
     #[test]
     fn test_reconstruct_phrase_with_from_modifier() {
         let input = parse_input(parse_quote! {
-            subtype(s) = :from(s) "<b>{s}</b>";
+            subtype($s) = :from($s) "<b>{$s}</b>";
         });
         let source = reconstruct_source(&input);
         assert!(
@@ -596,7 +593,7 @@ mod tests {
     #[test]
     fn test_reconstruct_phrase_with_tags_and_from() {
         let input = parse_input(parse_quote! {
-            subtype(s) = :an :from(s) "<b>{s}</b>";
+            subtype($s) = :an :from($s) "<b>{$s}</b>";
         });
         let source = reconstruct_source(&input);
         assert!(
@@ -675,7 +672,7 @@ mod tests {
     #[test]
     fn test_codegen_parameterized_phrase() {
         let input = parse_input(parse_quote! {
-            greet(name) = "Hello, {name}!";
+            greet($name) = "Hello, {$name}!";
         });
         let tokens = codegen(&input);
         let output = tokens.to_string();

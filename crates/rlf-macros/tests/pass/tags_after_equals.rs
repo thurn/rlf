@@ -15,10 +15,10 @@ rlf! {
     };
 
     // :from after = sign
-    subtype(s) = :from(s) "<b>{s}</b>";
+    subtype($s) = :from($s) "<b>{$s}</b>";
 
     // Tags and :from after = sign
-    decorated(s) = :masc :from(s) "[{s}]";
+    decorated($s) = :masc :from($s) "[{$s}]";
 }
 
 fn main() {

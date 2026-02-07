@@ -4,7 +4,7 @@ use rlf::{rlf, Locale};
 rlf! {
     hello = "Hello, world!";
     card = { one: "card", other: "cards" };
-    draw(n) = "Draw {n} {card:n}.";
+    draw($n) = "Draw {$n} {card:$n}.";
 }
 
 fn main() {

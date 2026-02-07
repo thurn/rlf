@@ -1,6 +1,6 @@
 error: parameter 'card' shadows phrase 'card'
        help: use a different parameter name
- --> tests/fail/shadowing.rs:5:9
+ --> tests/fail/shadowing.rs:5:10
   |
-5 |     bad(card) = "uses {card}";
-  |         ^^^^
+5 |     bad($card) = "uses {$card}";
+  |          ^^^^

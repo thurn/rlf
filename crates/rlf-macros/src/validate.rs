@@ -17,7 +17,7 @@ use proc_macro2::Span;
 use strsim::levenshtein;
 
 use crate::input::{
-    Interpolation, MacroInput, PhraseBody, PhraseDefinition, Reference, Segment, Template,
+    Interpolation, MacroInput, PhraseBody, PhraseDefinition, Reference, Segment, Selector, Template,
 };
 
 /// Known transforms (universal only for Phase 5).
@@ -175,9 +175,8 @@ fn validate_interpolation(
     // Validate selectors (MACRO-10, MACRO-13)
     // Determine if reference is a literal phrase (not a parameter)
     let is_literal_phrase = match &interp.reference {
-        Reference::Identifier(ident) => {
-            !params.contains(&ident.name) && ctx.phrases.contains(&ident.name)
-        }
+        Reference::Identifier(ident) => ctx.phrases.contains(&ident.name),
+        Reference::Parameter(_) => false,
         Reference::Call { name, .. } => ctx.phrases.contains(&name.name),
     };
 
@@ -185,29 +184,30 @@ fn validate_interpolation(
         let phrase_name = match &interp.reference {
             Reference::Identifier(ident) => &ident.name,
             Reference::Call { name, .. } => &name.name,
+            Reference::Parameter(_) => unreachable!(),
         };
 
         // Get phrase variants for literal selector validation
         let phrase_variants = ctx.phrase_variants.get(phrase_name);
 
         for selector in &interp.selectors {
-            // If selector name is a parameter, it's dynamic - skip compile-time check
-            if params.contains(&selector.name.name) {
+            // v2: Parameter selectors are dynamic - skip compile-time check
+            let Selector::Literal(selector_ident) = selector else {
                 continue;
-            }
+            };
 
             // Literal selector - must match a variant key if phrase has variants (MACRO-10)
             if let Some(variants) = phrase_variants
-                && !variants.contains(&selector.name.name)
+                && !variants.contains(&selector_ident.name)
             {
                 let mut available: Vec<_> = variants.iter().cloned().collect();
                 available.sort();
                 return Err(syn::Error::new(
-                    selector.name.span,
+                    selector_ident.span,
                     format!(
                         "phrase '{}' has no variant '{}'\nnote: available variants: {}",
                         phrase_name,
-                        selector.name.name,
+                        selector_ident.name,
                         available.join(", ")
                     ),
                 ));
@@ -221,10 +221,25 @@ fn validate_interpolation(
         }
     }
 
+    // Validate parameter selectors reference declared parameters
+    for selector in &interp.selectors {
+        if let Selector::Parameter(ident) = selector
+            && !params.contains(&ident.name)
+        {
+            return Err(syn::Error::new(
+                ident.span,
+                format!(
+                    "undefined parameter '${0}' in selector\nhelp: declare it as a parameter: name(${0})",
+                    ident.name
+                ),
+            ));
+        }
+    }
+
     Ok(())
 }
 
-/// Validate a reference (identifier or call).
+/// Validate a reference (identifier, parameter, or call).
 fn validate_reference(
     reference: &Reference,
     params: &HashSet<String>,
@@ -232,18 +247,37 @@ fn validate_reference(
 ) -> syn::Result<()> {
     match reference {
         Reference::Identifier(ident) => {
-            // If it's a parameter, that's valid
+            // v2: Bare identifier must be a term/phrase, not a parameter.
+            // If a parameter with this name exists, suggest using {$name}.
             if params.contains(&ident.name) {
-                return Ok(());
+                return Err(syn::Error::new(
+                    ident.span,
+                    format!(
+                        "bare identifier '{}' matches a parameter\nhelp: use {{${}}} to reference the parameter",
+                        ident.name, ident.name
+                    ),
+                ));
             }
-            // Otherwise it must be a phrase
+            // Must be a defined phrase/term
             if !ctx.phrases.contains(&ident.name) {
                 let suggestions = compute_suggestions(&ident.name, ctx.phrases.iter());
-                let mut msg = format!("unknown phrase or parameter '{}'", ident.name);
+                let mut msg = format!("unknown phrase '{}'", ident.name);
                 if !suggestions.is_empty() {
                     msg.push_str(&format!("\nhelp: did you mean '{}'?", suggestions[0]));
                 }
                 return Err(syn::Error::new(ident.span, msg));
+            }
+        }
+        Reference::Parameter(ident) => {
+            // v2: $-prefixed parameter must be declared
+            if !params.contains(&ident.name) {
+                return Err(syn::Error::new(
+                    ident.span,
+                    format!(
+                        "undefined parameter '${0}'\nhelp: declare it as a parameter: name(${0})",
+                        ident.name
+                    ),
+                ));
             }
         }
         Reference::Call { name, args } => {
@@ -450,6 +484,9 @@ fn collect_reference_refs(
                 refs.push((ident.name.clone(), ident.span));
             }
         }
+        Reference::Parameter(_) => {
+            // Parameters are runtime values, not phrase references
+        }
         Reference::Call { name, args } => {
             // Phrase calls are always phrase references
             if ctx.phrases.contains(&name.name) {
@@ -617,18 +654,30 @@ mod tests {
         let result = validate(&input);
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
-        assert!(err.contains("unknown phrase or parameter"));
+        assert!(err.contains("unknown phrase"));
     }
 
     #[test]
     fn test_validate_undefined_parameter() {
         let input = parse_input(parse_quote! {
-            greet(name) = "Hello, {unknown}";
+            greet($name) = "Hello, {$unknown}";
         });
         let result = validate(&input);
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
-        assert!(err.contains("unknown phrase or parameter"));
+        assert!(err.contains("undefined parameter '$unknown'"));
+    }
+
+    #[test]
+    fn test_validate_bare_identifier_matches_parameter() {
+        let input = parse_input(parse_quote! {
+            greet($name) = "Hello, {name}";
+        });
+        let result = validate(&input);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("bare identifier 'name' matches a parameter"));
+        assert!(err.contains("{$name}"));
     }
 
     #[test]
@@ -660,7 +709,7 @@ mod tests {
     fn test_validate_parameter_shadows_phrase() {
         let input = parse_input(parse_quote! {
             card = "card";
-            bad(card) = "uses {card}";
+            bad($card) = "uses {$card}";
         });
         let result = validate(&input);
         assert!(result.is_err());
@@ -669,10 +718,22 @@ mod tests {
     }
 
     #[test]
+    fn test_validate_undefined_parameter_in_selector() {
+        let input = parse_input(parse_quote! {
+            card = { one: "card", other: "cards" };
+            draw($n) = "Draw {card:$unknown}.";
+        });
+        let result = validate(&input);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("undefined parameter '$unknown'"));
+    }
+
+    #[test]
     fn test_validate_valid_input() {
         let input = parse_input(parse_quote! {
             card = { one: "card", other: "cards" };
-            draw(n) = "Draw {n} {card:n}.";
+            draw($n) = "Draw {$n} {card:$n}.";
         });
         let result = validate(&input);
         assert!(result.is_ok());
@@ -764,7 +825,7 @@ mod tests {
     fn test_parameters_dont_form_cycles() {
         // Parameters are runtime, not compile-time references
         let input = parse_input(parse_quote! {
-            greet(name) = "Hello, {name}";
+            greet($name) = "Hello, {$name}";
         });
         let ctx = ValidationContext::from_input(&input);
         let result = detect_cycles(&input, &ctx);
@@ -774,8 +835,8 @@ mod tests {
     #[test]
     fn test_phrase_call_cycle() {
         let input = parse_input(parse_quote! {
-            a(x) = "{b(x)}";
-            b(y) = "{a(y)}";
+            a($x) = "{b($x)}";
+            b($y) = "{a($y)}";
         });
         let ctx = ValidationContext::from_input(&input);
         let result = detect_cycles(&input, &ctx);

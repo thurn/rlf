@@ -95,20 +95,27 @@ pub struct TransformRef {
     pub context: Option<Selector>,
 }
 
-/// A reference to a parameter or phrase.
+/// A reference to a parameter, term, or phrase call.
 #[derive(Debug)]
 pub enum Reference {
-    /// Simple identifier (resolved later as parameter or phrase).
+    /// Reference to a term by bare name: `{card}`
     Identifier(SpannedIdent),
-    /// Phrase call with arguments: `foo(x, y)`.
+    /// Reference to a parameter with `$` prefix: `{$name}`
+    /// The SpannedIdent stores the name without the `$` prefix.
+    Parameter(SpannedIdent),
+    /// Phrase call with arguments: `foo($x, term_name)`.
     Call {
         name: SpannedIdent,
         args: Vec<Reference>,
     },
 }
 
-/// A selector: `:name` (literal) or `:n` (parameter-based).
+/// A selector for variant selection.
 #[derive(Debug)]
-pub struct Selector {
-    pub name: SpannedIdent,
+pub enum Selector {
+    /// Static selector identifier: `:one`, `:other`, `:nom`
+    Literal(SpannedIdent),
+    /// Parameterized selector with `$` prefix: `:$n`, `:$entity`
+    /// The SpannedIdent stores the name without the `$` prefix.
+    Parameter(SpannedIdent),
 }
