@@ -100,7 +100,7 @@ impl PhraseId {
     ///
     /// let mut locale = Locale::new();
     /// locale.load_translations_str("en", r#"
-    ///     greet(name) = "Hello, {name}!";
+    ///     greet($name) = "Hello, {$name}!";
     /// "#).unwrap();
     ///
     /// let id = PhraseId::from_name("greet");
@@ -214,7 +214,7 @@ impl PhraseId {
     /// use rlf::{PhraseId, PhraseRegistry, Value};
     ///
     /// let mut registry = PhraseRegistry::new();
-    /// registry.load_phrases(r#"greet(name) = "Hello, {name}!";"#).unwrap();
+    /// registry.load_phrases(r#"greet($name) = "Hello, {$name}!";"#).unwrap();
     ///
     /// let id = PhraseId::from_name("greet");
     /// let phrase = id.call_with_registry(&registry, "en", &[Value::from("World")]).unwrap();

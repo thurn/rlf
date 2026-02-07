@@ -21,13 +21,14 @@ fn test_simple_phrase() {
 
 #[test]
 fn test_phrase_with_parameters() {
-    let phrases = parse_file(r#"greet(name) = "Hello, {name}!";"#).unwrap();
+    let phrases = parse_file(r#"greet($name) = "Hello, {$name}!";"#).unwrap();
     assert_eq!(phrases[0].parameters, vec!["name"]);
 }
 
 #[test]
 fn test_phrase_with_multiple_parameters() {
-    let phrases = parse_file(r#"damage(amount, target) = "Deal {amount} to {target}.";"#).unwrap();
+    let phrases =
+        parse_file(r#"damage($amount, $target) = "Deal {$amount} to {$target}.";"#).unwrap();
     assert_eq!(phrases[0].parameters, vec!["amount", "target"]);
 }
 
@@ -45,13 +46,13 @@ fn test_phrase_with_multiple_tags() {
 
 #[test]
 fn test_phrase_with_from() {
-    let phrases = parse_file(r#"subtype(s) = :from(s) "{s}";"#).unwrap();
+    let phrases = parse_file(r#"subtype($s) = :from($s) "{$s}";"#).unwrap();
     assert_eq!(phrases[0].from_param, Some("s".to_string()));
 }
 
 #[test]
 fn test_phrase_with_tags_and_from() {
-    let phrases = parse_file(r#"subtype(s) = :an :from(s) "<b>{s}</b>";"#).unwrap();
+    let phrases = parse_file(r#"subtype($s) = :an :from($s) "<b>{$s}</b>";"#).unwrap();
     assert_eq!(phrases[0].tags, vec![Tag::new("an")]);
     assert_eq!(phrases[0].from_param, Some("s".to_string()));
 }
@@ -151,7 +152,7 @@ fn test_multiple_phrases() {
         r#"
         hello = "Hello!";
         goodbye = "Goodbye!";
-        greet(name) = "Hello, {name}!";
+        greet($name) = "Hello, {$name}!";
     "#,
     )
     .unwrap();
@@ -202,8 +203,8 @@ fn test_complex_file() {
         // English source file
         card = :a { one: "card", other: "cards" };
         event = :an "event";
-        draw(n) = "Draw {n} {card:n}.";
-        subtype(s) = :from(s) "<b>{s}</b>";
+        draw($n) = "Draw {$n} {card:$n}.";
+        subtype($s) = :from($s) "<b>{$s}</b>";
     "#,
     )
     .unwrap();
@@ -252,10 +253,10 @@ fn test_wildcard_fallback_key() {
 
 #[test]
 fn test_template_with_interpolations() {
-    let phrases = parse_file(r#"draw(n) = "Draw {n} {card:n}.";"#).unwrap();
+    let phrases = parse_file(r#"draw($n) = "Draw {$n} {card:$n}.";"#).unwrap();
     match &phrases[0].body {
         PhraseBody::Simple(t) => {
-            // Should have: "Draw " + {n} + " " + {card:n} + "."
+            // Should have: "Draw " + {$n} + " " + {card:$n} + "."
             assert!(t.segments.len() >= 3);
             // First segment is literal
             assert!(matches!(&t.segments[0], Segment::Literal(_)));
@@ -282,7 +283,7 @@ fn test_template_with_transforms() {
 
 #[test]
 fn test_phrase_call_in_template() {
-    let phrases = parse_file(r#"dissolve(s) = "Dissolve {@a subtype(s)}.";"#).unwrap();
+    let phrases = parse_file(r#"dissolve($s) = "Dissolve {@a subtype($s)}.";"#).unwrap();
     match &phrases[0].body {
         PhraseBody::Simple(t) => {
             // Find the interpolation segment
@@ -298,12 +299,12 @@ fn test_phrase_call_in_template() {
 
 #[test]
 fn test_escape_sequences_in_template() {
-    let phrases = parse_file(r#"syntax_help = "Use {{name}} for interpolation.";"#).unwrap();
+    let phrases = parse_file(r#"syntax_help = "Use {{$name}} for interpolation.";"#).unwrap();
     match &phrases[0].body {
         PhraseBody::Simple(t) => {
             // The {{ should become a single { in the literal
             if let Segment::Literal(text) = &t.segments[0] {
-                assert!(text.contains("{name}"));
+                assert!(text.contains("{$name}"));
             } else {
                 panic!("expected literal segment");
             }
@@ -322,7 +323,7 @@ fn test_russian_translation_file() {
             few: "карты",
             many: "карт",
         };
-        draw(n) = "Возьмите {n} {card:n}.";
+        draw($n) = "Возьмите {$n} {card:$n}.";
     "#,
     )
     .unwrap();
@@ -420,7 +421,7 @@ fn test_whitespace_flexibility() {
     let phrases = parse_file(
         r#"
             hello="Hello!";
-            greet( name ) = "Hello, { name }!" ;
+            greet( $name ) = "Hello, { $name }!" ;
         "#,
     )
     .unwrap();
@@ -478,7 +479,7 @@ fn test_auto_capitalization_with_existing_transforms() {
 
 #[test]
 fn test_auto_capitalization_with_selector() {
-    let phrases = parse_file(r#"draw(n) = "{Card:n}";"#).unwrap();
+    let phrases = parse_file(r#"draw($n) = "{Card:$n}";"#).unwrap();
     match &phrases[0].body {
         PhraseBody::Simple(t) => match &t.segments[0] {
             Segment::Interpolation {
@@ -581,7 +582,7 @@ fn test_multiple_tagged_variant_blocks() {
             fem: "f",
             neut: "n"
         };
-        test(entity) = "{adj:entity} {entity:nom:one}";
+        test($entity) = "{adj:$entity} {$entity:nom:one}";
     "#,
     )
     .unwrap();

@@ -32,24 +32,26 @@ pub struct Transform {
     pub context: Option<Selector>,
 }
 
-/// A reference to a parameter or phrase.
+/// A reference to a parameter, term, or phrase.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Reference {
-    /// Reference to a parameter or phrase: {name}
-    /// At parse time we don't distinguish parameters from phrases.
-    /// Resolution happens later during interpretation.
+    /// Reference to a term or phrase by bare name: {card}
     Identifier(String),
-    /// Reference to a phrase call with arguments: {phrase(arg1, arg2)}
+    /// Reference to a parameter with $ prefix: {$name}
+    /// The String stores the name without the `$` prefix.
+    Parameter(String),
+    /// Reference to a phrase call with arguments: {phrase($arg1, $arg2)}
     PhraseCall { name: String, args: Vec<Reference> },
 }
 
 /// A selector for variant selection.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Selector {
-    /// Selector identifier: :one, :other, :nom, :n
-    /// At parse time we don't distinguish literal selectors from parameter selectors.
-    /// Resolution happens later during interpretation.
+    /// Static selector identifier: :one, :other, :nom
     Identifier(String),
+    /// Parameterized selector with $ prefix: :$n, :$entity
+    /// The String stores the name without the `$` prefix.
+    Parameter(String),
 }
 
 // =============================================================================

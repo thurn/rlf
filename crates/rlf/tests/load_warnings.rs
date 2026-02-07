@@ -67,12 +67,12 @@ fn multiple_unknown_phrases_produce_multiple_warnings() {
 fn parameter_count_mismatch_produces_warning() {
     let mut locale = Locale::new();
     locale
-        .load_translations_str("en", r#"greet(name) = "Hello, {name}!";"#)
+        .load_translations_str("en", r#"greet($name) = "Hello, {$name}!";"#)
         .unwrap();
     locale
         .load_translations_str(
             "ru",
-            r#"greet(first_name, last_name) = "{first_name} {last_name}";"#,
+            r#"greet($first_name, $last_name) = "{$first_name} {$last_name}";"#,
         )
         .unwrap();
 
@@ -94,10 +94,13 @@ fn parameter_count_mismatch_produces_warning() {
 fn translation_has_fewer_params_than_source() {
     let mut locale = Locale::new();
     locale
-        .load_translations_str("en", r#"greet(first, last) = "Hello, {first} {last}!";"#)
+        .load_translations_str(
+            "en",
+            r#"greet($first, $last) = "Hello, {$first} {$last}!";"#,
+        )
         .unwrap();
     locale
-        .load_translations_str("ru", r#"greet(name) = "Привет, {name}!";"#)
+        .load_translations_str("ru", r#"greet($name) = "Привет, {$name}!";"#)
         .unwrap();
 
     let warnings = locale.validate_translations("en", "ru");
@@ -121,7 +124,7 @@ fn translation_adds_params_to_parameterless_phrase() {
         .load_translations_str("en", r#"hello = "Hello!";"#)
         .unwrap();
     locale
-        .load_translations_str("ru", r#"hello(name) = "Привет, {name}!";"#)
+        .load_translations_str("ru", r#"hello($name) = "Привет, {$name}!";"#)
         .unwrap();
 
     let warnings = locale.validate_translations("en", "ru");
@@ -150,7 +153,7 @@ fn valid_translations_produce_no_warnings() {
             "en",
             r#"
             hello = "Hello!";
-            greet(name) = "Hello, {name}!";
+            greet($name) = "Hello, {$name}!";
             card = { one: "card", other: "cards" };
         "#,
         )
@@ -160,7 +163,7 @@ fn valid_translations_produce_no_warnings() {
             "ru",
             r#"
             hello = "Привет!";
-            greet(name) = "Привет, {name}!";
+            greet($name) = "Привет, {$name}!";
             card = { one: "карта", few: "карты", many: "карт", other: "карт" };
         "#,
         )
@@ -204,7 +207,7 @@ fn mixed_unknown_and_mismatch_warnings() {
             "en",
             r#"
             hello = "Hello!";
-            greet(name) = "Hello, {name}!";
+            greet($name) = "Hello, {$name}!";
         "#,
         )
         .unwrap();
@@ -213,7 +216,7 @@ fn mixed_unknown_and_mismatch_warnings() {
             "ru",
             r#"
             hello = "Привет!";
-            greet(first, last) = "Привет, {first} {last}!";
+            greet($first, $last) = "Привет, {$first} {$last}!";
             extra = "Лишнее";
         "#,
         )
@@ -320,7 +323,7 @@ fn registry_phrase_names_returns_all_names() {
             r#"
         hello = "Hello!";
         goodbye = "Goodbye!";
-        greet(name) = "Hi, {name}!";
+        greet($name) = "Hi, {$name}!";
     "#,
         )
         .unwrap();

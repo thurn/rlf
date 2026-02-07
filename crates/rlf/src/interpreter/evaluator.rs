@@ -94,13 +94,16 @@ fn resolve_reference(
     lang: &str,
 ) -> Result<Value, EvalError> {
     match reference {
+        Reference::Parameter(name) => {
+            // Parameter reference: always look up in context
+            ctx.get_param(name)
+                .cloned()
+                .ok_or_else(|| EvalError::PhraseNotFound {
+                    name: format!("${name}"),
+                })
+        }
         Reference::Identifier(name) => {
-            // First try parameters
-            if let Some(value) = ctx.get_param(name) {
-                return Ok(value.clone());
-            }
-
-            // Then try phrase lookup
+            // Bare identifier: look up as phrase/term (no parameter lookup)
             if let Some(def) = registry.get(name) {
                 if !def.parameters.is_empty() {
                     // Auto-forward selectors as arguments when counts match
@@ -436,12 +439,13 @@ fn resolve_selector_to_value(
     ctx: &EvalContext<'_>,
 ) -> Result<Value, EvalError> {
     match selector {
-        Selector::Identifier(name) => {
-            if let Some(value) = ctx.get_param(name) {
-                Ok(value.clone())
-            } else {
-                Ok(Value::String(name.clone()))
-            }
+        Selector::Identifier(name) => Ok(Value::String(name.clone())),
+        Selector::Parameter(name) => {
+            ctx.get_param(name)
+                .cloned()
+                .ok_or_else(|| EvalError::PhraseNotFound {
+                    name: format!("${name}"),
+                })
         }
     }
 }
@@ -449,10 +453,9 @@ fn resolve_selector_to_value(
 /// Resolve a selector to candidate key strings.
 ///
 /// Returns one or more candidate keys for a selector position:
-/// - Number -> single candidate: plural_category(lang, n)
-/// - Phrase -> all tags as candidates (enables multi-tag languages like Russian)
-/// - String -> single candidate: parsed number or literal
-/// - Literal -> single candidate: the identifier itself
+/// - Static identifier -> single candidate: the literal key
+/// - Parameter -> resolved value: Number -> CLDR category,
+///   Phrase -> all tags, String -> parsed number or literal
 fn resolve_selector_candidates(
     selector: &Selector,
     ctx: &EvalContext<'_>,
@@ -460,35 +463,38 @@ fn resolve_selector_candidates(
 ) -> Result<Vec<String>, EvalError> {
     match selector {
         Selector::Identifier(name) => {
-            // Check if this is a parameter reference
-            if let Some(value) = ctx.get_param(name) {
-                match value {
-                    Value::Number(n) => Ok(vec![plural_category(lang, *n).to_string()]),
-                    Value::Float(f) => Ok(vec![plural_category(lang, *f as i64).to_string()]),
-                    Value::Phrase(phrase) => {
-                        // Use all tags as candidates, preserving order
-                        let tags: Vec<String> =
-                            phrase.tags.iter().map(ToString::to_string).collect();
-                        if tags.is_empty() {
-                            return Err(EvalError::MissingTag {
-                                transform: "selector".to_string(),
-                                expected: vec!["any".to_string()],
-                                phrase: phrase.text.clone(),
-                            });
-                        }
-                        Ok(tags)
+            // Static selector: use as literal key
+            Ok(vec![name.clone()])
+        }
+        Selector::Parameter(name) => {
+            // Parameterized selector: look up parameter value
+            let value = ctx
+                .get_param(name)
+                .ok_or_else(|| EvalError::PhraseNotFound {
+                    name: format!("${name}"),
+                })?;
+            match value {
+                Value::Number(n) => Ok(vec![plural_category(lang, *n).to_string()]),
+                Value::Float(f) => Ok(vec![plural_category(lang, *f as i64).to_string()]),
+                Value::Phrase(phrase) => {
+                    // Use all tags as candidates, preserving order
+                    let tags: Vec<String> = phrase.tags.iter().map(ToString::to_string).collect();
+                    if tags.is_empty() {
+                        return Err(EvalError::MissingTag {
+                            transform: "selector".to_string(),
+                            expected: vec!["any".to_string()],
+                            phrase: phrase.text.clone(),
+                        });
                     }
-                    Value::String(s) => {
-                        if let Ok(n) = s.parse::<i64>() {
-                            Ok(vec![plural_category(lang, n).to_string()])
-                        } else {
-                            Ok(vec![s.clone()])
-                        }
+                    Ok(tags)
+                }
+                Value::String(s) => {
+                    if let Ok(n) = s.parse::<i64>() {
+                        Ok(vec![plural_category(lang, n).to_string()])
+                    } else {
+                        Ok(vec![s.clone()])
                     }
                 }
-            } else {
-                // Not a parameter - use as literal key
-                Ok(vec![name.clone()])
             }
         }
     }
@@ -565,12 +571,17 @@ fn apply_transforms(
         let context_value = if let Some(ctx_selector) = &transform.context {
             match ctx_selector {
                 Selector::Identifier(name) => {
-                    // Try parameter lookup first
+                    // Static context: use as literal string (e.g., "acc", "nom")
+                    Some(Value::String(name.clone()))
+                }
+                Selector::Parameter(name) => {
+                    // Parameterized context: look up parameter value
                     if let Some(param) = ctx.get_param(name) {
                         Some(param.clone())
                     } else {
-                        // Use as literal string (e.g., "acc", "nom", "dat", "gen")
-                        Some(Value::String(name.clone()))
+                        return Err(EvalError::PhraseNotFound {
+                            name: format!("${name}"),
+                        });
                     }
                 }
             }

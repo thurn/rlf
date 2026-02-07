@@ -267,7 +267,7 @@ fn call_phrase_with_args() {
         .load_translations_str(
             "en",
             r#"
-        greet(name) = "Hello, {name}!";
+        greet($name) = "Hello, {$name}!";
     "#,
         )
         .unwrap();
@@ -291,7 +291,7 @@ fn eval_str_evaluates_template() {
         .unwrap();
 
     let params: HashMap<String, Value> = [("n".to_string(), Value::from(3))].into_iter().collect();
-    let phrase = locale.eval_str("Draw {n} {card:n}.", params).unwrap();
+    let phrase = locale.eval_str("Draw {$n} {card:$n}.", params).unwrap();
     assert_eq!(phrase.to_string(), "Draw 3 cards.");
 }
 
@@ -323,7 +323,7 @@ fn missing_phrase_call_in_current_language_returns_error() {
 
     // Load English phrases, but current language is Russian
     locale
-        .load_translations_str("en", r#"greet(name) = "Hello, {name}!";"#)
+        .load_translations_str("en", r#"greet($name) = "Hello, {$name}!";"#)
         .unwrap();
 
     // Russian call_phrase should fail, not silently fall back to English
@@ -402,13 +402,13 @@ fn eval_str_caches_parsed_templates() {
     assert_eq!(locale.template_cache_len(), 0);
 
     let params: HashMap<String, Value> = [("n".to_string(), Value::from(3))].into_iter().collect();
-    let phrase = locale.eval_str("Draw {n} {card:n}.", params).unwrap();
+    let phrase = locale.eval_str("Draw {$n} {card:$n}.", params).unwrap();
     assert_eq!(phrase.to_string(), "Draw 3 cards.");
     assert_eq!(locale.template_cache_len(), 1);
 
     // Second call with same template should use cache
     let params2: HashMap<String, Value> = [("n".to_string(), Value::from(1))].into_iter().collect();
-    let phrase2 = locale.eval_str("Draw {n} {card:n}.", params2).unwrap();
+    let phrase2 = locale.eval_str("Draw {$n} {card:$n}.", params2).unwrap();
     assert_eq!(phrase2.to_string(), "Draw 1 card.");
     assert_eq!(locale.template_cache_len(), 1);
 }
@@ -426,11 +426,13 @@ fn eval_str_caches_different_templates_separately() {
         .unwrap();
 
     let params1: HashMap<String, Value> = [("n".to_string(), Value::from(1))].into_iter().collect();
-    locale.eval_str("{n} {card:n}", params1).unwrap();
+    locale.eval_str("{$n} {card:$n}", params1).unwrap();
     assert_eq!(locale.template_cache_len(), 1);
 
     let params2: HashMap<String, Value> = [("n".to_string(), Value::from(2))].into_iter().collect();
-    locale.eval_str("You have {n} {card:n}.", params2).unwrap();
+    locale
+        .eval_str("You have {$n} {card:$n}.", params2)
+        .unwrap();
     assert_eq!(locale.template_cache_len(), 2);
 }
 
@@ -447,7 +449,7 @@ fn clear_template_cache_removes_all_entries() {
         .unwrap();
 
     let params: HashMap<String, Value> = [("n".to_string(), Value::from(3))].into_iter().collect();
-    locale.eval_str("Draw {n} {card:n}.", params).unwrap();
+    locale.eval_str("Draw {$n} {card:$n}.", params).unwrap();
     assert_eq!(locale.template_cache_len(), 1);
 
     locale.clear_template_cache();
@@ -455,7 +457,7 @@ fn clear_template_cache_removes_all_entries() {
 
     // Should still work after clearing cache (re-parses)
     let params2: HashMap<String, Value> = [("n".to_string(), Value::from(1))].into_iter().collect();
-    let phrase = locale.eval_str("Draw {n} {card:n}.", params2).unwrap();
+    let phrase = locale.eval_str("Draw {$n} {card:$n}.", params2).unwrap();
     assert_eq!(phrase.to_string(), "Draw 1 card.");
     assert_eq!(locale.template_cache_len(), 1);
 }
@@ -472,7 +474,7 @@ fn eval_str_cache_produces_correct_results_with_different_params() {
         )
         .unwrap();
 
-    let template = "You drew {n} {card:n}.";
+    let template = "You drew {$n} {card:$n}.";
 
     for n in [1, 2, 5, 1, 100, 1] {
         let params: HashMap<String, Value> =
@@ -515,7 +517,7 @@ fn auto_capitalization_in_rlf_file_with_variants() {
             "en",
             r#"
         card = { one: "card", other: "cards" };
-        draw(n) = "Draw {n} {Card:n}.";
+        draw($n) = "Draw {$n} {Card:$n}.";
     "#,
         )
         .unwrap();

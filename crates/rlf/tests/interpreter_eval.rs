@@ -22,7 +22,7 @@ fn eval_literal_only() {
 fn eval_with_parameter() {
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"greet(name) = "Hello, {name}!";"#)
+        .load_phrases(r#"greet($name) = "Hello, {$name}!";"#)
         .unwrap();
     let result = registry
         .call_phrase("en", "greet", &[Value::from("World")])
@@ -34,7 +34,7 @@ fn eval_with_parameter() {
 fn eval_with_number_parameter() {
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"count(n) = "Count: {n}";"#)
+        .load_phrases(r#"count($n) = "Count: {$n}";"#)
         .unwrap();
     let result = registry
         .call_phrase("en", "count", &[Value::from(42)])
@@ -68,7 +68,7 @@ fn eval_numeric_variant_selector_english() {
         .load_phrases(
             r#"
         card = { one: "card", other: "cards" };
-        draw(n) = "Draw {n} {card:n}.";
+        draw($n) = "Draw {$n} {card:$n}.";
     "#,
         )
         .unwrap();
@@ -91,7 +91,7 @@ fn eval_numeric_variant_selector_russian() {
         .load_phrases(
             r#"
         card = { one: "карта", few: "карты", many: "карт", other: "карты" };
-        draw(n) = "Возьмите {n} {card:n}.";
+        draw($n) = "Возьмите {$n} {card:$n}.";
     "#,
         )
         .unwrap();
@@ -135,7 +135,7 @@ fn eval_multidimensional_variant() {
             acc.few: "карты",
             acc.many: "карт"
         };
-        draw(n) = "Возьмите {card:acc:n}.";
+        draw($n) = "Возьмите {card:acc:$n}.";
     "#,
         )
         .unwrap();
@@ -197,7 +197,7 @@ fn eval_tag_based_selection() {
         destroyed = { masc: "destruido", fem: "destruida" };
         card = :fem "carta";
         enemy = :masc "enemigo";
-        destroy(thing) = "{thing} fue {destroyed:thing}.";
+        destroy($thing) = "{$thing} fue {destroyed:$thing}.";
     "#,
         )
         .unwrap();
@@ -228,8 +228,8 @@ fn eval_phrase_call_in_template() {
         .load_phrases(
             r#"
         card = { one: "card", other: "cards" };
-        draw(n) = "Draw {n} {card:n}.";
-        draw_and_play(n) = "{draw(n)} Then play one.";
+        draw($n) = "Draw {$n} {card:$n}.";
+        draw_and_play($n) = "{draw($n)} Then play one.";
     "#,
         )
         .unwrap();
@@ -298,7 +298,7 @@ fn eval_str_basic() {
 
     let params: HashMap<String, Value> = [("n".to_string(), Value::from(3))].into_iter().collect();
     let result = registry
-        .eval_str("Draw {n} {card:n}.", "en", params)
+        .eval_str("Draw {$n} {card:$n}.", "en", params)
         .unwrap();
     assert_eq!(result.to_string(), "Draw 3 cards.");
 }
@@ -321,7 +321,7 @@ fn phrase_id_resolve() {
 fn phrase_id_call() {
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"greet(name) = "Hello, {name}!";"#)
+        .load_phrases(r#"greet($name) = "Hello, {$name}!";"#)
         .unwrap();
 
     let id = PhraseId::from_name("greet");
@@ -346,7 +346,7 @@ fn error_phrase_not_found() {
 fn error_argument_count_too_few() {
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"greet(name) = "Hello, {name}!";"#)
+        .load_phrases(r#"greet($name) = "Hello, {$name}!";"#)
         .unwrap();
 
     let err = registry.call_phrase("en", "greet", &[]).unwrap_err();
@@ -364,7 +364,7 @@ fn error_argument_count_too_few() {
 fn error_argument_count_too_many() {
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"greet(name) = "Hello, {name}!";"#)
+        .load_phrases(r#"greet($name) = "Hello, {$name}!";"#)
         .unwrap();
 
     let err = registry
@@ -445,7 +445,7 @@ fn eval_from_modifier_inherits_tags() {
         .load_phrases(
             r#"
         ancient = :an { one: "Ancient", other: "Ancients" };
-        subtype(s) = :from(s) "<b>{s}</b>";
+        subtype($s) = :from($s) "<b>{$s}</b>";
     "#,
         )
         .unwrap();
@@ -472,16 +472,16 @@ fn eval_escape_sequences() {
     registry
         .load_phrases(
             r#"
-        braces = "Use {{name}} for interpolation.";
-        at_sign = "Use @@ for transforms.";
-        colon = "Ratio 1::2.";
+        braces = "Use {{$name}} for interpolation.";
+        at_sign = "Use @ for transforms.";
+        colon = "Ratio 1:2.";
     "#,
         )
         .unwrap();
 
     assert_eq!(
         registry.get_phrase("en", "braces").unwrap().to_string(),
-        "Use {name} for interpolation."
+        "Use {$name} for interpolation."
     );
     assert_eq!(
         registry.get_phrase("en", "at_sign").unwrap().to_string(),
@@ -501,7 +501,7 @@ fn eval_escape_sequences() {
 fn eval_multiple_parameters() {
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"full_greeting(name, title) = "Hello, {title} {name}!";"#)
+        .load_phrases(r#"full_greeting($name, $title) = "Hello, {$title} {$name}!";"#)
         .unwrap();
 
     let result = registry
@@ -544,8 +544,8 @@ fn eval_nested_phrase_calls() {
     registry
         .load_phrases(
             r#"
-        inner(x) = "[{x}]";
-        outer(y) = "({inner(y)})";
+        inner($x) = "[{$x}]";
+        outer($y) = "({inner($y)})";
     "#,
         )
         .unwrap();
@@ -567,8 +567,8 @@ fn phrase_parameter_count() {
         .load_phrases(
             r#"
         no_params = "Hello";
-        one_param(x) = "{x}";
-        two_params(a, b) = "{a} {b}";
+        one_param($x) = "{$x}";
+        two_params($a, $b) = "{$a} {$b}";
     "#,
         )
         .unwrap();
@@ -599,14 +599,14 @@ fn eval_str_caches_parsed_templates() {
 
     let params: HashMap<String, Value> = [("n".to_string(), Value::from(3))].into_iter().collect();
     registry
-        .eval_str("Draw {n} {card:n}.", "en", params)
+        .eval_str("Draw {$n} {card:$n}.", "en", params)
         .unwrap();
     assert_eq!(registry.template_cache_len(), 1);
 
     // Second call with same template should reuse cache
     let params2: HashMap<String, Value> = [("n".to_string(), Value::from(1))].into_iter().collect();
     let result = registry
-        .eval_str("Draw {n} {card:n}.", "en", params2)
+        .eval_str("Draw {$n} {card:$n}.", "en", params2)
         .unwrap();
     assert_eq!(result.to_string(), "Draw 1 card.");
     assert_eq!(registry.template_cache_len(), 1);
@@ -620,12 +620,12 @@ fn eval_str_caches_different_templates_separately() {
         .unwrap();
 
     let params1: HashMap<String, Value> = [("n".to_string(), Value::from(1))].into_iter().collect();
-    registry.eval_str("{n} {card:n}", "en", params1).unwrap();
+    registry.eval_str("{$n} {card:$n}", "en", params1).unwrap();
     assert_eq!(registry.template_cache_len(), 1);
 
     let params2: HashMap<String, Value> = [("n".to_string(), Value::from(2))].into_iter().collect();
     registry
-        .eval_str("You have {n} {card:n}.", "en", params2)
+        .eval_str("You have {$n} {card:$n}.", "en", params2)
         .unwrap();
     assert_eq!(registry.template_cache_len(), 2);
 }
@@ -639,7 +639,7 @@ fn clear_template_cache_removes_all_entries() {
 
     let params: HashMap<String, Value> = [("n".to_string(), Value::from(3))].into_iter().collect();
     registry
-        .eval_str("Draw {n} {card:n}.", "en", params)
+        .eval_str("Draw {$n} {card:$n}.", "en", params)
         .unwrap();
     assert_eq!(registry.template_cache_len(), 1);
 
@@ -649,7 +649,7 @@ fn clear_template_cache_removes_all_entries() {
     // Should still work after clearing cache
     let params2: HashMap<String, Value> = [("n".to_string(), Value::from(1))].into_iter().collect();
     let result = registry
-        .eval_str("Draw {n} {card:n}.", "en", params2)
+        .eval_str("Draw {$n} {card:$n}.", "en", params2)
         .unwrap();
     assert_eq!(result.to_string(), "Draw 1 card.");
     assert_eq!(registry.template_cache_len(), 1);
@@ -662,7 +662,7 @@ fn eval_str_cache_correct_with_varying_params() {
         .load_phrases(r#"card = { one: "card", other: "cards" };"#)
         .unwrap();
 
-    let template = "You drew {n} {card:n}.";
+    let template = "You drew {$n} {card:$n}.";
 
     for n in [1, 2, 5, 1, 100, 1] {
         let params: HashMap<String, Value> =
@@ -709,7 +709,7 @@ fn eval_polish_gender_tag_selection() {
             neut: "zniszczone"
         };
 
-        destroy(thing) = "{thing} - {destroyed:thing}";
+        destroy($thing) = "{$thing} - {destroyed:$thing}";
     "#,
         )
         .unwrap();
@@ -757,7 +757,7 @@ fn eval_polish_case_variants() {
             loc: "karcie",
             voc: "karto"
         };
-        take(n) = "Weź {card:acc:n}.";
+        take($n) = "Weź {card:acc:$n}.";
     "#,
         )
         .unwrap();
@@ -785,7 +785,7 @@ fn eval_polish_plural_categories() {
             many: "kart",
             other: "karty"
         };
-        draw(n) = "Dobierz {n} {card:n}.";
+        draw($n) = "Dobierz {$n} {card:$n}.";
     "#,
         )
         .unwrap();
@@ -825,7 +825,7 @@ fn eval_polish_masc_anim_case_and_plural() {
             acc: "wroga",
             acc.many: "wrogów"
         };
-        defeat(n) = "Pokonaj {n} {enemy:acc:n}.";
+        defeat($n) = "Pokonaj {$n} {enemy:acc:$n}.";
     "#,
         )
         .unwrap();
@@ -922,7 +922,7 @@ fn eval_russian_gender_tag_selection() {
             neut: "другое"
         };
 
-        another(entity) = "{another_adj:entity} {entity}";
+        another($entity) = "{another_adj:$entity} {$entity}";
     "#,
         )
         .unwrap();
@@ -968,7 +968,7 @@ fn eval_russian_animacy_tag_selection() {
             inan: "предмет"
         };
 
-        describe(entity) = "{entity} - {target_type:entity}";
+        describe($entity) = "{$entity} - {target_type:$entity}";
     "#,
         )
         .unwrap();
@@ -1021,8 +1021,8 @@ fn eval_russian_animacy_affects_accusative() {
             gen: "карт"
         };
 
-        take(n) = "Возьмите {card:acc:n}.";
-        defeat(n) = "Победите {character:acc:n}.";
+        take($n) = "Возьмите {card:acc:$n}.";
+        defeat($n) = "Победите {character:acc:$n}.";
     "#,
         )
         .unwrap();
@@ -1228,8 +1228,8 @@ fn eval_russian_case_and_plural() {
             ins.one: "картой",
             ins: "картами"
         };
-        draw(n) = "Возьмите {card:acc:n}.";
-        count(n) = "{n} {card:gen:n}";
+        draw($n) = "Возьмите {card:acc:$n}.";
+        count($n) = "{$n} {card:gen:$n}";
     "#,
         )
         .unwrap();
@@ -1282,7 +1282,7 @@ fn eval_russian_animate_masc_case_and_plural() {
             ins.one: "союзником",
             ins: "союзниками"
         };
-        defeat(n) = "Победите {n} {ally:acc:n}.";
+        defeat($n) = "Победите {$n} {ally:acc:$n}.";
     "#,
         )
         .unwrap();
@@ -1322,7 +1322,7 @@ fn eval_russian_plural_categories() {
             many: "карт",
             other: "карты"
         };
-        draw(n) = "Возьмите {n} {card:n}.";
+        draw($n) = "Возьмите {$n} {card:$n}.";
     "#,
         )
         .unwrap();
@@ -1389,8 +1389,8 @@ fn eval_russian_compositional_with_gender_agreement() {
             fem: "союзная",
             neut: "союзное"
         };
-        allied(entity) = "{allied_adj:entity} {entity:nom:one}";
-        allied_plural(entity) = "союзных {entity:gen:many}";
+        allied($entity) = "{allied_adj:$entity} {$entity:nom:one}";
+        allied_plural($entity) = "союзных {$entity:gen:many}";
     "#,
         )
         .unwrap();
@@ -1440,7 +1440,7 @@ fn eval_russian_cost_comparison_pattern() {
             gen.many: "карт"
         };
 
-        with_cost_less_than_allied(base, counting) = "{base:nom:one} со стоимостью меньше количества союзных {counting:gen:many}";
+        with_cost_less_than_allied($base, $counting) = "{$base:nom:one} со стоимостью меньше количества союзных {$counting:gen:many}";
     "#,
         )
         .unwrap();
@@ -1502,7 +1502,7 @@ fn eval_russian_instrumental_case_negation() {
             ins: "событиями"
         };
 
-        not_a(entity) = "персонаж, который не является {entity:ins:one}";
+        not_a($entity) = "персонаж, который не является {$entity:ins:one}";
     "#,
         )
         .unwrap();
@@ -1564,7 +1564,7 @@ fn eval_russian_multi_tag_first_tag_matches() {
             neut: "сильное"
         };
 
-        describe(entity) = "{adj:entity} {entity}";
+        describe($entity) = "{adj:$entity} {$entity}";
     "#,
         )
         .unwrap();
@@ -1591,7 +1591,7 @@ fn eval_russian_multi_tag_second_tag_matches() {
             inan: "неодушевлённый"
         };
 
-        classify(entity) = "{entity} - {target:entity}";
+        classify($entity) = "{$entity} - {target:$entity}";
     "#,
         )
         .unwrap();
@@ -1662,12 +1662,12 @@ fn eval_russian_full_translation_pattern() {
             fem: "каждая",
             neut: "каждое"
         };
-        for_each(entity) = "{each_adj:entity} {entity:nom:one}";
+        for_each($entity) = "{each_adj:$entity} {$entity:nom:one}";
 
-        with_spark(base, spark, op) = "{base:nom:one} с искрой {spark}{op}";
+        with_spark($base, $spark, $op) = "{$base:nom:one} с искрой {$spark}{$op}";
         or_less = " или меньше";
 
-        in_your_void(things) = "{things} в вашей бездне";
+        in_your_void($things) = "{$things} в вашей бездне";
     "#,
         )
         .unwrap();
@@ -1727,7 +1727,7 @@ fn eval_russian_dative_case() {
             dat: "картам"
         };
 
-        give_to(entity) = "дать {entity:dat:one}";
+        give_to($entity) = "дать {$entity:dat:one}";
     "#,
         )
         .unwrap();
@@ -1755,8 +1755,8 @@ fn eval_parameterized_phrase_with_selector_auto_forwards_args() {
     registry
         .load_phrases(
             r#"
-        cards(n) = { one: "{n} card", other: "{n} cards" };
-        draw(n) = "Draw {cards:n}.";
+        cards($n) = { one: "{$n} card", other: "{$n} cards" };
+        draw($n) = "Draw {cards:$n}.";
     "#,
         )
         .unwrap();
@@ -1778,13 +1778,13 @@ fn eval_parameterized_phrase_selector_auto_forward_with_multiple_params() {
     registry
         .load_phrases(
             r#"
-        noun(case, n) = {
+        noun($case, $n) = {
             nom.one: "card",
             nom.other: "cards",
             acc.one: "card",
             acc.other: "cards"
         };
-        test(n) = "Take {noun:acc:n}.";
+        test($n) = "Take {noun:acc:$n}.";
     "#,
         )
         .unwrap();
@@ -1822,7 +1822,7 @@ fn eval_multi_tag_selector_uses_all_tags() {
             inan: "неживой"
         };
 
-        describe(thing) = "{thing} — {animacy:thing}";
+        describe($thing) = "{$thing} — {animacy:$thing}";
     "#,
         )
         .unwrap();
@@ -1850,9 +1850,9 @@ fn eval_variant_phrase_auto_selects_by_numeric_param() {
     registry
         .load_phrases(
             r#"
-        text_number(n) = {
+        text_number($n) = {
             one: "one",
-            other: "{n}",
+            other: "{$n}",
         };
     "#,
         )
@@ -1875,9 +1875,9 @@ fn eval_variant_phrase_auto_selects_this_turn_times() {
     registry
         .load_phrases(
             r#"
-        this_turn_times(n) = {
+        this_turn_times($n) = {
             one: "this turn",
-            other: "this turn {n} times",
+            other: "this turn {$n} times",
         };
     "#,
         )
@@ -1900,9 +1900,9 @@ fn eval_variant_phrase_auto_selects_preserves_variants() {
     registry
         .load_phrases(
             r#"
-        items(n) = {
-            one: "{n} item",
-            other: "{n} items",
+        items($n) = {
+            one: "{$n} item",
+            other: "{$n} items",
         };
     "#,
         )
@@ -1924,11 +1924,11 @@ fn eval_variant_phrase_auto_selects_russian_plural() {
     registry
         .load_phrases(
             r#"
-        counted_cards(n) = {
-            one: "{n} карта",
-            few: "{n} карты",
-            many: "{n} карт",
-            other: "{n} карты",
+        counted_cards($n) = {
+            one: "{$n} карта",
+            few: "{$n} карты",
+            many: "{$n} карт",
+            other: "{$n} карты",
         };
     "#,
         )
@@ -1956,9 +1956,9 @@ fn eval_variant_phrase_auto_selects_with_non_numeric_param_uses_first() {
     registry
         .load_phrases(
             r#"
-        greeting(name) = {
-            formal: "Good day, {name}.",
-            casual: "Hey {name}!",
+        greeting($name) = {
+            formal: "Good day, {$name}.",
+            casual: "Hey {$name}!",
         };
     "#,
         )
@@ -1979,9 +1979,9 @@ fn eval_variant_phrase_auto_selects_via_locale() {
         .load_translations_str(
             "en",
             r#"
-        this_turn_times(n) = {
+        this_turn_times($n) = {
             one: "this turn",
-            other: "this turn {n} times",
+            other: "this turn {$n} times",
         };
     "#,
         )

@@ -92,13 +92,11 @@ fn segment(input: &mut &str) -> ModalResult<Segment> {
     alt((escape_sequence, interpolation, literal_char)).parse_next(input)
 }
 
-/// Parse escape sequences: {{ -> {, }} -> }, @@ -> @, :: -> :
+/// Parse escape sequences: {{ -> {, }} -> }
 fn escape_sequence(input: &mut &str) -> ModalResult<Segment> {
     alt((
         "{{".value(Segment::Literal("{".to_string())),
         "}}".value(Segment::Literal("}".to_string())),
-        "@@".value(Segment::Literal("@".to_string())),
-        "::".value(Segment::Literal(":".to_string())),
     ))
     .parse_next(input)
 }
@@ -179,9 +177,28 @@ fn transform_context_identifier<'i>(input: &mut &'i str) -> ModalResult<&'i str>
     .parse_next(input)
 }
 
-/// Parse a reference: identifier or identifier(args)
+/// Parse a reference: $param, identifier, or identifier(args)
 /// Returns the reference and a flag indicating if auto-capitalization should be applied.
 fn reference(input: &mut &str) -> ModalResult<ParsedReference> {
+    // Check for $$ escape sequence (literal $)
+    if input.starts_with("$$") {
+        let _ = "$$".parse_next(input)?;
+        return Ok(ParsedReference {
+            reference: Reference::Identifier("$".to_string()),
+            auto_cap: false,
+        });
+    }
+
+    // Check for $ prefix (parameter reference)
+    if input.starts_with('$') {
+        let _ = '$'.parse_next(input)?;
+        let name: &str = identifier(input)?;
+        return Ok(ParsedReference {
+            reference: Reference::Parameter(name.to_string()),
+            auto_cap: false,
+        });
+    }
+
     let first_char = any.parse_next(input)?;
 
     if !is_ident_start(first_char) {
@@ -194,6 +211,7 @@ fn reference(input: &mut &str) -> ModalResult<ParsedReference> {
     name.push_str(rest);
 
     // Check for auto-capitalization: if first letter is uppercase, add @cap
+    // Auto-capitalization only applies to bare identifiers, never to $-prefixed parameters
     let auto_cap = first_char.is_ascii_uppercase();
     let actual_name = if auto_cap {
         // Lowercase the first character and the first character after each underscore
@@ -243,18 +261,33 @@ fn phrase_call_args(input: &mut &str) -> ModalResult<Vec<Reference>> {
     .parse_next(input)
 }
 
-/// Parse a reference argument (simpler than main reference - no auto-cap).
+/// Parse a reference argument: $param or bare term name (no auto-cap).
 fn reference_arg(input: &mut &str) -> ModalResult<Reference> {
-    identifier
-        .map(|name| Reference::Identifier(name.to_string()))
-        .parse_next(input)
+    if input.starts_with('$') {
+        let _ = '$'.parse_next(input)?;
+        identifier
+            .map(|name| Reference::Parameter(name.to_string()))
+            .parse_next(input)
+    } else {
+        identifier
+            .map(|name| Reference::Identifier(name.to_string()))
+            .parse_next(input)
+    }
 }
 
-/// Parse a selector: :identifier
+/// Parse a selector: :identifier or :$param
 fn selector(input: &mut &str) -> ModalResult<Selector> {
-    preceded(':', selector_identifier)
-        .map(|s| Selector::Identifier(s.to_string()))
-        .parse_next(input)
+    ':'.parse_next(input)?;
+    if input.starts_with('$') {
+        let _ = '$'.parse_next(input)?;
+        selector_identifier
+            .map(|s| Selector::Parameter(s.to_string()))
+            .parse_next(input)
+    } else {
+        selector_identifier
+            .map(|s| Selector::Identifier(s.to_string()))
+            .parse_next(input)
+    }
 }
 
 /// Parse a selector identifier (alphanumeric with underscores).

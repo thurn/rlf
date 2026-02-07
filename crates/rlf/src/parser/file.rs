@@ -143,11 +143,15 @@ fn parameter_list(input: &mut &str) -> ModalResult<Vec<String>> {
     .parse_next(input)
 }
 
-/// Parse a parameter name (simple identifier).
+/// Parse a parameter name with required `$` prefix (e.g., `$name`).
+/// Returns the name without the `$` prefix.
 fn parameter_name(input: &mut &str) -> ModalResult<String> {
-    take_while(1.., |c: char| c.is_ascii_alphanumeric() || c == '_')
-        .map(|s: &str| s.to_string())
-        .parse_next(input)
+    preceded(
+        '$',
+        take_while(1.., |c: char| c.is_ascii_alphanumeric() || c == '_'),
+    )
+    .map(|s: &str| s.to_string())
+    .parse_next(input)
 }
 
 /// Parse a tag: :name
@@ -251,13 +255,11 @@ fn template_segment(input: &mut &str) -> ModalResult<Segment> {
     alt((escape_sequence, interpolation, template_literal_char)).parse_next(input)
 }
 
-/// Parse escape sequences in templates: {{ }} @@ ::
+/// Parse escape sequences in templates: {{ }}
 fn escape_sequence(input: &mut &str) -> ModalResult<Segment> {
     alt((
         "{{".value(Segment::Literal("{".to_string())),
         "}}".value(Segment::Literal("}".to_string())),
-        "@@".value(Segment::Literal("@".to_string())),
-        "::".value(Segment::Literal(":".to_string())),
     ))
     .parse_next(input)
 }
@@ -344,8 +346,27 @@ fn transform_context_identifier<'i>(input: &mut &'i str) -> ModalResult<&'i str>
 /// Parse a reference in an interpolation.
 ///
 /// Returns the reference and a flag indicating if auto-capitalization should
-/// be applied (uppercase first letter triggers @cap).
+/// be applied (uppercase first letter triggers @cap, only for bare identifiers).
 fn reference(input: &mut &str) -> ModalResult<ParsedReference> {
+    // Check for $$ escape sequence (literal $)
+    if input.starts_with("$$") {
+        let _ = "$$".parse_next(input)?;
+        return Ok(ParsedReference {
+            reference: Reference::Identifier("$".to_string()),
+            auto_cap: false,
+        });
+    }
+
+    // Check for $ prefix (parameter reference)
+    if input.starts_with('$') {
+        let _ = '$'.parse_next(input)?;
+        let name: &str = simple_identifier(input)?;
+        return Ok(ParsedReference {
+            reference: Reference::Parameter(name.to_string()),
+            auto_cap: false,
+        });
+    }
+
     let first_char = any.parse_next(input)?;
 
     if !is_ident_start(first_char) {
@@ -358,6 +379,7 @@ fn reference(input: &mut &str) -> ModalResult<ParsedReference> {
     name.push_str(rest);
 
     // Check for auto-capitalization: if first letter is uppercase, add @cap
+    // Auto-capitalization only applies to bare identifiers, never to $-prefixed parameters
     let auto_cap = first_char.is_ascii_uppercase();
     let actual_name = if auto_cap {
         // Lowercase the first character and the first character after each underscore
@@ -407,18 +429,33 @@ fn phrase_call_args(input: &mut &str) -> ModalResult<Vec<Reference>> {
     .parse_next(input)
 }
 
-/// Parse a reference argument.
+/// Parse a reference argument: $param or bare term name.
 fn reference_arg(input: &mut &str) -> ModalResult<Reference> {
-    simple_identifier
-        .map(|name| Reference::Identifier(name.to_string()))
-        .parse_next(input)
+    if input.starts_with('$') {
+        let _ = '$'.parse_next(input)?;
+        simple_identifier
+            .map(|name| Reference::Parameter(name.to_string()))
+            .parse_next(input)
+    } else {
+        simple_identifier
+            .map(|name| Reference::Identifier(name.to_string()))
+            .parse_next(input)
+    }
 }
 
-/// Parse a selector: :identifier
+/// Parse a selector: :identifier or :$param
 fn selector(input: &mut &str) -> ModalResult<Selector> {
-    preceded(':', selector_identifier)
-        .map(|s| Selector::Identifier(s.to_string()))
-        .parse_next(input)
+    ':'.parse_next(input)?;
+    if input.starts_with('$') {
+        let _ = '$'.parse_next(input)?;
+        selector_identifier
+            .map(|s| Selector::Parameter(s.to_string()))
+            .parse_next(input)
+    } else {
+        selector_identifier
+            .map(|s| Selector::Identifier(s.to_string()))
+            .parse_next(input)
+    }
 }
 
 /// Parse a selector identifier.

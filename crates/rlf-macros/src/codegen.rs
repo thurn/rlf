@@ -6,6 +6,8 @@
 //! - register_source_phrases() function for loading
 //! - phrase_ids module with PhraseId constants
 
+use std::collections::HashSet;
+
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
@@ -209,21 +211,27 @@ fn generate_source_phrases(input: &MacroInput) -> TokenStream {
 
 /// Reconstruct RLF source from MacroInput.
 ///
-/// This recreates the phrase definitions in RLF syntax for the interpreter.
-/// The file format expects: `name(params)? = tags? from? body ;`
+/// This recreates the phrase definitions in v2 RLF syntax for the interpreter.
+/// The file format expects: `name($params)? = tags? from? body ;`
 fn reconstruct_source(input: &MacroInput) -> String {
     let mut lines = Vec::new();
 
     for phrase in &input.phrases {
         let mut line = String::new();
+        let param_names: HashSet<&str> =
+            phrase.parameters.iter().map(|p| p.name.as_str()).collect();
 
         // Name
         line.push_str(&phrase.name.name);
 
-        // Parameters
+        // Parameters (v2: $-prefixed)
         if !phrase.parameters.is_empty() {
             line.push('(');
-            let params: Vec<_> = phrase.parameters.iter().map(|p| p.name.as_str()).collect();
+            let params: Vec<_> = phrase
+                .parameters
+                .iter()
+                .map(|p| format!("${}", p.name))
+                .collect();
             line.push_str(&params.join(", "));
             line.push(')');
         }
@@ -237,9 +245,9 @@ fn reconstruct_source(input: &MacroInput) -> String {
             line.push(' ');
         }
 
-        // :from modifier (after tags, before body)
+        // :from modifier (v2: $-prefixed parameter)
         if let Some(ref from) = phrase.from_param {
-            line.push_str(":from(");
+            line.push_str(":from($");
             line.push_str(&from.name);
             line.push_str(") ");
         }
@@ -248,7 +256,7 @@ fn reconstruct_source(input: &MacroInput) -> String {
         match &phrase.body {
             PhraseBody::Simple(template) => {
                 line.push('"');
-                line.push_str(&reconstruct_template(template));
+                line.push_str(&reconstruct_template(template, &param_names));
                 line.push('"');
             }
             PhraseBody::Variants(variants) => {
@@ -260,7 +268,7 @@ fn reconstruct_source(input: &MacroInput) -> String {
                         format!(
                             "{}: \"{}\"",
                             keys.join(", "),
-                            reconstruct_template(&v.template)
+                            reconstruct_template(&v.template, &param_names)
                         )
                     })
                     .collect();
@@ -277,26 +285,23 @@ fn reconstruct_source(input: &MacroInput) -> String {
 }
 
 /// Reconstruct a template string from Template AST.
-fn reconstruct_template(template: &Template) -> String {
+fn reconstruct_template(template: &Template, params: &HashSet<&str>) -> String {
     let mut result = String::new();
 
     for segment in &template.segments {
         match segment {
             Segment::Literal(text) => {
-                // Escape special characters for RLF template strings
-                // Braces and escape sequences need to be doubled,
-                // quotes need backslash escape
+                // In v2, only braces need escaping in template text.
+                // `@`, `:`, and `$` are literal outside interpolations.
                 let escaped = text
                     .replace('{', "{{")
                     .replace('}', "}}")
-                    .replace('@', "@@")
-                    .replace(':', "::")
                     .replace('\\', "\\\\")
                     .replace('"', "\\\"");
                 result.push_str(&escaped);
             }
             Segment::Interpolation(interp) => {
-                result.push_str(&reconstruct_interpolation(interp));
+                result.push_str(&reconstruct_interpolation(interp, params));
             }
         }
     }
@@ -305,7 +310,7 @@ fn reconstruct_template(template: &Template) -> String {
 }
 
 /// Reconstruct an interpolation from Interpolation AST.
-fn reconstruct_interpolation(interp: &Interpolation) -> String {
+fn reconstruct_interpolation(interp: &Interpolation, params: &HashSet<&str>) -> String {
     let mut result = String::from("{");
 
     // Transforms
@@ -313,12 +318,15 @@ fn reconstruct_interpolation(interp: &Interpolation) -> String {
         result.push_str(&reconstruct_transform(transform));
     }
 
-    // Reference
-    result.push_str(&reconstruct_reference(&interp.reference));
+    // Reference (v2: $-prefix for parameters)
+    result.push_str(&reconstruct_reference(&interp.reference, params));
 
-    // Selectors
+    // Selectors (v2: $-prefix for parameter-based selectors)
     for selector in &interp.selectors {
         result.push(':');
+        if params.contains(selector.name.name.as_str()) {
+            result.push('$');
+        }
         result.push_str(&selector.name.name);
     }
 
@@ -342,11 +350,20 @@ fn reconstruct_transform(transform: &TransformRef) -> String {
 }
 
 /// Reconstruct a reference (identifier or call).
-fn reconstruct_reference(reference: &Reference) -> String {
+fn reconstruct_reference(reference: &Reference, params: &HashSet<&str>) -> String {
     match reference {
-        Reference::Identifier(ident) => ident.name.clone(),
+        Reference::Identifier(ident) => {
+            if params.contains(ident.name.as_str()) {
+                format!("${}", ident.name)
+            } else {
+                ident.name.clone()
+            }
+        }
         Reference::Call { name, args } => {
-            let arg_strs: Vec<String> = args.iter().map(reconstruct_reference).collect();
+            let arg_strs: Vec<String> = args
+                .iter()
+                .map(|a| reconstruct_reference(a, params))
+                .collect();
             format!("{}({})", name.name, arg_strs.join(", "))
         }
     }
@@ -485,7 +502,10 @@ mod tests {
             greet(name) = "Hello, {name}!";
         });
         let source = reconstruct_source(&input);
-        assert!(source.contains("{name}"));
+        assert!(
+            source.contains("{$name}"),
+            "v2: parameters should have $ prefix, got: {source}"
+        );
     }
 
     #[test]
@@ -505,7 +525,10 @@ mod tests {
             draw(n) = "Draw {card:n}.";
         });
         let source = reconstruct_source(&input);
-        assert!(source.contains("{card:n}"));
+        assert!(
+            source.contains("{card:$n}"),
+            "v2: parameter selectors should have $ prefix, got: {source}"
+        );
     }
 
     // =========================================================================
@@ -527,7 +550,10 @@ mod tests {
             greet(name, title) = "Hello, {title} {name}!";
         });
         let source = reconstruct_source(&input);
-        assert!(source.contains("greet(name, title)"));
+        assert!(
+            source.contains("greet($name, $title)"),
+            "v2: parameter declarations should have $ prefix, got: {source}"
+        );
     }
 
     #[test]
@@ -558,11 +584,13 @@ mod tests {
         });
         let source = reconstruct_source(&input);
         assert!(
-            source.contains(":from(s)"),
-            "source should contain :from(s), got: {}",
-            source
+            source.contains(":from($s)"),
+            "v2: :from parameter should have $ prefix, got: {source}",
         );
-        assert!(source.contains("subtype(s)"));
+        assert!(
+            source.contains("subtype($s)"),
+            "v2: parameter declaration should have $ prefix, got: {source}"
+        );
     }
 
     #[test]
@@ -573,13 +601,11 @@ mod tests {
         let source = reconstruct_source(&input);
         assert!(
             source.contains(":an"),
-            "source should contain :an tag, got: {}",
-            source
+            "source should contain :an tag, got: {source}",
         );
         assert!(
-            source.contains(":from(s)"),
-            "source should contain :from(s), got: {}",
-            source
+            source.contains(":from($s)"),
+            "v2: :from parameter should have $ prefix, got: {source}",
         );
     }
 
@@ -597,28 +623,28 @@ mod tests {
     }
 
     #[test]
-    fn test_reconstruct_literal_escapes_at_sign() {
+    fn test_reconstruct_literal_at_sign_not_escaped() {
         let input = parse_input(parse_quote! {
             test = "Use @@ for transforms.";
         });
         let source = reconstruct_source(&input);
-        // The parser converts @@ to @, then reconstruction escapes @ back to @@
+        // In v2, @ is literal in template text and should NOT be double-escaped
         assert!(
-            source.contains("@@"),
-            "should contain escaped @@, got: {source}"
+            source.contains("Use @ for transforms."),
+            "v2: @ should be literal in text, got: {source}"
         );
     }
 
     #[test]
-    fn test_reconstruct_literal_escapes_colon() {
+    fn test_reconstruct_literal_colon_not_escaped() {
         let input = parse_input(parse_quote! {
             test = "Ratio 1::2.";
         });
         let source = reconstruct_source(&input);
-        // The parser converts :: to :, then reconstruction escapes : back to ::
+        // In v2, : is literal in template text and should NOT be double-escaped
         assert!(
-            source.contains("::"),
-            "should contain escaped ::, got: {source}"
+            source.contains("Ratio 1:2."),
+            "v2: : should be literal in text, got: {source}"
         );
     }
 

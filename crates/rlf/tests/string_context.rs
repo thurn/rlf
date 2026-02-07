@@ -162,7 +162,7 @@ fn string_context_applies_to_phrase_calls() {
             interface: "E",
             card_text: "<b>E</b>",
         };
-        cost(n) = "{n}{icon}";
+        cost($n) = "{$n}{icon}";
     "#,
         )
         .unwrap();

@@ -96,7 +96,7 @@ fn resolve_after_language_switch() {
 fn call_phrase_with_args() {
     let mut locale = Locale::new();
     locale
-        .load_translations_str("en", r#"greet(name) = "Hello, {name}!";"#)
+        .load_translations_str("en", r#"greet($name) = "Hello, {$name}!";"#)
         .unwrap();
 
     let id = PhraseId::from_name("greet");
@@ -112,7 +112,7 @@ fn call_phrase_with_numeric_arg() {
             "en",
             r#"
         card = { one: "card", other: "cards" };
-        draw(n) = "Draw {n} {card:n}.";
+        draw($n) = "Draw {$n} {card:$n}.";
     "#,
         )
         .unwrap();
@@ -154,7 +154,7 @@ fn call_phrase_not_found() {
 fn call_wrong_arg_count() {
     let mut locale = Locale::new();
     locale
-        .load_translations_str("en", r#"greet(name) = "Hello, {name}!";"#)
+        .load_translations_str("en", r#"greet($name) = "Hello, {$name}!";"#)
         .unwrap();
 
     let id = PhraseId::from_name("greet");
@@ -212,7 +212,7 @@ fn name_returns_none_when_no_language_loaded() {
 fn has_parameters_true_for_parameterized_phrase() {
     let mut locale = Locale::new();
     locale
-        .load_translations_str("en", r#"greet(name) = "Hello, {name}!";"#)
+        .load_translations_str("en", r#"greet($name) = "Hello, {$name}!";"#)
         .unwrap();
 
     let id = PhraseId::from_name("greet");
@@ -236,7 +236,7 @@ fn has_parameters_false_for_parameterless_phrase() {
 fn parameter_count_multiple_params() {
     let mut locale = Locale::new();
     locale
-        .load_translations_str("en", r#"msg(a, b, c) = "{a} {b} {c}";"#)
+        .load_translations_str("en", r#"msg($a, $b, $c) = "{$a} {$b} {$c}";"#)
         .unwrap();
 
     let id = PhraseId::from_name("msg");
@@ -268,7 +268,7 @@ fn call_returns_phrase_with_variants_and_tags() {
             "en",
             r#"
         item = :a { one: "item", other: "items" };
-        describe(n) = :from(n) "{n}";
+        describe($n) = :from($n) "{$n}";
     "#,
         )
         .unwrap();
@@ -294,7 +294,7 @@ fn call_result_supports_to_string() {
             "en",
             r#"
         card = { one: "card", other: "cards" };
-        draw(n) = "Draw {n} {card:n}.";
+        draw($n) = "Draw {$n} {card:$n}.";
     "#,
         )
         .unwrap();
@@ -340,7 +340,7 @@ fn resolve_with_registry_still_works() {
 fn call_with_registry_still_works() {
     let mut registry = rlf::PhraseRegistry::new();
     registry
-        .load_phrases(r#"greet(name) = "Hello, {name}!";"#)
+        .load_phrases(r#"greet($name) = "Hello, {$name}!";"#)
         .unwrap();
 
     let id = PhraseId::from_name("greet");

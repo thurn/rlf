@@ -12,7 +12,7 @@ use std::collections::HashMap;
 fn test_cap_basic() {
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"greeting(name) = "Hello, {@cap name}!";"#)
+        .load_phrases(r#"greeting($name) = "Hello, {@cap $name}!";"#)
         .unwrap();
     let result = registry
         .call_phrase("en", "greeting", &[Value::from("world")])
@@ -24,7 +24,7 @@ fn test_cap_basic() {
 fn test_upper_basic() {
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"shout(text) = "{@upper text}";"#)
+        .load_phrases(r#"shout($text) = "{@upper $text}";"#)
         .unwrap();
     let result = registry
         .call_phrase("en", "shout", &[Value::from("hello")])
@@ -36,7 +36,7 @@ fn test_upper_basic() {
 fn test_lower_basic() {
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"quiet(text) = "{@lower text}";"#)
+        .load_phrases(r#"quiet($text) = "{@lower $text}";"#)
         .unwrap();
     let result = registry
         .call_phrase("en", "quiet", &[Value::from("HELLO")])
@@ -52,7 +52,7 @@ fn test_lower_basic() {
 fn test_cap_empty() {
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"empty_cap(text) = "{@cap text}";"#)
+        .load_phrases(r#"empty_cap($text) = "{@cap $text}";"#)
         .unwrap();
     let result = registry
         .call_phrase("en", "empty_cap", &[Value::from("")])
@@ -64,7 +64,7 @@ fn test_cap_empty() {
 fn test_upper_empty() {
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"empty_upper(text) = "{@upper text}";"#)
+        .load_phrases(r#"empty_upper($text) = "{@upper $text}";"#)
         .unwrap();
     let result = registry
         .call_phrase("en", "empty_upper", &[Value::from("")])
@@ -76,7 +76,7 @@ fn test_upper_empty() {
 fn test_lower_empty() {
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"empty_lower(text) = "{@lower text}";"#)
+        .load_phrases(r#"empty_lower($text) = "{@lower $text}";"#)
         .unwrap();
     let result = registry
         .call_phrase("en", "empty_lower", &[Value::from("")])
@@ -148,7 +148,7 @@ fn test_cap_markup_only() {
 fn test_cap_unicode_cyrillic() {
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"cap_cyrillic(text) = "{@cap text}";"#)
+        .load_phrases(r#"cap_cyrillic($text) = "{@cap $text}";"#)
         .unwrap();
     let result = registry
         .call_phrase(
@@ -172,7 +172,7 @@ fn test_cap_combining_character() {
     // This is one grapheme but two codepoints
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"cap_combining(text) = "{@cap text}";"#)
+        .load_phrases(r#"cap_combining($text) = "{@cap $text}";"#)
         .unwrap();
     let result = registry
         .call_phrase("en", "cap_combining", &[Value::from("e\u{0301}xample")])
@@ -185,7 +185,7 @@ fn test_cap_combining_character() {
 fn test_upper_greek() {
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"upper_greek(text) = "{@upper text}";"#)
+        .load_phrases(r#"upper_greek($text) = "{@upper $text}";"#)
         .unwrap();
     let result = registry
         .call_phrase(
@@ -202,7 +202,7 @@ fn test_upper_greek() {
 fn test_lower_greek() {
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"lower_greek(text) = "{@lower text}";"#)
+        .load_phrases(r#"lower_greek($text) = "{@lower $text}";"#)
         .unwrap();
     let result = registry
         .call_phrase(
@@ -225,7 +225,7 @@ fn test_upper_turkish_dotted_i() {
     // Not the standard "I" which other languages would produce
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"upper_tr(text) = "{@upper text}";"#)
+        .load_phrases(r#"upper_tr($text) = "{@upper $text}";"#)
         .unwrap();
     let result = registry
         .call_phrase("tr", "upper_tr", &[Value::from("istanbul")])
@@ -239,7 +239,7 @@ fn test_lower_turkish_capital_i() {
     // Turkish: "I" (undotted capital) should lowercase to "ı" (dotless lowercase i, U+0131)
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"lower_tr(text) = "{@lower text}";"#)
+        .load_phrases(r#"lower_tr($text) = "{@lower $text}";"#)
         .unwrap();
     let result = registry
         .call_phrase("tr", "lower_tr", &[Value::from("ISTANBUL")])
@@ -253,7 +253,7 @@ fn test_cap_turkish() {
     // Turkish: "istanbul" -> "Istanbul" with dotted capital I
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"cap_tr(text) = "{@cap text}";"#)
+        .load_phrases(r#"cap_tr($text) = "{@cap $text}";"#)
         .unwrap();
     let result = registry
         .call_phrase("tr", "cap_tr", &[Value::from("istanbul")])
@@ -267,7 +267,7 @@ fn test_upper_english_i_for_comparison() {
     // English: "i" uppercases to regular "I", not dotted
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"upper_en(text) = "{@upper text}";"#)
+        .load_phrases(r#"upper_en($text) = "{@upper $text}";"#)
         .unwrap();
     let result = registry
         .call_phrase("en", "upper_en", &[Value::from("istanbul")])
@@ -286,7 +286,7 @@ fn test_transform_chain_right_to_left() {
     // "hello" -> "Hello" (cap) -> "HELLO" (upper)
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"chain(text) = "{@upper @cap text}";"#)
+        .load_phrases(r#"chain($text) = "{@upper @cap $text}";"#)
         .unwrap();
     let result = registry
         .call_phrase("en", "chain", &[Value::from("hello")])
@@ -300,7 +300,7 @@ fn test_transform_chain_cap_lower() {
     // "HELLO WORLD" -> "hello world" (lower) -> "Hello world" (cap)
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"chain_cap_lower(text) = "{@cap @lower text}";"#)
+        .load_phrases(r#"chain_cap_lower($text) = "{@cap @lower $text}";"#)
         .unwrap();
     let result = registry
         .call_phrase("en", "chain_cap_lower", &[Value::from("HELLO WORLD")])
@@ -314,7 +314,7 @@ fn test_transform_chain_three_transforms() {
     // "HeLLo" -> "HELLO" (upper) -> "hello" (lower) -> "Hello" (cap)
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"chain_three(text) = "{@cap @lower @upper text}";"#)
+        .load_phrases(r#"chain_three($text) = "{@cap @lower @upper $text}";"#)
         .unwrap();
     let result = registry
         .call_phrase("en", "chain_three", &[Value::from("HeLLo")])
@@ -330,7 +330,7 @@ fn test_transform_chain_three_transforms() {
 fn test_unknown_transform_error() {
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"unknown(text) = "{@nonexistent text}";"#)
+        .load_phrases(r#"unknown($text) = "{@nonexistent $text}";"#)
         .unwrap();
     let err = registry
         .call_phrase("en", "unknown", &[Value::from("test")])
@@ -368,7 +368,7 @@ fn test_transform_with_variant_phrase() {
         .load_phrases(
             r#"
             card = { one: "card", other: "cards" };
-            display(n) = "The {@cap card:n}.";
+            display($n) = "The {@cap card:$n}.";
         "#,
         )
         .unwrap();
@@ -387,7 +387,7 @@ fn test_transform_with_variant_phrase() {
 fn test_transform_preserves_surrounding_text() {
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"sentence(name) = "Hello {@cap name}, welcome to {@upper name}!";"#)
+        .load_phrases(r#"sentence($name) = "Hello {@cap $name}, welcome to {@upper $name}!";"#)
         .unwrap();
     let result = registry
         .call_phrase("en", "sentence", &[Value::from("world")])
@@ -410,7 +410,7 @@ fn test_transform_in_eval_str() {
         .into_iter()
         .collect();
     let result = registry
-        .eval_str("Hello {@cap name}, see {@upper card}!", "en", params)
+        .eval_str("Hello {@cap $name}, see {@upper card}!", "en", params)
         .unwrap();
     assert_eq!(result.to_string(), "Hello World, see CARD!");
 }
@@ -423,7 +423,7 @@ fn test_transform_in_eval_str() {
 fn test_cap_single_character() {
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"cap_single(text) = "{@cap text}";"#)
+        .load_phrases(r#"cap_single($text) = "{@cap $text}";"#)
         .unwrap();
     let result = registry
         .call_phrase("en", "cap_single", &[Value::from("a")])
@@ -435,7 +435,7 @@ fn test_cap_single_character() {
 fn test_upper_already_upper() {
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"upper_already(text) = "{@upper text}";"#)
+        .load_phrases(r#"upper_already($text) = "{@upper $text}";"#)
         .unwrap();
     let result = registry
         .call_phrase("en", "upper_already", &[Value::from("HELLO")])
@@ -447,7 +447,7 @@ fn test_upper_already_upper() {
 fn test_lower_already_lower() {
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"lower_already(text) = "{@lower text}";"#)
+        .load_phrases(r#"lower_already($text) = "{@lower $text}";"#)
         .unwrap();
     let result = registry
         .call_phrase("en", "lower_already", &[Value::from("hello")])
@@ -459,7 +459,7 @@ fn test_lower_already_lower() {
 fn test_cap_already_capitalized() {
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"cap_already(text) = "{@cap text}";"#)
+        .load_phrases(r#"cap_already($text) = "{@cap $text}";"#)
         .unwrap();
     let result = registry
         .call_phrase("en", "cap_already", &[Value::from("Hello")])
@@ -472,7 +472,7 @@ fn test_transform_with_numbers() {
     // Transforms on strings that contain numbers
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"mixed(text) = "{@upper text}";"#)
+        .load_phrases(r#"mixed($text) = "{@upper $text}";"#)
         .unwrap();
     let result = registry
         .call_phrase("en", "mixed", &[Value::from("test123")])
@@ -484,7 +484,7 @@ fn test_transform_with_numbers() {
 fn test_transform_with_punctuation() {
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"punct(text) = "{@cap text}";"#)
+        .load_phrases(r#"punct($text) = "{@cap $text}";"#)
         .unwrap();
     let result = registry
         .call_phrase("en", "punct", &[Value::from("hello, world!")])
@@ -497,7 +497,7 @@ fn test_cap_whitespace_start() {
     // Cap on string starting with whitespace
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"cap_ws(text) = "{@cap text}";"#)
+        .load_phrases(r#"cap_ws($text) = "{@cap $text}";"#)
         .unwrap();
     let result = registry
         .call_phrase("en", "cap_ws", &[Value::from("  hello")])
@@ -515,7 +515,7 @@ fn test_upper_azerbaijani_dotted_i() {
     // Azerbaijani also has Turkish-style dotted I handling
     let mut registry = PhraseRegistry::new();
     registry
-        .load_phrases(r#"upper_az(text) = "{@upper text}";"#)
+        .load_phrases(r#"upper_az($text) = "{@upper $text}";"#)
         .unwrap();
     let result = registry
         .call_phrase("az", "upper_az", &[Value::from("istanbul")])
@@ -747,7 +747,7 @@ fn english_a_with_selector_preserves_tags() {
     // Tags should be preserved through variant selection so @a can still read them
     let source = r#"
         card = :a { one: "card", other: "cards" };
-        draw_n(n) = "Draw {@a card:n}.";
+        draw_n($n) = "Draw {@a card:$n}.";
         draw_one = "Draw {@a card:one}.";
     "#;
 
@@ -855,7 +855,7 @@ fn english_plural_in_template() {
 fn english_plural_with_phrase_call() {
     let source = r#"
         subtype = { one: "subtype", other: "subtypes" };
-        label(s) = "{@plural subtype}";
+        label($s) = "{@plural subtype}";
     "#;
 
     let mut locale = Locale::builder().language("en").build();
@@ -1915,7 +1915,7 @@ fn spanish_el_context_selects_variant_from_phrase() {
     // Test: @el:other should select both the plural article AND the :other variant of the phrase
     let source = r#"
         carta = :fem { one: "carta", other: "cartas" };
-        return_all(t) = "devuelve {@el:other t}";
+        return_all($t) = "devuelve {@el:other $t}";
     "#;
 
     let mut locale = Locale::builder().language("es").build();
@@ -1934,7 +1934,7 @@ fn spanish_un_context_selects_variant_from_phrase() {
     // Test: @un:other should select both the plural article AND the :other variant of the phrase
     let source = r#"
         enemigo = :masc { one: "enemigo", other: "enemigos" };
-        some_enemies(t) = "algunos {@un:other t}";
+        some_enemies($t) = "algunos {@un:other $t}";
     "#;
 
     let mut locale = Locale::builder().language("es").build();

@@ -128,7 +128,7 @@ impl PhraseRegistry {
     /// registry.load_phrases(r#"card = { one: "card", other: "cards" };"#).unwrap();
     ///
     /// let params: HashMap<String, Value> = [("n".to_string(), Value::from(3))].into_iter().collect();
-    /// let result = registry.eval_str("Draw {n} {card:n}.", "en", params).unwrap();
+    /// let result = registry.eval_str("Draw {$n} {card:$n}.", "en", params).unwrap();
     /// assert_eq!(result.to_string(), "Draw 3 cards.");
     /// ```
     pub fn eval_str(
@@ -191,7 +191,7 @@ impl PhraseRegistry {
     /// use rlf::{PhraseRegistry, Value};
     ///
     /// let mut registry = PhraseRegistry::new();
-    /// registry.load_phrases(r#"greet(name) = "Hello, {name}!";"#).unwrap();
+    /// registry.load_phrases(r#"greet($name) = "Hello, {$name}!";"#).unwrap();
     ///
     /// let result = registry.call_phrase("en", "greet", &[Value::from("World")]).unwrap();
     /// assert_eq!(result.to_string(), "Hello, World!");
