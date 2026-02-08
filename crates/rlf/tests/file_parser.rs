@@ -662,7 +662,7 @@ fn test_both_static_and_dynamic_context() {
 
 #[test]
 fn test_phrase_call_with_number_literal() {
-    // v2: phrases with params use simple template bodies, not variant blocks
+    // Phrases with params use simple template bodies, not variant blocks
     let phrases = parse_file(
         r#"
         cards($n) = "{$n} cards";

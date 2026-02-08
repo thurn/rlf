@@ -2049,12 +2049,12 @@ fn eval_russian_dative_case() {
 }
 
 // =============================================================================
-// Phrase Call in Template (v2 syntax replaces v1 auto-forwarding)
+// Phrase Call in Template
 // =============================================================================
 
 #[test]
 fn eval_phrase_call_replaces_auto_forward() {
-    // v2: phrases with params cannot have variant blocks. Use a term with
+    // Phrases with params cannot have variant blocks. Use a term with
     // parameterized selection and a simple phrase that calls into it.
     let mut registry = PhraseRegistry::new();
     registry
@@ -2079,7 +2079,7 @@ fn eval_phrase_call_replaces_auto_forward() {
 
 #[test]
 fn eval_bare_identifier_on_parameterized_phrase_is_error() {
-    // v2: bare identifier referencing a phrase is an error — must use ()
+    // Bare identifier referencing a phrase is an error — must use ()
     let mut registry = PhraseRegistry::new();
     registry
         .load_phrases(
@@ -2171,7 +2171,7 @@ fn eval_multi_tag_selector_uses_all_tags() {
 
 #[test]
 fn eval_variant_phrase_with_params_is_error() {
-    // v2: phrases with parameters cannot have variant blocks
+    // Phrases with parameters cannot have variant blocks
     let mut registry = PhraseRegistry::new();
     let result = registry.load_phrases(
         r#"
@@ -2188,7 +2188,7 @@ fn eval_variant_phrase_with_params_is_error() {
 
 #[test]
 fn eval_variant_term_selects_by_key() {
-    // v2: variant blocks are for terms only
+    // Variant blocks are for terms only
     let mut registry = PhraseRegistry::new();
     registry
         .load_phrases(
@@ -2215,7 +2215,7 @@ fn eval_variant_term_selects_by_key() {
 
 #[test]
 fn eval_variant_term_preserves_variants() {
-    // v2: variant blocks are for terms only; test variant access
+    // Variant blocks are for terms only; test variant access
     let mut registry = PhraseRegistry::new();
     registry
         .load_phrases(
@@ -2236,7 +2236,7 @@ fn eval_variant_term_preserves_variants() {
 
 #[test]
 fn eval_variant_term_russian_plural_selection() {
-    // v2: variant blocks are for terms only; test parameterized selection
+    // Variant blocks are for terms only; test parameterized selection
     let mut registry = PhraseRegistry::new();
     registry
         .load_phrases(
@@ -2270,7 +2270,7 @@ fn eval_variant_term_russian_plural_selection() {
 
 #[test]
 fn eval_variant_phrase_with_params_and_non_numeric_is_error() {
-    // v2: phrases with parameters cannot have variant blocks
+    // Phrases with parameters cannot have variant blocks
     let mut registry = PhraseRegistry::new();
     let result = registry.load_phrases(
         r#"
@@ -2287,7 +2287,7 @@ fn eval_variant_phrase_with_params_and_non_numeric_is_error() {
 
 #[test]
 fn eval_variant_term_selects_via_locale() {
-    // v2: variant blocks are for terms only; test via Locale API
+    // Variant blocks are for terms only; test via Locale API
     let mut locale = Locale::builder().language("en").build();
     locale
         .load_translations_str(

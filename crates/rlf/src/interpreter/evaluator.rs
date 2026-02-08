@@ -71,7 +71,7 @@ pub fn eval_template(
 
 /// Resolve a reference to a Value.
 ///
-/// Uses the v2 AST distinction between parameters and identifiers:
+/// Uses the AST distinction between parameters and identifiers:
 /// - `Reference::Parameter(name)` → look up in current parameter bindings
 /// - `Reference::Identifier(name)` → look up as a term/phrase in the registry
 /// - `Reference::PhraseCall { name, args }` → evaluate phrase call
@@ -99,7 +99,7 @@ fn resolve_reference(
                 .ok_or_else(|| EvalError::PhraseNotFound { name: name.clone() })?;
 
             if def.kind == DefinitionKind::Phrase {
-                // v2: a bare identifier referencing a phrase (with parameters)
+                // A bare identifier referencing a phrase (with parameters)
                 // is always an error — phrases must be called with ()
                 return Err(EvalError::SelectorOnPhrase { name: name.clone() });
             }
@@ -118,7 +118,7 @@ fn resolve_reference(
                 .ok_or_else(|| EvalError::PhraseNotFound { name: name.clone() })?;
 
             if def.kind == DefinitionKind::Term {
-                // v2: terms cannot be called with () — use : for variant selection
+                // Terms cannot be called with () — use : for variant selection
                 return Err(EvalError::ArgumentsToTerm { name: name.clone() });
             }
 
@@ -531,7 +531,7 @@ fn build_compound_keys(parts: &[Vec<String>]) -> Vec<String> {
 
 /// Resolve a selector to candidate key strings.
 ///
-/// Uses the v2 AST distinction directly:
+/// Uses the AST distinction directly:
 /// - `Selector::Identifier(name)` → use as a literal variant key
 /// - `Selector::Parameter(name)` → look up parameter value, then resolve:
 ///   Number → CLDR plural category, Phrase → all tags, String → literal or parsed number

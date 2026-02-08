@@ -303,7 +303,7 @@ fn validate_interpolation(
         let phrase_variants = ctx.phrase_variants.get(phrase_name);
 
         for selector in &interp.selectors {
-            // v2: Parameter selectors are dynamic - skip compile-time check
+            // Parameter selectors are dynamic - skip compile-time check
             let Selector::Literal(selector_ident) = selector else {
                 continue;
             };
@@ -359,7 +359,7 @@ fn validate_reference(
 ) -> syn::Result<()> {
     match reference {
         Reference::Identifier(ident) => {
-            // v2: Bare identifier must be a term/phrase, not a parameter.
+            // Bare identifier must be a term/phrase, not a parameter.
             // If a parameter with this name exists, suggest using {$name}.
             if params.contains(&ident.name) {
                 return Err(syn::Error::new(
@@ -381,7 +381,7 @@ fn validate_reference(
             }
         }
         Reference::Parameter(ident) => {
-            // v2: $-prefixed parameter must be declared
+            // $-prefixed parameter must be declared
             if !params.contains(&ident.name) {
                 // Check if the name matches a known term/phrase
                 if ctx.phrases.contains(&ident.name) {

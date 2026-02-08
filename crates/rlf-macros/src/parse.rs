@@ -78,7 +78,7 @@ fn parse_tags_from_match(input: ParseStream) -> syn::Result<TagsFromMatch> {
             if ident == "from" {
                 let content;
                 syn::parenthesized!(content in input);
-                // v2: require $ prefix on :from parameter
+                // Require $ prefix on :from parameter
                 if content.peek(Token![$]) {
                     content.parse::<Token![$]>()?;
                 } else {
@@ -108,7 +108,7 @@ impl Parse for PhraseDefinition {
         let name_ident: Ident = input.parse()?;
         let name = SpannedIdent::new(&name_ident);
 
-        // Parse optional parameters (v2: $-prefixed)
+        // Parse optional parameters ($-prefixed)
         let parameters = if input.peek(Paren) {
             let content;
             let paren = syn::parenthesized!(content in input);
@@ -563,7 +563,7 @@ pub(crate) fn parse_template_string(s: &str, span: Span) -> syn::Result<Vec<Segm
                     return Err(syn::Error::new(span, "unexpected closing brace"));
                 }
             }
-            // Per v2 spec: $, @, : are literal in regular text outside {}.
+            // $, @, : are literal in regular text outside {}.
             // No escaping needed — they are only special inside {} expressions.
             _ => {
                 current_literal.push(c);
@@ -694,7 +694,7 @@ fn parse_interpolation(content: &str, span: Span) -> syn::Result<Interpolation> 
 
 /// Parse a reference from a string, returning the Reference, auto-cap flag, and remaining content.
 ///
-/// v2: `$name` -> Parameter reference. Bare `name` -> Identifier (term) reference.
+/// `$name` -> Parameter reference. Bare `name` -> Identifier (term) reference.
 /// Auto-capitalization: if the identifier starts with an uppercase ASCII letter,
 /// the first character is lowercased and `auto_cap` is set to true. Only applies
 /// to bare identifiers, not `$` parameters. The caller should prepend `@cap` to
@@ -752,7 +752,7 @@ fn parse_reference(content: &str, span: Span) -> syn::Result<(Reference, String,
         ));
     }
 
-    // v2: Check for $ prefix (parameter reference)
+    // Check for $ prefix (parameter reference)
     if let Some(after_dollar) = content.strip_prefix('$') {
         let ident_end = after_dollar
             .find(|c: char| !c.is_alphanumeric() && c != '_')
@@ -943,7 +943,7 @@ fn parse_string_literal_arg(content: &str, span: Span) -> syn::Result<(String, S
 
 /// Extract selectors from the remaining content after a reference.
 ///
-/// v2: After `:`, if `$` -> `Selector::Parameter`, otherwise -> `Selector::Literal`.
+/// After `:`, if `$` -> `Selector::Parameter`, otherwise -> `Selector::Literal`.
 fn extract_selectors(content: &str, span: Span) -> syn::Result<Vec<Selector>> {
     let mut selectors = Vec::new();
     let mut rest = content.trim();
@@ -951,7 +951,7 @@ fn extract_selectors(content: &str, span: Span) -> syn::Result<Vec<Selector>> {
     while rest.starts_with(':') && !rest.starts_with("::") {
         rest = &rest[1..]; // Skip :
 
-        // v2: Check for $ prefix (parameterized selector)
+        // Check for $ prefix (parameterized selector)
         if rest.starts_with('$') {
             rest = &rest[1..]; // Skip $
             let end = rest
@@ -1092,7 +1092,7 @@ mod tests {
 
     #[test]
     fn test_at_literal_in_text() {
-        // v2: @ is literal in regular text, no escaping needed
+        // @ is literal in regular text, no escaping needed
         let segments = parse_ok("user@example.com");
         assert_eq!(segments.len(), 1);
         assert_eq!(get_literal(&segments[0]), "user@example.com");
@@ -1100,7 +1100,7 @@ mod tests {
 
     #[test]
     fn test_colon_literal_in_text() {
-        // v2: : is literal in regular text, no escaping needed
+        // : is literal in regular text, no escaping needed
         let segments = parse_ok("ratio 1:2");
         assert_eq!(segments.len(), 1);
         assert_eq!(get_literal(&segments[0]), "ratio 1:2");
@@ -1108,7 +1108,7 @@ mod tests {
 
     #[test]
     fn test_dollar_literal_in_text() {
-        // v2: $ is literal in regular text, no escaping needed
+        // $ is literal in regular text, no escaping needed
         let segments = parse_ok("The cost is $5.");
         assert_eq!(segments.len(), 1);
         assert_eq!(get_literal(&segments[0]), "The cost is $5.");
@@ -1116,7 +1116,7 @@ mod tests {
 
     #[test]
     fn test_double_at_literal_in_text() {
-        // v2: @@ in text produces two @ characters (both are literal)
+        // @@ in text produces two @ characters (both are literal)
         let segments = parse_ok("Use @@ for transforms.");
         assert_eq!(segments.len(), 1);
         assert_eq!(get_literal(&segments[0]), "Use @@ for transforms.");
@@ -1124,7 +1124,7 @@ mod tests {
 
     #[test]
     fn test_double_colon_literal_in_text() {
-        // v2: :: in text produces two : characters (both are literal)
+        // :: in text produces two : characters (both are literal)
         let segments = parse_ok("Ratio 1::2.");
         assert_eq!(segments.len(), 1);
         assert_eq!(get_literal(&segments[0]), "Ratio 1::2.");
@@ -1132,7 +1132,7 @@ mod tests {
 
     #[test]
     fn test_double_dollar_literal_in_text() {
-        // v2: $$ in text produces two $ characters (both are literal)
+        // $$ in text produces two $ characters (both are literal)
         let segments = parse_ok("Use $$ for literal dollar.");
         assert_eq!(segments.len(), 1);
         assert_eq!(get_literal(&segments[0]), "Use $$ for literal dollar.");
@@ -1140,7 +1140,7 @@ mod tests {
 
     #[test]
     fn test_dollar_escape_in_interpolation() {
-        // v2: $$ inside {} produces literal $
+        // $$ inside {} produces literal $
         let segments = parse_ok("{$$}");
         assert_eq!(segments.len(), 1);
         let interp = get_interpolation(&segments[0]);
@@ -1149,7 +1149,7 @@ mod tests {
 
     #[test]
     fn test_at_escape_in_interpolation() {
-        // v2: @@ inside {} produces literal @
+        // @@ inside {} produces literal @
         let segments = parse_ok("{@@}");
         assert_eq!(segments.len(), 1);
         let interp = get_interpolation(&segments[0]);
@@ -1158,7 +1158,7 @@ mod tests {
 
     #[test]
     fn test_colon_escape_in_interpolation() {
-        // v2: :: inside {} produces literal :
+        // :: inside {} produces literal :
         let segments = parse_ok("{::}");
         assert_eq!(segments.len(), 1);
         let interp = get_interpolation(&segments[0]);
@@ -1167,7 +1167,7 @@ mod tests {
 
     #[test]
     fn test_escaped_braces_with_dollar_param() {
-        // v2: "Use {{$name}} for params" -> "Use {$name} for params"
+        // "Use {{$name}} for params" -> "Use {$name} for params"
         let segments = parse_ok("Use {{$name}} for params");
         assert_eq!(segments.len(), 1);
         assert_eq!(get_literal(&segments[0]), "Use {$name} for params");
@@ -1563,8 +1563,8 @@ mod tests {
     }
 
     #[test]
-    fn test_full_v2_syntax() {
-        // v2 realistic template: "Draw {$n} {@cap card:$n}."
+    fn test_full_syntax() {
+        // Realistic template: "Draw {$n} {@cap card:$n}."
         let segments = parse_ok("Draw {$n} {@cap card:$n}.");
         assert_eq!(segments.len(), 5);
         assert_eq!(get_literal(&segments[0]), "Draw ");

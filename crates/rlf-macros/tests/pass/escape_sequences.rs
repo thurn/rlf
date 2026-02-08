@@ -1,4 +1,4 @@
-// Test escape sequences in rlf! macro per v2 spec:
+// Test escape sequences in rlf! macro:
 // - $, @, : are literal in regular text (no escaping needed)
 // - {{ and }} produce literal braces
 // - Inside {}: $$ -> literal $, @@ -> literal @, :: -> literal :

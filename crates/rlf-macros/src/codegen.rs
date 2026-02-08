@@ -217,7 +217,7 @@ fn generate_source_phrases(input: &MacroInput) -> TokenStream {
 
 /// Reconstruct RLF source from MacroInput.
 ///
-/// This recreates the phrase definitions in v2 RLF syntax for the interpreter.
+/// This recreates the phrase definitions in RLF syntax for the interpreter.
 /// The file format expects: `name($params)? = tags? from? body ;`
 fn reconstruct_source(input: &MacroInput) -> String {
     let mut lines = Vec::new();
@@ -228,7 +228,7 @@ fn reconstruct_source(input: &MacroInput) -> String {
         // Name
         line.push_str(&phrase.name.name);
 
-        // Parameters (v2: $-prefixed)
+        // Parameters ($-prefixed)
         if !phrase.parameters.is_empty() {
             line.push('(');
             let params: Vec<_> = phrase
@@ -249,7 +249,7 @@ fn reconstruct_source(input: &MacroInput) -> String {
             line.push(' ');
         }
 
-        // :from modifier (v2: $-prefixed parameter)
+        // :from modifier ($-prefixed parameter)
         if let Some(ref from) = phrase.from_param {
             line.push_str(":from($");
             line.push_str(&from.name);
@@ -342,7 +342,7 @@ fn reconstruct_template(template: &Template) -> String {
     for segment in &template.segments {
         match segment {
             Segment::Literal(text) => {
-                // In v2, only braces need escaping in template text.
+                // Only braces need escaping in template text.
                 // `@`, `:`, and `$` are literal outside interpolations.
                 let escaped = text
                     .replace('{', "{{")
@@ -369,10 +369,10 @@ fn reconstruct_interpolation(interp: &Interpolation) -> String {
         result.push_str(&reconstruct_transform(transform));
     }
 
-    // Reference (v2: $-prefix for parameters)
+    // Reference ($-prefix for parameters)
     result.push_str(&reconstruct_reference(&interp.reference));
 
-    // Selectors (v2: already typed as Literal/Parameter)
+    // Selectors (already typed as Literal/Parameter)
     for selector in &interp.selectors {
         result.push(':');
         match selector {
@@ -573,7 +573,7 @@ mod tests {
         let source = reconstruct_source(&input);
         assert!(
             source.contains("{$name}"),
-            "v2: parameters should have $ prefix, got: {source}"
+            "parameters should have $ prefix, got: {source}"
         );
     }
 
@@ -596,7 +596,7 @@ mod tests {
         let source = reconstruct_source(&input);
         assert!(
             source.contains("{card:$n}"),
-            "v2: parameter selectors should have $ prefix, got: {source}"
+            "parameter selectors should have $ prefix, got: {source}"
         );
     }
 
@@ -660,7 +660,7 @@ mod tests {
         let source = reconstruct_source(&input);
         assert!(
             source.contains("greet($name, $title)"),
-            "v2: parameter declarations should have $ prefix, got: {source}"
+            "parameter declarations should have $ prefix, got: {source}"
         );
     }
 
@@ -693,11 +693,11 @@ mod tests {
         let source = reconstruct_source(&input);
         assert!(
             source.contains(":from($s)"),
-            "v2: :from parameter should have $ prefix, got: {source}",
+            ":from parameter should have $ prefix, got: {source}",
         );
         assert!(
             source.contains("subtype($s)"),
-            "v2: parameter declaration should have $ prefix, got: {source}"
+            "parameter declaration should have $ prefix, got: {source}"
         );
     }
 
@@ -713,7 +713,7 @@ mod tests {
         );
         assert!(
             source.contains(":from($s)"),
-            "v2: :from parameter should have $ prefix, got: {source}",
+            ":from parameter should have $ prefix, got: {source}",
         );
     }
 
@@ -736,10 +736,10 @@ mod tests {
             test = "user@example.com";
         });
         let source = reconstruct_source(&input);
-        // v2: @ is literal in text — preserved as-is in round-trip
+        // @ is literal in text — preserved as-is in round-trip
         assert!(
             source.contains("user@example.com"),
-            "v2: @ should be literal in text, got: {source}"
+            "@ should be literal in text, got: {source}"
         );
     }
 
@@ -749,10 +749,10 @@ mod tests {
             test = "Ratio 1:2.";
         });
         let source = reconstruct_source(&input);
-        // v2: : is literal in text — preserved as-is in round-trip
+        // : is literal in text — preserved as-is in round-trip
         assert!(
             source.contains("Ratio 1:2."),
-            "v2: : should be literal in text, got: {source}"
+            ": should be literal in text, got: {source}"
         );
     }
 
