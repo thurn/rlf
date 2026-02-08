@@ -462,6 +462,309 @@ fn eval_from_modifier_inherits_tags() {
     assert_eq!(subtype.variant("other"), "<b>Ancients</b>");
 }
 
+#[test]
+fn eval_from_inherits_a_tag() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        child = :a { one: "Child", other: "Children" };
+        subtype($s) = :from($s) "<b>{$s}</b>";
+    "#,
+        )
+        .unwrap();
+
+    let child = registry.get_phrase("en", "child").unwrap();
+    let subtype = registry
+        .call_phrase("en", "subtype", &[Value::Phrase(child)])
+        .unwrap();
+
+    // Should inherit :a tag from child
+    assert!(subtype.has_tag("a"));
+    assert!(!subtype.has_tag("an"));
+    assert_eq!(subtype.variant("one"), "<b>Child</b>");
+    assert_eq!(subtype.variant("other"), "<b>Children</b>");
+}
+
+#[test]
+fn eval_from_with_a_transform_inherited_an_tag() {
+    let mut locale = Locale::builder().language("en").build();
+    locale
+        .load_translations_str(
+            "en",
+            r#"
+        ancient = :an { one: "Ancient", other: "Ancients" };
+        subtype($s) = :from($s) "<b>{$s}</b>";
+        dissolve_subtype($s) = "Dissolve {@a subtype($s)}.";
+    "#,
+        )
+        .unwrap();
+
+    let ancient = locale.get_phrase("ancient").unwrap();
+    let result = locale
+        .call_phrase("dissolve_subtype", &[Value::Phrase(ancient)])
+        .unwrap();
+    // @a reads inherited :an tag from ancient -> "an"
+    assert_eq!(result.to_string(), "Dissolve an <b>Ancient</b>.");
+}
+
+#[test]
+fn eval_from_with_a_transform_inherited_a_tag() {
+    let mut locale = Locale::builder().language("en").build();
+    locale
+        .load_translations_str(
+            "en",
+            r#"
+        child = :a { one: "Child", other: "Children" };
+        subtype($s) = :from($s) "<b>{$s}</b>";
+        dissolve_subtype($s) = "Dissolve {@a subtype($s)}.";
+    "#,
+        )
+        .unwrap();
+
+    let child = locale.get_phrase("child").unwrap();
+    let result = locale
+        .call_phrase("dissolve_subtype", &[Value::Phrase(child)])
+        .unwrap();
+    // @a reads inherited :a tag from child -> "a"
+    assert_eq!(result.to_string(), "Dissolve a <b>Child</b>.");
+}
+
+#[test]
+fn eval_from_variant_selection_other() {
+    let mut locale = Locale::builder().language("en").build();
+    locale
+        .load_translations_str(
+            "en",
+            r#"
+        ancient = :an { one: "Ancient", other: "Ancients" };
+        child = :a { one: "Child", other: "Children" };
+        subtype($s) = :from($s) "<b>{$s}</b>";
+        dissolve_all($s) = "Dissolve all {subtype($s):other}.";
+    "#,
+        )
+        .unwrap();
+
+    let ancient = locale.get_phrase("ancient").unwrap();
+    let result = locale
+        .call_phrase("dissolve_all", &[Value::Phrase(ancient)])
+        .unwrap();
+    assert_eq!(result.to_string(), "Dissolve all <b>Ancients</b>.");
+
+    let child = locale.get_phrase("child").unwrap();
+    let result = locale
+        .call_phrase("dissolve_all", &[Value::Phrase(child)])
+        .unwrap();
+    assert_eq!(result.to_string(), "Dissolve all <b>Children</b>.");
+}
+
+#[test]
+fn eval_from_cap_a_with_inherited_tags() {
+    let mut locale = Locale::builder().language("en").build();
+    locale
+        .load_translations_str(
+            "en",
+            r#"
+        ancient = :an { one: "Ancient", other: "Ancients" };
+        warrior = :a { one: "Warrior", other: "Warriors" };
+        subtype($s) = :from($s) "<b>{$s}</b>";
+        cap_subtype($s) = "{@cap @a subtype($s)}";
+    "#,
+        )
+        .unwrap();
+
+    let ancient = locale.get_phrase("ancient").unwrap();
+    let result = locale
+        .call_phrase("cap_subtype", &[Value::Phrase(ancient)])
+        .unwrap();
+    // Right-to-left: @a first ("an <b>Ancient</b>"), then @cap ("An <b>Ancient</b>")
+    assert_eq!(result.to_string(), "An <b>Ancient</b>");
+
+    let warrior = locale.get_phrase("warrior").unwrap();
+    let result = locale
+        .call_phrase("cap_subtype", &[Value::Phrase(warrior)])
+        .unwrap();
+    assert_eq!(result.to_string(), "A <b>Warrior</b>");
+}
+
+#[test]
+fn eval_from_preserves_metadata_on_result_phrase() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        ancient = :an { one: "Ancient", other: "Ancients" };
+        subtype($s) = :from($s) "<b>{$s}</b>";
+    "#,
+        )
+        .unwrap();
+
+    let ancient = registry.get_phrase("en", "ancient").unwrap();
+    let subtype = registry
+        .call_phrase("en", "subtype", &[Value::Phrase(ancient)])
+        .unwrap();
+
+    // The result phrase should have inherited :an tag
+    assert!(subtype.has_tag("an"));
+    // The result phrase should have computed variants
+    assert_eq!(subtype.variant("one"), "<b>Ancient</b>");
+    assert_eq!(subtype.variant("other"), "<b>Ancients</b>");
+    // The default text should be the template evaluated with default text
+    assert_eq!(subtype.to_string(), "<b>Ancient</b>");
+}
+
+#[test]
+fn eval_from_without_variants_inherits_only_tags() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        simple = :fem "carta";
+        wrapped($s) = :from($s) "[{$s}]";
+    "#,
+        )
+        .unwrap();
+
+    let simple = registry.get_phrase("en", "simple").unwrap();
+    let wrapped = registry
+        .call_phrase("en", "wrapped", &[Value::Phrase(simple)])
+        .unwrap();
+
+    // Should inherit :fem tag even without variants
+    assert!(wrapped.has_tag("fem"));
+    assert_eq!(wrapped.to_string(), "[carta]");
+    // No variants on source, so no variants on result
+    assert!(wrapped.variants.is_empty());
+}
+
+#[test]
+fn eval_from_multiple_tags_inherited() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        tagged = :fem :a "tagged item";
+        wrapper($s) = :from($s) "({$s})";
+    "#,
+        )
+        .unwrap();
+
+    let tagged = registry.get_phrase("en", "tagged").unwrap();
+    let wrapped = registry
+        .call_phrase("en", "wrapper", &[Value::Phrase(tagged)])
+        .unwrap();
+
+    assert!(wrapped.has_tag("fem"));
+    assert!(wrapped.has_tag("a"));
+    assert_eq!(wrapped.to_string(), "(tagged item)");
+}
+
+#[test]
+fn eval_from_with_non_phrase_value_errors() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(r#"wrapped($s) = :from($s) "[{$s}]";"#)
+        .unwrap();
+
+    // Passing a string (not a Phrase) should produce an error
+    let result = registry.call_phrase("en", "wrapped", &[Value::from("hello")]);
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("Phrase"),
+        "should mention Phrase requirement: {err}"
+    );
+}
+
+#[test]
+fn eval_from_chained_inheritance() {
+    let mut locale = Locale::builder().language("en").build();
+    locale
+        .load_translations_str(
+            "en",
+            r#"
+        ancient = :an { one: "Ancient", other: "Ancients" };
+        subtype($s) = :from($s) "<b>{$s}</b>";
+        colored_subtype($s) = :from($s) "<color=#2E7D32>{$s}</color>";
+    "#,
+        )
+        .unwrap();
+
+    // First level: subtype inherits from ancient
+    let ancient = locale.get_phrase("ancient").unwrap();
+    let subtype = locale
+        .call_phrase("subtype", &[Value::Phrase(ancient)])
+        .unwrap();
+    assert!(subtype.has_tag("an"));
+
+    // Second level: colored_subtype inherits from subtype (which has inherited tags)
+    let colored = locale
+        .call_phrase("colored_subtype", &[Value::Phrase(subtype)])
+        .unwrap();
+    assert!(colored.has_tag("an"));
+    assert_eq!(
+        colored.variant("one"),
+        "<color=#2E7D32><b>Ancient</b></color>"
+    );
+    assert_eq!(
+        colored.variant("other"),
+        "<color=#2E7D32><b>Ancients</b></color>"
+    );
+}
+
+#[test]
+fn eval_from_dynamic_selection_with_inherited_phrase() {
+    let mut locale = Locale::builder().language("en").build();
+    locale
+        .load_translations_str(
+            "en",
+            r#"
+        character = :a { one: "character", other: "characters" };
+        card = :a { one: "card", other: "cards" };
+        subtype($s) = :from($s) "<b>{$s}</b>";
+        draw_entities($n, $entity) = "Draw {$n} {subtype($entity):$n}.";
+    "#,
+        )
+        .unwrap();
+
+    let character = locale.get_phrase("character").unwrap();
+    let result = locale
+        .call_phrase("draw_entities", &[Value::from(1), Value::Phrase(character)])
+        .unwrap();
+    assert_eq!(result.to_string(), "Draw 1 <b>character</b>.");
+
+    let card = locale.get_phrase("card").unwrap();
+    let result = locale
+        .call_phrase("draw_entities", &[Value::from(3), Value::Phrase(card)])
+        .unwrap();
+    assert_eq!(result.to_string(), "Draw 3 <b>cards</b>.");
+}
+
+#[test]
+fn eval_from_with_additional_parameters() {
+    let mut locale = Locale::builder().language("en").build();
+    locale
+        .load_translations_str(
+            "en",
+            r#"
+        ancient = :an { one: "Ancient", other: "Ancients" };
+        labeled($s, $label) = :from($s) "{$label}: {$s}";
+    "#,
+        )
+        .unwrap();
+
+    let ancient = locale.get_phrase("ancient").unwrap();
+    let result = locale
+        .call_phrase("labeled", &[Value::Phrase(ancient), Value::from("Type")])
+        .unwrap();
+    // Tags inherited from ancient
+    assert!(result.has_tag("an"));
+    // Variants computed with both params
+    assert_eq!(result.variant("one"), "Type: Ancient");
+    assert_eq!(result.variant("other"), "Type: Ancients");
+    assert_eq!(result.to_string(), "Type: Ancient");
+}
+
 // =============================================================================
 // Escape Sequences
 // =============================================================================
