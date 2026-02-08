@@ -3,17 +3,35 @@
 
 RLF (Rust Localization Framework) is a localization DSL embedded in Rust via
 macros. It provides compile-time validation for source language strings while
-supporting runtime loading of translations. The framework generates a
-language-agnostic API from phrase definitions using four primitives: phrase,
-parameter, variant, and selection.
+supporting runtime loading of translations. The framework uses two kinds of
+definitions -- terms and phrases -- along with variants, parameters, selection,
+and transforms to produce localized text.
 
 Key concepts:
-- **Phrase**: Named text that can contain interpolations and transforms
-- **Parameter**: Values passed to phrases, interpolated with `{}`
-- **Variant**: Multiple forms of a phrase (e.g., singular/plural)
-- **Selection**: The `:` operator chooses a variant based on a value
-- **Transform**: The `@` operator modifies text (e.g., `@cap` for capitalize)
+- **Term**: A named definition without parameters, representing a lexical entry
+  with optional variant forms (e.g., singular/plural). Example:
+  `card = :a { one: "card", *other: "cards" };`
+- **Phrase**: A named definition with parameters (`$`-prefixed), representing a
+  template that produces text. Example:
+  `draw($n) = "Draw {$n} {card($n)}.";`
+- **Parameter**: Values passed to phrases, prefixed with `$` and interpolated
+  with `{}`. Example: `{$n}`, `{$entity}`
+- **Variant**: Multiple forms of a term (e.g., singular/plural, grammatical
+  case). Selected via `:` for static keys or `()` for dynamic parameter-based
+  selection.
+- **Selection**: The `:` operator selects a static variant key (e.g.,
+  `{card:other}`). Parenthesized syntax selects dynamically based on a parameter
+  value (e.g., `{card($n)}`).
+- **Transform**: The `@` operator modifies text (e.g., `@cap` for capitalize).
+  Static context uses `:` (e.g., `@der:acc`), dynamic context uses `()` (e.g.,
+  `@count($n)`).
 - **Metadata tags**: Grammatical hints like `:fem`, `:masc`, `:a`, `:an`
+- **`:match` keyword**: Enables conditional variant selection based on parameter
+  tags. Example: `destroyed = :match($thing) { fem: "destruida", *masc: "destruido" };`
+- **`:from` keyword**: Causes a phrase to inherit tags from a parameter.
+  Example: `subtype($s) = :from($s) "<b>{$s}</b>";`
+- **Default variant marker `*`**: Marks a variant as the fallback when no key
+  matches. Example: `{ one: "card", *other: "cards" }`
 
 See `docs/DESIGN.md` for the complete language specification.
 
@@ -21,7 +39,7 @@ See `docs/DESIGN.md` for the complete language specification.
 # DESIGN DOCUMENTATION
 
 
-- `docs/DESIGN.md` - Core language design and syntax reference
+- `docs/DESIGN.md` - Canonical language design and syntax reference
 - `docs/APPENDIX_STDLIB.md` - Standard library transforms documentation
 - `docs/APPENDIX_RUST_INTEGRATION.md` - Rust API and type definitions
 - `docs/APPENDIX_RUNTIME_INTERPRETER.md` - Runtime interpreter API
