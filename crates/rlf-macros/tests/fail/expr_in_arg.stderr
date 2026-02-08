@@ -1,0 +1,5 @@
+error: expressions not supported as phrase call arguments — use a simple $param, term name, number, or string (unexpected trailing ':one')
+ --> tests/fail/expr_in_arg.rs:6:15
+  |
+6 |     bad($y) = "{f(card:one)}";
+  |               ^^^^^^^^^^^^^^^

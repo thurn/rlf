@@ -842,7 +842,15 @@ fn parse_reference(content: &str, span: Span) -> syn::Result<(Reference, String,
         let mut args = Vec::new();
         if !args_str.is_empty() {
             for arg in split_args(args_str) {
-                let (arg_ref, _, _) = parse_reference(arg.trim(), span)?;
+                let (arg_ref, remaining, _) = parse_reference(arg.trim(), span)?;
+                if !remaining.trim().is_empty() {
+                    return Err(syn::Error::new(
+                        span,
+                        format!(
+                            "expressions not supported as phrase call arguments — use a simple $param, term name, number, or string (unexpected trailing '{remaining}')",
+                        ),
+                    ));
+                }
                 args.push(arg_ref);
             }
         }
@@ -1518,6 +1526,24 @@ mod tests {
     fn test_error_dollar_without_name() {
         let err = parse_err("{$}");
         assert!(err.to_string().contains("expected parameter name"));
+    }
+
+    #[test]
+    fn test_error_expression_in_call_arg() {
+        let err = parse_err("{f(card:one)}");
+        assert!(
+            err.to_string()
+                .contains("expressions not supported as phrase call arguments")
+        );
+    }
+
+    #[test]
+    fn test_error_expression_in_call_arg_parameter_selector() {
+        let err = parse_err("{f($n:one)}");
+        assert!(
+            err.to_string()
+                .contains("expressions not supported as phrase call arguments")
+        );
     }
 
     // =========================================================================
