@@ -95,9 +95,9 @@ pai = :zhang "牌";
 jue_se = :ge "角色";
 wan_jia = :ming "玩家";
 
-// @count:n uses n as context (the count), reads measure word tag from phrase
-draw(n) = "抽{@count:n pai}";       // n=3 → "抽3张牌"
-summon(n) = "召唤{@count:n jue_se}"; // n=2 → "召唤2个角色"
+// @count($n) uses $n as context (the count), reads measure word tag from phrase
+draw($n) = "抽{@count($n) pai}";       // n=3 → "抽3张牌"
+summon($n) = "召唤{@count($n) jue_se}"; // n=2 → "召唤2个角色"
 ```
 
 ---
@@ -150,9 +150,9 @@ cards_of = "{@ka:other card}";  // → "कार्ड के"
 event_of = "{@ki event}";       // → "घटना की"
 give_card = "{@ko card} दो";    // → "कार्ड को दो"
 from_card = "{@se card}";       // → "कार्ड से"
-in_hand(h) = "{@me h}";        // → "हाथ में"
-on_table(t) = "{@par t}";      // → "मेज़ पर"
-player_did(p) = "{@ne p} किया"; // → "खिलाड़ी ने किया"
+in_hand($h) = "{@me $h}";        // → "हाथ में"
+on_table($t) = "{@par $t}";      // → "मेज़ पर"
+player_did($p) = "{@ne $p} किया"; // → "खिलाड़ी ने किया"
 ```
 
 ---
@@ -186,8 +186,8 @@ destroyed = { masc: "destruido", fem: "destruida" };
 
 draw_one = "Roba {@un card}.";                // → "Roba una carta."
 the_enemy = "{@el enemy}";                    // → "el enemigo"
-return_all(t) = "devuelve {@el:other t}";     // → "devuelve las cartas"
-destroy(x) = "{x} fue {destroyed:x}.";        // → "carta fue destruida."
+return_all($t) = "devuelve {@el:other $t}";     // → "devuelve las cartas"
+destroy($x) = "{$x} fue {destroyed:$x}.";        // → "carta fue destruida."
 ```
 
 ---
@@ -389,8 +389,8 @@ See **Advanced Transforms** section for details.
 card = :mai "カード";
 character = :nin "キャラクター";
 
-draw(n) = "{@count:n card}を引く";  // n=3 → "3枚カードを引く"
-thing_exists(thing) = "{thing}{@particle:subj thing} ある";
+draw($n) = "{@count($n) card}を引く";  // n=3 → "3枚カードを引く"
+thing_exists($thing) = "{$thing}{@particle:subj $thing} ある";
 ```
 
 ---
@@ -484,8 +484,8 @@ card = :jang "카드";
 character = :myeong "캐릭터";
 
 // @count produces "3장카드", @particle adds correct object particle based on final sound
-draw(n) = "{@count:n card}{@particle:obj card} 뽑는다";  // n=3 → "3장카드를 뽑는다"
-thing_exists(thing) = "{thing}{@particle:subj thing} 있다";
+draw($n) = "{@count($n) card}{@particle:obj card} 뽑는다";  // n=3 → "3장카드를 뽑는다"
+thing_exists($thing) = "{$thing}{@particle:subj $thing} 있다";
 ```
 
 ---
@@ -965,7 +965,7 @@ vs. consonant ending. This handles composed Hangul syllables correctly.
 apple = "사과";   // ends in vowel (과 = gwa)
 book = "책";      // ends in consonant (책 = chaek)
 
-thing_is(thing) = "{thing}{@particle:subj thing} 있다";
+thing_is($thing) = "{$thing}{@particle:subj $thing} 있다";
 
 // apple → "사과가 있다" (vowel-final: 가)
 // book → "책이 있다" (consonant-final: 이)
@@ -987,7 +987,7 @@ The transform simply appends the correct particle for the given context type.
 // ja.rlf
 card = "カード";
 
-thing_exists(thing) = "{thing}{@particle:subj thing} ある";
+thing_exists($thing) = "{$thing}{@particle:subj $thing} ある";
 // → "カードが ある"
 ```
 
@@ -1068,7 +1068,7 @@ livre = :masc "livre";
 ce = { standard: "ce", vowel: "cet" };
 beau = { standard: "beau", vowel: "bel" };
 
-this_thing(thing) = "{@liaison ce thing} {thing}";
+this_thing($thing) = "{@liaison ce $thing} {$thing}";
 
 // ami (has :vowel) → "cet ami"
 // livre (no :vowel) → "ce livre"

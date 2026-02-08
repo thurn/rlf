@@ -90,7 +90,7 @@ let counting = serialize_card_predicate_plural(count_matching, locale);
 // counting = "characters" (String) — no variant table!
 
 strings::with_cost_less_than_allied(locale, base, counting)
-// RLF receives a String, cannot select {counting:gen.many}
+// RLF receives a String, cannot select {$counting:gen:many}
 ```
 
 **Correct approach** (preserves variants):
@@ -100,7 +100,7 @@ let counting = strings::character(locale);
 // counting = Phrase { variants: [...], ... }
 
 strings::with_cost_less_than_allied(locale, base, counting)
-// RLF can now select {counting:gen.many} → "персонажей"
+// RLF can now select {$counting:gen:many} → "персонажей"
 ```
 
 ### Selection Handles Everything
@@ -110,11 +110,11 @@ parameters. No new transforms are needed:
 
 ```
 // ru.rlf
-with_cost_less_than_allied(base, counting) =
-    "{base:nom.one} со стоимостью меньше количества союзных {counting:gen.many}";
+with_cost_less_than_allied($base, $counting) =
+    "{$base:nom:one} со стоимостью меньше количества союзных {$counting:gen:many}";
 ```
 
-The `:gen.many` selector extracts that variant from the `counting` Phrase.
+The `:gen:many` selector extracts that variant from the `$counting` Phrase.
 
 ---
 
@@ -170,68 +170,68 @@ rlf! {
     // Compositional Phrases
     // =========================================================================
 
-    allied(entity) = "allied {entity:one}";
-    allied_plural(entity) = "allied {entity:other}";
-    enemy_modified(entity) = "enemy {entity:one}";
-    enemy_modified_plural(entity) = "enemy {entity:other}";
+    allied($entity) = "allied {$entity:one}";
+    allied_plural($entity) = "allied {$entity:other}";
+    enemy_modified($entity) = "enemy {$entity:one}";
+    enemy_modified_plural($entity) = "enemy {$entity:other}";
 
-    not_a(entity) = "a character that is not {@a entity}";
-    ally_not(entity) = "ally that is not {@a entity}";
-    non_entity_enemy(entity) = "non-{entity:one} enemy";
-    characters_not_plural(entity) = "characters that are not {entity:other}";
-    allies_not_plural(entity) = "allies that are not {entity:other}";
+    not_a($entity) = "a character that is not {@a $entity}";
+    ally_not($entity) = "ally that is not {@a $entity}";
+    non_entity_enemy($entity) = "non-{$entity:one} enemy";
+    characters_not_plural($entity) = "characters that are not {$entity:other}";
+    allies_not_plural($entity) = "allies that are not {$entity:other}";
 
     // =========================================================================
     // Constraint Patterns
     // =========================================================================
 
-    with_spark(base, spark, op) = "{base:one} with spark {spark}{op}";
-    with_spark_plural(base, spark, op) = "{base:other} with spark {spark}{op}";
-    with_cost(base, cost, op) = "{base:one} with cost {cost}{op}";
-    with_cost_plural(base, cost, op) = "{base:other} with cost {cost}{op}";
+    with_spark($base, $spark, $op) = "{$base:one} with spark {$spark}{$op}";
+    with_spark_plural($base, $spark, $op) = "{$base:other} with spark {$spark}{$op}";
+    with_cost($base, $cost, $op) = "{$base:one} with cost {$cost}{$op}";
+    with_cost_plural($base, $cost, $op) = "{$base:other} with cost {$cost}{$op}";
 
-    with_materialized(base) = "{base:one} with a {materialized} ability";
-    with_materialized_plural(base) = "{base:other} with {materialized} abilities";
-    with_activated(base) = "{base:one} with an activated ability";
-    with_activated_plural(base) = "{base:other} with activated abilities";
+    with_materialized($base) = "{$base:one} with a {materialized} ability";
+    with_materialized_plural($base) = "{$base:other} with {materialized} abilities";
+    with_activated($base) = "{$base:one} with an activated ability";
+    with_activated_plural($base) = "{$base:other} with activated abilities";
 
     // =========================================================================
     // Complex Comparisons
     // =========================================================================
 
-    with_spark_less_than_energy(base) =
-        "{base:one} with spark less than the amount of {energy_symbol} paid";
-    with_cost_less_than_allied(base, counting) =
-        "{base:one} with cost less than the number of allied {counting:other}";
-    with_cost_less_than_abandoned(base) =
-        "{base:one} with cost less than the abandoned ally's cost";
-    with_spark_less_than_abandoned(base) =
-        "{base:one} with spark less than the abandoned ally's spark";
-    with_spark_less_than_abandoned_enemy(base) =
-        "{base:one} with spark less than that ally's spark";
-    with_spark_less_than_abandoned_count(base) =
-        "{base:one} with spark less than the number of allies abandoned this turn";
-    with_cost_less_than_void(base) =
-        "{base:one} with cost less than the number of cards in your void";
+    with_spark_less_than_energy($base) =
+        "{$base:one} with spark less than the amount of {energy_symbol} paid";
+    with_cost_less_than_allied($base, $counting) =
+        "{$base:one} with cost less than the number of allied {$counting:other}";
+    with_cost_less_than_abandoned($base) =
+        "{$base:one} with cost less than the abandoned ally's cost";
+    with_spark_less_than_abandoned($base) =
+        "{$base:one} with spark less than the abandoned ally's spark";
+    with_spark_less_than_abandoned_enemy($base) =
+        "{$base:one} with spark less than that ally's spark";
+    with_spark_less_than_abandoned_count($base) =
+        "{$base:one} with spark less than the number of allies abandoned this turn";
+    with_cost_less_than_void($base) =
+        "{$base:one} with cost less than the number of cards in your void";
 
     // =========================================================================
     // Other Patterns
     // =========================================================================
 
-    event_could_dissolve(target) = "an event which could {dissolve} {target}";
-    your_event_could_dissolve(target) = "your event which could {dissolve} {target}";
-    events_could_dissolve(target) = "events which could {dissolve} {target}";
-    your_events_could_dissolve(target) = "your events which could {dissolve} {target}";
+    event_could_dissolve($target) = "an event which could {dissolve} {$target}";
+    your_event_could_dissolve($target) = "your event which could {dissolve} {$target}";
+    events_could_dissolve($target) = "events which could {dissolve} {$target}";
+    your_events_could_dissolve($target) = "your events which could {dissolve} {$target}";
 
-    fast_modified(base) = "a {fast} {base:one}";
-    fast_modified_plural(base) = "{fast} {base:other}";
+    fast_modified($base) = "a {fast} {$base:one}";
+    fast_modified_plural($base) = "{fast} {$base:other}";
 
-    in_your_void(things) = "{things} in your void";
-    in_opponent_void(things) = "{things} in the opponent's void";
+    in_your_void($things) = "{$things} in your void";
+    in_opponent_void($things) = "{$things} in the opponent's void";
 
-    another(entity) = "another {entity:one}";
-    other_plural(entities) = "other {entities:other}";
-    for_each(entity) = "each {entity:one}";
+    another($entity) = "another {$entity:one}";
+    other_plural($entities) = "other {$entities:other}";
+    for_each($entity) = "each {$entity:one}";
 
     or_less = " or less";
     or_more = " or more";
@@ -395,88 +395,88 @@ allied_adj = {
     fem: "союзная",
     neut: "союзное",
 };
-allied(entity) = "{allied_adj:entity} {entity:nom.one}";
-allied_plural(entity) = "союзных {entity:gen.many}";
+allied($entity) = "{allied_adj:$entity} {$entity:nom:one}";
+allied_plural($entity) = "союзных {$entity:gen:many}";
 
 enemy_adj = {
     masc: "вражеский",
     fem: "вражеская",
     neut: "вражеское",
 };
-enemy_modified(entity) = "{enemy_adj:entity} {entity:nom.one}";
-enemy_modified_plural(entity) = "вражеских {entity:gen.many}";
+enemy_modified($entity) = "{enemy_adj:$entity} {$entity:nom:one}";
+enemy_modified_plural($entity) = "вражеских {$entity:gen:many}";
 
 // Negation: Russian uses instrumental case after "являться"
-not_a(entity) = "персонаж, который не является {entity:ins.one}";
-ally_not(entity) = "союзник, который не является {entity:ins.one}";
-non_entity_enemy(entity) = "враг, не являющийся {entity:ins.one}";
+not_a($entity) = "персонаж, который не является {$entity:ins:one}";
+ally_not($entity) = "союзник, который не является {$entity:ins:one}";
+non_entity_enemy($entity) = "враг, не являющийся {$entity:ins:one}";
 
-characters_not_plural(entity) = "персонажи, которые не являются {entity:ins.other}";
-allies_not_plural(entity) = "союзники, которые не являются {entity:ins.other}";
+characters_not_plural($entity) = "персонажи, которые не являются {$entity:ins:other}";
+allies_not_plural($entity) = "союзники, которые не являются {$entity:ins:other}";
 
 // =========================================================================
 // Constraint Patterns
 // =========================================================================
 
-with_spark(base, spark, op) = "{base:nom.one} с искрой {spark}{op}";
-with_spark_plural(base, spark, op) = "{base:nom} с искрой {spark}{op}";
-with_cost(base, cost, op) = "{base:nom.one} со стоимостью {cost}{op}";
-with_cost_plural(base, cost, op) = "{base:nom} со стоимостью {cost}{op}";
+with_spark($base, $spark, $op) = "{$base:nom:one} с искрой {$spark}{$op}";
+with_spark_plural($base, $spark, $op) = "{$base:nom} с искрой {$spark}{$op}";
+with_cost($base, $cost, $op) = "{$base:nom:one} со стоимостью {$cost}{$op}";
+with_cost_plural($base, $cost, $op) = "{$base:nom} со стоимостью {$cost}{$op}";
 
-with_materialized(base) = "{base:nom.one} со способностью {materialized}";
-with_materialized_plural(base) = "{base:nom} со способностями {materialized}";
+with_materialized($base) = "{$base:nom:one} со способностью {materialized}";
+with_materialized_plural($base) = "{$base:nom} со способностями {materialized}";
 
-with_activated(base) = "{base:nom.one} с активируемой способностью";
-with_activated_plural(base) = "{base:nom} с активируемыми способностями";
+with_activated($base) = "{$base:nom:one} с активируемой способностью";
+with_activated_plural($base) = "{$base:nom} с активируемыми способностями";
 
 // =========================================================================
 // Complex Comparisons
 // =========================================================================
 
-with_spark_less_than_energy(base) =
-    "{base:nom.one} с искрой меньше количества уплаченной {energy_symbol}";
+with_spark_less_than_energy($base) =
+    "{$base:nom:one} с искрой меньше количества уплаченной {energy_symbol}";
 
-// KEY EXAMPLE: {counting:gen.many} extracts genitive plural
-with_cost_less_than_allied(base, counting) =
-    "{base:nom.one} со стоимостью меньше количества союзных {counting:gen.many}";
+// KEY EXAMPLE: {$counting:gen:many} extracts genitive plural
+with_cost_less_than_allied($base, $counting) =
+    "{$base:nom:one} со стоимостью меньше количества союзных {$counting:gen:many}";
 
-with_cost_less_than_abandoned(base) =
-    "{base:nom.one} со стоимостью меньше стоимости покинутого союзника";
+with_cost_less_than_abandoned($base) =
+    "{$base:nom:one} со стоимостью меньше стоимости покинутого союзника";
 
-with_spark_less_than_abandoned(base) =
-    "{base:nom.one} с искрой меньше искры покинутого союзника";
+with_spark_less_than_abandoned($base) =
+    "{$base:nom:one} с искрой меньше искры покинутого союзника";
 
-with_spark_less_than_abandoned_enemy(base) =
-    "{base:nom.one} с искрой меньше искры того союзника";
+with_spark_less_than_abandoned_enemy($base) =
+    "{$base:nom:one} с искрой меньше искры того союзника";
 
-with_spark_less_than_abandoned_count(base) =
-    "{base:nom.one} с искрой меньше количества союзников, покинутых в этом ходу";
+with_spark_less_than_abandoned_count($base) =
+    "{$base:nom:one} с искрой меньше количества союзников, покинутых в этом ходу";
 
-with_cost_less_than_void(base) =
-    "{base:nom.one} со стоимостью меньше количества карт в вашей бездне";
+with_cost_less_than_void($base) =
+    "{$base:nom:one} со стоимостью меньше количества карт в вашей бездне";
 
 // =========================================================================
 // Could Dissolve
 // =========================================================================
 
-event_could_dissolve(target) = "событие, способное {dissolve} {target}";
-your_event_could_dissolve(target) = "ваше событие, способное {dissolve} {target}";
-events_could_dissolve(target) = "события, способные {dissolve} {target}";
-your_events_could_dissolve(target) = "ваши события, способные {dissolve} {target}";
+event_could_dissolve($target) = "событие, способное {dissolve} {$target}";
+your_event_could_dissolve($target) = "ваше событие, способное {dissolve} {$target}";
+events_could_dissolve($target) = "события, способные {dissolve} {$target}";
+your_events_could_dissolve($target) = "ваши события, способные {dissolve} {$target}";
 
 // =========================================================================
 // Fast Modifier
 // =========================================================================
 
-fast_modified(base) = "{fast} {base:nom.one}";
-fast_modified_plural(base) = "{fast} {base:nom}";
+fast_modified($base) = "{fast} {$base:nom:one}";
+fast_modified_plural($base) = "{fast} {$base:nom}";
 
 // =========================================================================
 // Void Location
 // =========================================================================
 
-in_your_void(things) = "{things} в вашей бездне";
-in_opponent_void(things) = "{things} в бездне противника";
+in_your_void($things) = "{$things} в вашей бездне";
+in_opponent_void($things) = "{$things} в бездне противника";
 
 // =========================================================================
 // Other Modifiers
@@ -487,15 +487,15 @@ another_adj = {
     fem: "другая",
     neut: "другое",
 };
-another(entity) = "{another_adj:entity} {entity:nom.one}";
-other_plural(entities) = "другие {entities:nom}";
+another($entity) = "{another_adj:$entity} {$entity:nom:one}";
+other_plural($entities) = "другие {$entities:nom}";
 
 each_adj = {
     masc: "каждый",
     fem: "каждая",
     neut: "каждое",
 };
-for_each(entity) = "{each_adj:entity} {entity:nom.one}";
+for_each($entity) = "{each_adj:$entity} {$entity:nom:one}";
 
 // =========================================================================
 // Operators
@@ -676,7 +676,7 @@ strings::with_cost_less_than_allied(locale, base, counting)
 base = strings::character(locale)     // Phrase with one="character", other="characters"
 counting = strings::character(locale) // Same Phrase
 
-Template: "{base:one} with cost less than the number of allied {counting:other}"
+Template: "{$base:one} with cost less than the number of allied {$counting:other}"
 Result:   "character with cost less than the number of allied characters"
 ```
 
@@ -687,14 +687,14 @@ strings::with_cost_less_than_allied(locale, base, counting)
 base = strings::character(locale)     // Phrase with nom.one="персонаж", gen.many="персонажей"
 counting = strings::character(locale) // Same Phrase
 
-Template: "{base:nom.one} со стоимостью меньше количества союзных {counting:gen.many}"
+Template: "{$base:nom:one} со стоимостью меньше количества союзных {$counting:gen:many}"
 Result:   "персонаж со стоимостью меньше количества союзных персонажей"
 ```
 
 The same Rust code produces grammatically correct output in both languages because:
 1. Rust passes `Phrase` values with language-appropriate variants
 2. Each language's template uses selectors appropriate for that language
-3. English uses simple `:one`/`:other`, Russian uses `:nom.one`/`:gen.many`
+3. English uses simple `:one`/`:other`, Russian uses `:nom:one`/`:gen:many`
 
 ### Gender Agreement with Tag-Based Selection
 
@@ -707,17 +707,17 @@ another_adj = {
     fem: "другая",
     neut: "другое",
 };
-another(entity) = "{another_adj:entity} {entity:nom.one}";
+another($entity) = "{another_adj:$entity} {$entity:nom:one}";
 ```
 
-When `entity` is `card` (tagged `:fem`), selection produces:
-- `{another_adj:entity}` → looks up `entity`'s tag (`:fem`) → selects "другая"
-- `{entity:nom.one}` → selects "карта"
+When `$entity` is `card` (tagged `:fem`), selection produces:
+- `{another_adj:$entity}` → looks up `$entity`'s tag (`:fem`) → selects "другая"
+- `{$entity:nom:one}` → selects "карта"
 - Result: "другая карта"
 
-When `entity` is `character` (tagged `:masc`):
-- `{another_adj:entity}` → looks up `:masc` → selects "другой"
-- `{entity:nom.one}` → selects "персонаж"
+When `$entity` is `character` (tagged `:masc`):
+- `{another_adj:$entity}` → looks up `:masc` → selects "другой"
+- `{$entity:nom:one}` → selects "персонаж"
 - Result: "другой персонаж"
 
 ---
@@ -792,18 +792,18 @@ ancient = :masc :anim {
     gen.other: "Древних",
 };
 
-// :from(s) inherits all tags and variants
-subtype(s) = :from(s) "<color=#2E7D32><b>{s}</b></color>";
+// :from($s) inherits all tags and variants
+subtype($s) = :from($s) "<color=#2E7D32><b>{$s}</b></color>";
 
 // Templates can select any case/number from the inherited variants
-dissolve_subtype(s) = "Растворите {subtype(s):acc.one}.";
+dissolve_subtype($s) = "Растворите {subtype($s):acc:one}.";
 // ancient → "Растворите <b>Древнего</b>."
 
-all_subtypes(s) = "все {subtype(s):nom.other}";
+all_subtypes($s) = "все {subtype($s):nom:other}";
 // ancient → "все <b>Древние</b>"
 ```
 
-The `:from(s)` modifier evaluates the template for every variant in `s`,
+The `:from($s)` modifier evaluates the template for every variant in `$s`,
 producing a `Phrase` with the same case/number structure as the source.
 This enables the same "define once, use everywhere" pattern without losing
 Russian's complex grammatical information.

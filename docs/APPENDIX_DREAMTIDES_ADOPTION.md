@@ -93,9 +93,9 @@ maximum-energy = {$max} maximum {energy-symbol}
 ```rust
 rlf! {
     energy_symbol = "<color=#00838F>●</color>";
-    e(e) = "<color=#00838F>{e}●</color>";
-    pay_energy_prompt_button(e) = "Spend {e(e)}";
-    maximum_energy(max) = "{max} maximum {energy_symbol}";
+    e($e) = "<color=#00838F>{$e}●</color>";
+    pay_energy_prompt_button($e) = "Spend {e($e)}";
+    maximum_energy($max) = "{$max} maximum {energy_symbol}";
 }
 ```
 
@@ -117,8 +117,8 @@ cards =
 ```rust
 rlf! {
     card = :a { one: "card", other: "cards" };
-    cards(n) = "{@a card:n}";  // For "a card" / "2 cards"
-    cards_numeral(n) = "{n} {card:n}";  // For "1 card" / "2 cards"
+    cards($n) = "{@a card:$n}";  // For "a card" / "2 cards"
+    cards_numeral($n) = "{$n} {card:$n}";  // For "1 card" / "2 cards"
 }
 ```
 
@@ -145,7 +145,7 @@ StandardEffect::DrawCardsForEach { count, for_each } => {
 
 ```rust
 rlf! {
-    draw_cards_for_each(n, target) = "draw {cards(n)} for each {target}.";
+    draw_cards_for_each($n, $target) = "draw {cards($n)} for each {$target}.";
 }
 
 // In serializer
@@ -173,7 +173,7 @@ RLF is cleaner—define the phrase once, call it with different parameters:
 ```rust
 rlf! {
     card = :a { one: "card", other: "cards" };
-    cards(n) = "{@a card:n}";
+    cards($n) = "{@a card:$n}";
 }
 ```
 
@@ -181,7 +181,7 @@ For runtime templates, `eval_str` params work like phrase parameters:
 
 ```rust
 locale.eval_str(
-    "Draw {cards(draw_count)}. Discard {cards(discard_count)}.",
+    "Draw {cards($draw_count)}. Discard {cards($discard_count)}.",
     params!{ "draw_count" => 2, "discard_count" => 1 }
 )?
 // → "Draw 2 cards. Discard a card."
@@ -197,7 +197,7 @@ Fluent uses `-` prefix for private messages. In RLF, all phrases are public:
 
 ```rust
 rlf! {
-    keyword(k) = "<color=#AA00FF>{k}</color>";
+    keyword($k) = "<color=#AA00FF>{$k}</color>";
     dissolve = "{keyword(\"dissolve\")}";
     banish = "{keyword(\"banish\")}";
 }
@@ -252,13 +252,13 @@ rlf! {
     warrior = :a { one: "Warrior", other: "Warriors" };
 
     // Single function handles formatting + metadata inheritance
-    subtype(s) = :from(s) "<color=#2E7D32><b>{s}</b></color>";
+    subtype($s) = :from($s) "<color=#2E7D32><b>{$s}</b></color>";
 }
 ```
 
-**How `:from(s)` works:**
+**How `:from($s)` works:**
 
-The `:from(param)` modifier causes the phrase to:
+The `:from($param)` modifier causes the phrase to:
 1. Inherit tags from the parameter (`:an` from `ancient`)
 2. Evaluate the template for each variant of the parameter
 3. Return a `Phrase` with inherited metadata
@@ -267,9 +267,9 @@ This enables natural composition in templates:
 
 ```rust
 // In card templates
-"Dissolve {@a subtype(s)}."        // → "Dissolve an <b>Ancient</b>."
-"Dissolve all {subtype(s):other}." // → "Dissolve all <b>Ancients</b>."
-"{@cap @a subtype(s)}"             // → "An <b>Ancient</b>"
+"Dissolve {@a subtype($s)}."        // → "Dissolve an <b>Ancient</b>."
+"Dissolve all {subtype($s):other}." // → "Dissolve all <b>Ancients</b>."
+"{@cap @a subtype($s)}"             // → "An <b>Ancient</b>"
 ```
 
 **Caller responsibility:**
@@ -317,8 +317,8 @@ RLF phrases:
 
 ```rust
 rlf! {
-    keyword(k) = "<color=#AA00FF>{k}</color>";
-    foresee(n) = "{keyword(\"foresee\")} {n}";
+    keyword($k) = "<color=#AA00FF>{$k}</color>";
+    foresee($n) = "{keyword(\"foresee\")} {$n}";
 }
 ```
 
@@ -359,7 +359,7 @@ pub fn serialize_standard_effect(effect: &StandardEffect, bindings: &mut Variabl
     match effect {
         StandardEffect::DrawCards { count } => {
             bindings.insert("n".to_string(), Value::Number(*count));
-            "draw {cards(n)}.".to_string()  // RLF template syntax
+            "draw {cards($n)}.".to_string()  // RLF template syntax
         }
         // ...
     }
@@ -460,8 +460,8 @@ All Dreamtides patterns are supported:
 - **Runtime templates** → `locale.eval_str()` (params work like phrase parameters)
 - **Dynamic phrase lookup** → `locale.get_phrase(name)`
 - **Auto-capitalization** → uppercase phrase reference (e.g., `{Card}` → `{@cap card}`)
-- **Multiple phrase instances** → `{cards(n1)}... {cards(n2)}` with different param names
-- **Phrase transformation** → `:from(param)` for metadata inheritance (subtypes, figments)
+- **Multiple phrase instances** → `{cards($n1)}... {cards($n2)}` with different param names
+- **Phrase transformation** → `:from($param)` for metadata inheritance (subtypes, figments)
 
 ## Additional Observations
 
@@ -510,7 +510,7 @@ assert_eq!(phrase.to_string(), "<b>E</b>");
 ```
 
 The context also applies to nested phrase references, so a phrase like
-`cost(n) = "{n}{energy}";` automatically picks the correct variant based on the
+`cost($n) = "{$n}{energy}";` automatically picks the correct variant based on the
 active context. The context can also be set via the builder API with
 `Locale::builder().string_context("interface").build()`. All variants remain
 accessible regardless of context via `phrase.variant("interface")`.

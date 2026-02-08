@@ -69,7 +69,7 @@ The macro also generates a registration function and embedded source data:
 ```rust
 const SOURCE_PHRASES: &str = r#"
     card = { one: "card", other: "cards" };
-    draw(n) = "Draw {n} {card:n}.";
+    draw($n) = "Draw {$n} {card:$n}.";
 "#;
 
 pub fn register_source_phrases(locale: &mut Locale) {
@@ -121,7 +121,8 @@ The grammar handles:
 - **Escape sequences**: `{{`, `}}`, `@@`, `::` for literal braces, at-signs, colons
 - **Interpolations**: `{...}` blocks containing transforms, references, selectors
 - **Comments**: `//` to end of line (in `.rlf` files)
-- **Phrase definitions**: `name = "template";` or `name(params) = "template";`
+- **Term definitions**: `name = "template";` or `name = { key: "variant" };`
+- **Phrase definitions**: `name($params) = "template";` or `name($n) = :match($n) { ... };`
 
 Within interpolations:
 - **Transforms**: Zero or more `@name` or `@name:context` prefixes
@@ -169,11 +170,12 @@ enum Selector {
 
 ```
 // Comment
-name = "simple phrase";
-name = :tag "tagged phrase";
+name = "simple term";
+name = :tag "tagged term";
 name = :tag1 :tag2 { key1: "variant1", key2: "variant2" };
-name(param1, param2) = "template with {param1} and {param2}";
-name(p) = :from(p) "wrapper around {p}";
+name($param1, $param2) = "template with {$param1} and {$param2}";
+name($p) = :from($p) "wrapper around {$p}";
+name($n) = :match($n) { 1: "one item", *other: "{$n} items" };
 ```
 
 ---
@@ -234,7 +236,7 @@ current stack. If found, it returns a `CyclicReference` error.
 
 ### Metadata Inheritance (`:from`)
 
-When a phrase has `:from(param)`, evaluation produces a `Phrase` instead of a
+When a phrase has `:from($param)`, evaluation produces a `Phrase` instead of a
 simple string:
 
 1. **Read source metadata**: Get tags and variants from the parameter phrase

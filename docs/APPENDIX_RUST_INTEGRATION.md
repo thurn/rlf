@@ -29,27 +29,33 @@ The macro parses each phrase into a `PhraseDefinition` containing:
 - A list of **parameters** (identifiers)
 - **Metadata tags** (e.g., `:a`, `:fem`)
 - An optional **`:from` parameter** for metadata inheritance
-- A **body**: either a `Simple` template or `Variants` (a list of
-  `VariantEntry` values, each with one or more keys and a template)
+- An optional **`:match` parameter list** for match-based branching
+- A **`DefinitionKind`**: either `Term` (no parameters) or `Phrase` (with parameters)
+- A **body**: `Simple` (template), `Variants` (term variant block), or `Match` (match branches)
 
 Each `Template` contains a list of `Segment` values: either `Literal` text or
-`Interpolation` blocks. Interpolations contain transforms, a `Reference` (either
-an `Identifier` or a `Call` with arguments), and selectors. At parse time,
-parameters and phrases are not distinguished -- both are represented as
-`Identifier`. Resolution happens during validation and evaluation.
+`Interpolation` blocks. Interpolations contain transforms, a `Reference`, and
+selectors. References are explicitly typed: `Parameter` (for `$name`),
+`Identifier` (for bare term/phrase names), `PhraseCall` (for `name(...)`),
+`NumberLiteral`, or `StringLiteral`. The `$` prefix makes parameter vs
+term/phrase disambiguation syntactic rather than requiring resolution.
 
 ### Parsing Interpolations
 
 The parser handles `{...}` blocks within template strings:
 
-| Syntax           | Parsed As                          |
-| ---------------- | ---------------------------------- |
-| `{name}`         | Parameter or phrase reference      |
-| `{card:n}`       | Reference with selector            |
-| `{card:acc:n}`   | Reference with chained selectors   |
-| `{@cap name}`    | Transform applied to reference     |
-| `{@cap @a card}` | Chained transforms                 |
-| `{foo(x, y)}`    | Phrase call with arguments         |
+| Syntax              | Parsed As                              |
+| ------------------- | -------------------------------------- |
+| `{$name}`           | Parameter reference                    |
+| `{card}`            | Term identifier reference              |
+| `{card:$n}`         | Term reference with parameterized selector |
+| `{card:acc:$n}`     | Term reference with chained selectors  |
+| `{@cap card}`       | Transform applied to term reference    |
+| `{@cap @a card}`    | Chained transforms                     |
+| `{foo($x, $y)}`     | Phrase call with parameter arguments   |
+| `{foo(card)}`       | Phrase call with term argument         |
+| `{foo(2)}`          | Phrase call with literal number        |
+| `{foo("text")}`     | Phrase call with literal string        |
 
 ### Variant Key Parsing
 
@@ -92,38 +98,39 @@ catches errors early, before code generation.
 
 ### Name Resolution
 
-Within phrase text, names in `{}` are resolved:
+The `$` prefix makes name resolution syntactic:
 
-1. **Parameters first**: If a name matches a declared parameter, it refers to that parameter
-2. **Phrases second**: Otherwise, it refers to a phrase defined in the file
+- **`$name`** is always a parameter reference
+- **bare `name`** is always a term or phrase reference
+- **`name(...)`** is always a phrase call
 
 **No shadowing allowed:** It is a compile error for a parameter to have the same
-name as a phrase:
+name as a term or phrase:
 
 ```rust
 rlf! {
     card = "card";
 
     // ERROR: parameter 'card' shadows phrase 'card'
-    play(card) = "Play {card}.";
+    play($card) = "Play {$card}.";
 
     // OK: use a different parameter name
-    play(c) = "Play {c}.";
+    play($c) = "Play {$c}.";
 }
 ```
 
-**Selectors follow the same rules:** A selector like `:n` is dynamic (parameter)
-if `n` is in the parameter list, otherwise it's a literal variant name.
+**Selectors use the same convention:** `$` prefix means dynamic (parameter),
+bare name means literal variant key.
 
 ```rust
 rlf! {
     card = { one: "card", other: "cards" };
 
-    // 'other' is literal (no parameter named 'other')
+    // 'other' is literal (static variant key)
     all_cards = "All {card:other}.";
 
-    // 'n' is dynamic (matches parameter)
-    draw(n) = "Draw {card:n}.";
+    // '$n' is dynamic (parameter selector)
+    cards_numeral($n) = "{$n} {card:$n}.";
 }
 ```
 
@@ -131,23 +138,31 @@ rlf! {
 
 The validator performs these compile-time checks:
 
-#### 1. Phrase Reference Validation
+#### 1. Phrase/Term Reference Validation
 
-Every `{phrase_name}` must refer to a defined phrase:
+Every bare `{name}` must refer to a defined term or phrase:
 
 ```rust
 rlf! {
-    draw(n) = "Draw {n} {cards:n}.";  // ERROR: 'cards' not defined
+    draw($n) = "Draw {$n} {cards:$n}.";  // ERROR: 'cards' not defined
 }
 ```
 
 #### 2. Parameter Reference Validation
 
-Every `{param}` must be in the phrase's parameter list:
+Every `{$param}` must be declared in the definition's parameter list:
 
 ```rust
 rlf! {
-    draw(n) = "Draw {count} cards.";  // ERROR: 'count' not a parameter
+    draw($n) = "Draw {$count} cards.";  // ERROR: '$count' not a parameter
+}
+```
+
+A bare name matching a parameter suggests using `$`:
+
+```rust
+rlf! {
+    draw($n) = "Draw {n} cards.";  // ERROR: 'n' matches parameter '$n' — use {$n}
 }
 ```
 
@@ -177,62 +192,55 @@ The macro knows about:
 - Universal transforms: `@cap`, `@upper`, `@lower`
 - Source language transforms: `@a`, `@an` (English), etc.
 
-#### 5. Transform Tag Validation (Literal Arguments)
+#### 5. Term/Phrase Usage Validation
 
-When a transform is applied to a literal phrase reference, the macro verifies
-the phrase has the required tags:
+Using `()` on a term or bare `:` on a phrase is an error:
 
 ```rust
 rlf! {
-    card = "card";  // Missing :a or :an tag
-    draw = "Draw {@a card}.";  // ERROR: '@a' requires tag ':a' or ':an'
+    card = { one: "card", other: "cards" };
+    cards($n) = :match($n) { 1: "a card", *other: "{$n} cards" };
+
+    // ERROR: 'card' is a term — cannot use () call syntax
+    bad1 = "{card($n)}";
+
+    // ERROR: 'cards' is a phrase — cannot reference without ()
+    bad2 = "{cards:other}";
 }
 ```
 
-This check only applies when the transform argument is a literal phrase. When
-the argument is a parameter, the check must be deferred to runtime:
+#### 6. Arity Validation
+
+Phrase calls must have the correct number of arguments:
 
 ```rust
 rlf! {
-    card = :a "card";
-    event = :an "event";
+    cards($n) = :match($n) { 1: "a card", *other: "{$n} cards" };
 
-    // Compile-time check: 'card' has :a tag ✓
-    draw_card = "Draw {@a card}.";
-
-    // Runtime check: can't know what 'thing' will be
-    draw(thing) = "Draw {@a thing}.";
+    // ERROR: phrase 'cards' expects 1 parameter, got 2
+    bad = "{cards($n, $m)}";
 }
 ```
 
-#### 6. Tag-Based Selection Validation (Literal Arguments)
+#### 7. `$` on Non-Parameter
 
-When selecting variants based on a phrase's tag, and the selector phrase is
-a literal reference, the macro verifies compatibility:
+Using `$` on a term name suggests removing the prefix:
 
 ```rust
 rlf! {
-    destroyed = { masc: "destroyed", fem: "destroyed" };
-    card = :neut "card";  // Has :neut, not :masc or :fem
-
-    // ERROR: 'card' has tag ':neut' but 'destroyed' has no 'neut' variant
-    bad = "{destroyed:card}";
+    card = "card";
+    bad = "{$card}";  // ERROR: '$card' is not a declared parameter — remove '$' to reference term 'card'
 }
 ```
 
-When the selector is a parameter, this must be a runtime check:
+#### 8. Numeric Keys in Term Variants
+
+Term variant keys must be named identifiers:
 
 ```rust
 rlf! {
-    destroyed = { masc: "destroyed", fem: "destroyed" };
-    card = :fem "card";
-    enemy = :masc "enemy";
-
-    // Compile-time check: 'card' has :fem, 'destroyed' has 'fem' ✓
-    card_destroyed = "{destroyed:card}";
-
-    // Runtime check: can't know what 'target' will be
-    destroy(target) = "{destroyed:target}";
+    // ERROR: term variant keys must be named identifiers — use ':match' for numeric branching
+    card = { 1: "a card", other: "cards" };
 }
 ```
 
@@ -253,15 +261,21 @@ code generation.
 
 ### Validation Summary
 
-| Check | Literal Phrase | Parameter | Status |
-|-------|----------------|-----------|--------|
-| Phrase exists | ✓ Compile | ✓ Compile | Error |
-| Parameter exists | ✓ Compile | ✓ Compile | Error |
-| Literal selector valid | ✓ Compile | N/A | Error |
-| Transform exists | ✓ Compile | ✓ Compile | Error |
-| Transform has required tag | ✓ Compile | Runtime | Error |
-| Tag-based selection compatible | ✓ Compile | Runtime | Error |
-| No cyclic references | ✓ Compile | ✓ Compile | Error |
+| Check | When Detected | Status |
+|-------|---------------|--------|
+| Term/phrase exists | Compile | Error |
+| Parameter declared (`$name`) | Compile | Error |
+| Literal selector matches variant | Compile | Error |
+| Transform exists | Compile | Error |
+| Term/phrase usage (`:` vs `()`) | Compile | Error |
+| Arity mismatch in phrase call | Compile | Error |
+| Parameter shadows term/phrase | Compile | Error |
+| `$` on non-parameter (term name) | Compile | Error |
+| Numeric keys in term variants | Compile | Error |
+| Nested phrase calls in arguments | Compile | Error |
+| No cyclic references | Compile | Error |
+| Tag-based selection compatible | Runtime | Error |
+| Transform has required tag | Runtime | Error |
 
 ---
 
@@ -508,7 +522,7 @@ rlf! {
     card = { one: "card", other: "cards" };
     event = :an "event";
     hello = "Hello, world!";
-    draw(n) = "Draw {n} {card:n}.";
+    draw($n) = "Draw {$n} {card:$n}.";
 }
 ```
 
@@ -517,16 +531,16 @@ rlf! {
 pub mod phrase_ids {
     use super::PhraseId;
 
-    /// ID for the "card" phrase.
+    /// ID for the "card" term.
     pub const CARD: PhraseId = PhraseId::from_name("card");
 
-    /// ID for the "event" phrase.
+    /// ID for the "event" term.
     pub const EVENT: PhraseId = PhraseId::from_name("event");
 
-    /// ID for the "hello" phrase.
+    /// ID for the "hello" term.
     pub const HELLO: PhraseId = PhraseId::from_name("hello");
 
-    /// ID for the "draw" phrase. Call with 1 argument (n).
+    /// ID for the "draw" phrase. Call with 1 argument ($n).
     pub const DRAW: PhraseId = PhraseId::from_name("draw");
 }
 ```
@@ -757,7 +771,7 @@ assert_eq!(id, strings::phrase_ids::CARD);
 // strings.rlf.rs
 rlf! {
     card = { one: "card", other: "cards" };
-    draw(n) = "Draw {n} {card:n}.";
+    draw($n) = "Draw {$n} {card:$n}.";
 }
 ```
 
@@ -766,13 +780,13 @@ rlf! {
 ```rust
 // strings.rs (generated)
 
-/// Returns the "card" phrase.
+/// Returns the "card" term.
 pub fn card(locale: &Locale) -> Phrase {
     locale.get_phrase("card")
         .expect("phrase 'card' should exist")
 }
 
-/// Evaluates the "draw" phrase.
+/// Evaluates the "draw" phrase with parameter $n.
 pub fn draw(locale: &Locale, n: impl Into<Value>) -> Phrase {
     locale.call_phrase("draw", &[n.into()])
         .expect("phrase 'draw' should exist")
@@ -781,7 +795,7 @@ pub fn draw(locale: &Locale, n: impl Into<Value>) -> Phrase {
 /// Source language phrases embedded as data.
 const SOURCE_PHRASES: &str = r#"
     card = { one: "card", other: "cards" };
-    draw(n) = "Draw {n} {card:n}.";
+    draw($n) = "Draw {$n} {card:$n}.";
 "#;
 
 /// Registers source language phrases with the locale. Call once at startup.
@@ -846,7 +860,7 @@ like:
 
 ```
 card = { nom: "card", nom.other: "cards" };
-draw(n) = "Draw {n} {card:nom:n}.";
+draw($n) = "Draw {$n} {card:nom:$n}.";
 ```
 
 **Variant resolution** tries an exact key match first. If not found, it
@@ -862,7 +876,7 @@ it as the variant key. For example, given:
 
 ```
 destroyed = { masc: "destruido", fem: "destruida" };
-destroy(target) = "{target} fue {destroyed:target}.";
+destroy($target) = "{$target} fue {destroyed:$target}.";
 ```
 
 **Tag-based selection** works as follows:
@@ -904,16 +918,16 @@ name and language.
 
 ## Metadata Inheritance Evaluation
 
-The `:from(param)` modifier enables phrase-returning phrases. For example, given:
+The `:from($param)` modifier enables phrase-returning phrases. For example, given:
 
 ```
 ancient = :an { one: "Ancient", other: "Ancients" };
-subtype(s) = :from(s) "<color=#2E7D32><b>{s}</b></color>";
+subtype($s) = :from($s) "<color=#2E7D32><b>{$s}</b></color>";
 ```
 
 **Metadata inheritance** works as follows when evaluating `subtype(ancient)`:
 
-1. Look up the `:from` parameter (`s`) in the evaluation context and extract its
+1. Look up the `:from` parameter (`$s`) in the evaluation context and extract its
    `Phrase` value
 2. Clone the source phrase's tags (e.g., `:an`) for inheritance
 3. Evaluate the template using the source phrase's default text to produce the
@@ -924,7 +938,7 @@ subtype(s) = :from(s) "<color=#2E7D32><b>{s}</b></color>";
 5. Return a new `Phrase` with the computed default text, variant map, and
    inherited tags
 
-This enables composition patterns like `{@a subtype(s)}` where `@a` reads the
+This enables composition patterns like `{@a subtype($s)}` where `@a` reads the
 inherited tag and `:other` selectors access inherited variants.
 
 ---
@@ -951,8 +965,8 @@ error: expected '=' after phrase name
 error: unknown phrase 'cards'
   --> strings.rlf.rs:5:28
    |
-5  |     draw(n) = "Draw {n} {cards:n}.";
-   |                          ^^^^^ not defined
+5  |     draw($n) = "Draw {$n} {cards:$n}.";
+   |                            ^^^^^ not defined
    |
    = help: did you mean 'card'?
 ```
@@ -960,13 +974,13 @@ error: unknown phrase 'cards'
 **Undefined Parameter:**
 
 ```
-error: unknown parameter 'count'
+error: undefined parameter '$count'
   --> strings.rlf.rs:2:18
    |
-2  |     draw(n) = "Draw {count} cards.";
-   |                      ^^^^^ not in parameter list
+2  |     draw($n) = "Draw {$count} cards.";
+   |                       ^^^^^^ not declared
    |
-   = help: declared parameters: n
+   = help: declare it as a parameter: name($count)
 ```
 
 **Invalid Literal Selector:**
@@ -1029,12 +1043,12 @@ use rlf::{Locale, LoadWarning};
 let mut locale = Locale::new();
 locale.load_translations_str("en", r#"
     hello = "Hello!";
-    greet(name) = "Hello, {name}!";
+    greet($name) = "Hello, {$name}!";
 "#).unwrap();
 
 locale.load_translations_str("ru", r#"
     hello = "Привет!";
-    greet(first, last) = "Привет, {first} {last}!";
+    greet($first, $last) = "Привет, {$first} {$last}!";
     extra = "Лишнее";
 "#).unwrap();
 

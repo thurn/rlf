@@ -143,23 +143,23 @@ rlf! {
     // Abandon Costs
     // =========================================================================
 
-    abandon_any_number(target) = "abandon any number of {target:other}";
-    abandon_one(target) = "abandon {@a target}";
-    abandon_n(n, target) = "abandon {n} {target:n}";
+    abandon_any_number($target) = "abandon any number of {$target:other}";
+    abandon_one($target) = "abandon {@a $target}";
+    abandon_n($n, $target) = "abandon {$n} {$target:$n}";
 
     // =========================================================================
     // Discard Costs
     // =========================================================================
 
-    discard_n(n) = "discard {n}";
+    discard_n($n) = "discard {$n}";
     discard_your_hand = "discard your hand";
 
     // =========================================================================
     // Energy Costs
     // =========================================================================
 
-    energy_cost(n) = "{n}";
-    lose_maximum_energy(n) = "lose {n}";
+    energy_cost($n) = "{$n}";
+    lose_maximum_energy($n) = "lose {$n}";
     pay_one_or_more_energy = "pay 1 or more {energy_symbol}";
 
     // =========================================================================
@@ -167,24 +167,24 @@ rlf! {
     // =========================================================================
 
     banish_one_from_void = "{banish} another card in your void";
-    banish_n_from_your_void(n) = "{banish} {n} from your void";
-    banish_n_from_opponent_void(n) = "{banish} {n} from the opponent's void";
+    banish_n_from_your_void($n) = "{banish} {$n} from your void";
+    banish_n_from_opponent_void($n) = "{banish} {$n} from the opponent's void";
     banish_your_void = "{banish} your void";
-    banish_void_with_min(n) = "{banish} your void with {n} or more cards";
-    banish_from_hand(target) = "{banish} {target} from hand";
+    banish_void_with_min($n) = "{banish} your void with {$n} or more cards";
+    banish_from_hand($target) = "{banish} {$target} from hand";
 
     // =========================================================================
     // Return to Hand Costs
     // =========================================================================
 
-    return_one(target) = "return {@a target} to hand";
-    return_n(n, target) = "return {n} {target:n} to hand";
-    return_all_but_one(target) = "return all but one {target:one} to hand";
-    return_all(target) = "return all {target:other} to hand";
-    return_any_number(target) = "return any number of {target:other} to hand";
-    return_up_to(n, target) = "return up to {n} {target:n} to hand";
-    return_each_other(target) = "return each other {target:one} to hand";
-    return_n_or_more(n, target) = "return {n} or more {target:other} to hand";
+    return_one($target) = "return {@a $target} to hand";
+    return_n($n, $target) = "return {$n} {$target:$n} to hand";
+    return_all_but_one($target) = "return all but one {$target:one} to hand";
+    return_all($target) = "return all {$target:other} to hand";
+    return_any_number($target) = "return any number of {$target:other} to hand";
+    return_up_to($n, $target) = "return up to {$n} {$target:$n} to hand";
+    return_each_other($target) = "return each other {$target:one} to hand";
+    return_n_or_more($n, $target) = "return {$n} or more {$target:other} to hand";
 
     // =========================================================================
     // Connectors
@@ -250,23 +250,23 @@ hand = "mano";
 // Spanish uses gender-agreeing quantifiers
 // =========================================================================
 
-abandon_any_number(target) = "abandona cualquier cantidad de {target:other}";
-abandon_one(target) = "abandona {@un target}";
-abandon_n(n, target) = "abandona {n} {target:n}";
+abandon_any_number($target) = "abandona cualquier cantidad de {$target:other}";
+abandon_one($target) = "abandona {@un $target}";
+abandon_n($n, $target) = "abandona {$n} {$target:$n}";
 
 // =========================================================================
 // Discard Costs
 // =========================================================================
 
-discard_n(n) = "descarta {n}";
+discard_n($n) = "descarta {$n}";
 discard_your_hand = "descarta tu mano";
 
 // =========================================================================
 // Energy Costs
 // =========================================================================
 
-energy_cost(n) = "{n}";
-lose_maximum_energy(n) = "pierde {n}";
+energy_cost($n) = "{$n}";
+lose_maximum_energy($n) = "pierde {$n}";
 pay_one_or_more_energy = "paga 1 o más {energy_symbol}";
 
 // =========================================================================
@@ -274,26 +274,26 @@ pay_one_or_more_energy = "paga 1 o más {energy_symbol}";
 // =========================================================================
 
 banish_one_from_void = "{banish} otra carta de tu vacío";
-banish_n_from_your_void(n) = "{banish} {n} de tu vacío";
-banish_n_from_opponent_void(n) = "{banish} {n} del vacío del oponente";
+banish_n_from_your_void($n) = "{banish} {$n} de tu vacío";
+banish_n_from_opponent_void($n) = "{banish} {$n} del vacío del oponente";
 banish_your_void = "{banish} tu vacío";
-banish_void_with_min(n) = "{banish} tu vacío con {n} o más cartas";
-banish_from_hand(target) = "{banish} {target} de la mano";
+banish_void_with_min($n) = "{banish} tu vacío con {$n} o más cartas";
+banish_from_hand($target) = "{banish} {$target} de la mano";
 
 // =========================================================================
 // Return to Hand Costs
 // =========================================================================
 
-return_one(target) = "devuelve {@un target} a la mano";
-return_n(n, target) = "devuelve {n} {target:n} a la mano";
+return_one($target) = "devuelve {@un $target} a la mano";
+return_n($n, $target) = "devuelve {$n} {$target:$n} a la mano";
 todos_adj = { masc: "todos", fem: "todas" };
-return_all_but_one(target) = "devuelve {todos_adj:target} menos {@un target} a la mano";
-return_all(target) = "devuelve {@el:other target} a la mano";
-return_any_number(target) = "devuelve cualquier cantidad de {target:other} a la mano";
-return_up_to(n, target) = "devuelve hasta {n} {target:n} a la mano";
+return_all_but_one($target) = "devuelve {todos_adj:$target} menos {@un $target} a la mano";
+return_all($target) = "devuelve {@el:other $target} a la mano";
+return_any_number($target) = "devuelve cualquier cantidad de {$target:other} a la mano";
+return_up_to($n, $target) = "devuelve hasta {$n} {$target:$n} a la mano";
 otro_adj = { masc: "otro", fem: "otra" };
-return_each_other(target) = "devuelve cada {otro_adj:target} {target:one} a la mano";
-return_n_or_more(n, target) = "devuelve {n} o más {target:other} a la mano";
+return_each_other($target) = "devuelve cada {otro_adj:$target} {$target:one} a la mano";
+return_n_or_more($n, $target) = "devuelve {$n} o más {$target:other} a la mano";
 
 // =========================================================================
 // Connectors
@@ -474,7 +474,7 @@ Spanish uses the `@un` transform to add indefinite articles with gender agreemen
 card = :fem { one: "carta", other: "cartas" };
 ally = :masc { one: "aliado", other: "aliados" };
 
-abandon_one(target) = "abandona {@un target}";
+abandon_one($target) = "abandona {@un $target}";
 ```
 
 The `@un` transform reads the `:fem` or `:masc` tag from the target phrase:
@@ -489,7 +489,7 @@ The `@un` transform reads the `:fem` or `:masc` tag from the target phrase:
 For definite articles with plural agreement:
 
 ```
-return_all(target) = "devuelve {@el:other target} a la mano";
+return_all($target) = "devuelve {@el:other $target} a la mano";
 ```
 
 The `@el:other` syntax selects the plural definite article:
@@ -504,7 +504,7 @@ The `@el:other` syntax selects the plural definite article:
 For phrases with explicit counts:
 
 ```
-abandon_n(n, target) = "abandona {n} {target:n}";
+abandon_n($n, $target) = "abandona {$n} {$target:$n}";
 ```
 
 | n | target | Result |
@@ -533,8 +533,8 @@ predicate_to_phrase(target) → strings::ally(locale)
     → Phrase { text: "ally", variants: [...], tags: ["an"] }
 
 strings::abandon_any_number(locale, target_phrase)
-    Template: "abandon any number of {target:other}"
-    Selection: target:other → "allies"
+    Template: "abandon any number of {$target:other}"
+    Selection: $target:other → "allies"
     Result: "abandon any number of allies"
 ```
 
@@ -544,8 +544,8 @@ predicate_to_phrase(target) → strings::ally(locale)
     → Phrase { text: "aliado", variants: [...], tags: ["masc"] }
 
 strings::abandon_any_number(locale, target_phrase)
-    Template: "abandona cualquier cantidad de {target:other}"
-    Selection: target:other → "aliados"
+    Template: "abandona cualquier cantidad de {$target:other}"
+    Selection: $target:other → "aliados"
     Result: "abandona cualquier cantidad de aliados"
 ```
 
@@ -557,7 +557,7 @@ predicate_to_phrase(target) → strings::card(locale)
     → Phrase { tags: ["a"], ... }
 
 strings::return_one(locale, target_phrase)
-    Template: "return {@a target} to hand"
+    Template: "return {@a $target} to hand"
     Transform: @a reads :a tag → "a card"
     Result: "return a card to hand"
 ```
@@ -568,7 +568,7 @@ predicate_to_phrase(target) → strings::card(locale)
     → Phrase { tags: ["fem"], ... }
 
 strings::return_one(locale, target_phrase)
-    Template: "devuelve {@un target} a la mano"
+    Template: "devuelve {@un $target} a la mano"
     Transform: @un reads :fem tag → "una carta"
     Result: "devuelve una carta a la mano"
 ```
@@ -691,11 +691,11 @@ ancient = :masc { one: "Ancestral", other: "Ancestrales" };
 child = :masc { one: "Niño", other: "Niños" };
 mage = :masc { one: "Mago", other: "Magos" };
 
-// :from(s) inherits :masc/:fem tag and one/other variants
-subtype(s) = :from(s) "<color=#2E7D32><b>{s}</b></color>";
+// :from($s) inherits :masc/:fem tag and one/other variants
+subtype($s) = :from($s) "<color=#2E7D32><b>{$s}</b></color>";
 
 // Now @un can read the inherited gender tag
-dissolve_subtype(s) = "Disuelve {@un subtype(s)}.";
+dissolve_subtype($s) = "Disuelve {@un subtype($s)}.";
 // ancient → "Disuelve un <b>Ancestral</b>."
 // child → "Disuelve un <b>Niño</b>."
 ```
