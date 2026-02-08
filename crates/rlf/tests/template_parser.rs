@@ -746,6 +746,32 @@ fn test_auto_capitalization_with_existing_transforms() {
 }
 
 #[test]
+fn test_auto_capitalization_with_transform_and_phrase_call() {
+    let t = parse_template("{@a Subtype($t)}").unwrap();
+    match &t.segments[0] {
+        Segment::Interpolation {
+            transforms,
+            reference,
+            ..
+        } => {
+            // Auto-cap @cap should be leftmost (outermost), @a should be rightmost (innermost)
+            assert_eq!(transforms.len(), 2);
+            assert_eq!(transforms[0].name, "cap");
+            assert_eq!(transforms[1].name, "a");
+            match reference {
+                Reference::PhraseCall { name, args } => {
+                    assert_eq!(name, "subtype");
+                    assert_eq!(args.len(), 1);
+                    assert_eq!(args[0], Reference::Parameter("t".into()));
+                }
+                _ => panic!("expected phrase call"),
+            }
+        }
+        Segment::Literal(_) => panic!("expected interpolation"),
+    }
+}
+
+#[test]
 fn test_no_auto_cap_on_parameter() {
     // $Name should NOT trigger auto-capitalization - $ always means parameter
     let result = parse_template("{$Name}");

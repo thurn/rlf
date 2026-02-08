@@ -330,8 +330,18 @@ title = "{@cap card}";           // -> "Card"
 heading = "{@cap @a card}";      // -> "A card"
 ```
 
-**Automatic capitalization:** `{Card}` is equivalent to `{@cap card}`. This
-works for term references only. For parameters, use `{@cap $name}`.
+**Automatic capitalization:** An uppercase first letter adds an implicit `@cap`
+transform. This works for term references and phrase calls, but not for
+`$`-prefixed parameters (use `{@cap $name}` instead). The implicit `@cap` is
+always placed as the **outermost** (leftmost) transform, so it runs last in
+right-to-left evaluation and composes correctly with explicit transforms:
+
+```
+{Card}                // -> "Card"       (equivalent to {@cap card})
+{Subtype($s)}         // -> "<b>Warrior</b>"  (equivalent to {@cap subtype($s)})
+{@a Card}             // -> "A card"     (equivalent to {@cap @a card})
+{@a Subtype($s)}      // -> "A warrior"  (equivalent to {@cap @a subtype($s)})
+```
 
 Transforms combine with selection:
 

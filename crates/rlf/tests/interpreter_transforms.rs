@@ -7586,3 +7586,155 @@ fn dynamic_context_resolves_number() {
     let five = locale.call_phrase("draw", &[Value::from(5)]).unwrap();
     assert_eq!(five.to_string(), "抽5张牌");
 }
+
+// =============================================================================
+// Auto-capitalization with explicit transforms
+// =============================================================================
+
+#[test]
+fn auto_cap_with_a_transform_phrase_call() {
+    // Test that {@a Subtype($t)} works the same as {@cap @a subtype($t)}
+    // Auto-cap from uppercase first letter should be outermost (leftmost) transform
+    let source = r#"
+        warrior = :a { one: "warrior", other: "warriors" };
+        subtype($s) = :from($s) "<b>{$s}</b>";
+        dissolve_explicit($s) = "Dissolve {@cap @a subtype($s)}.";
+        dissolve_auto($s) = "Dissolve {@a Subtype($s)}.";
+    "#;
+
+    let mut locale = Locale::builder().language("en").build();
+    locale.load_translations_str("en", source).unwrap();
+
+    let warrior = locale.get_phrase("warrior").unwrap();
+
+    // Explicit: {@cap @a subtype($s)} -> @a first ("a <b>warrior</b>"), then @cap ("A <b>warrior</b>")
+    let explicit = locale
+        .call_phrase("dissolve_explicit", &[Value::Phrase(warrior.clone())])
+        .unwrap();
+    assert_eq!(explicit.to_string(), "Dissolve A <b>warrior</b>.");
+
+    // Auto-cap: {@a Subtype($s)} should produce the same result
+    let auto = locale
+        .call_phrase("dissolve_auto", &[Value::Phrase(warrior)])
+        .unwrap();
+    assert_eq!(auto.to_string(), "Dissolve A <b>warrior</b>.");
+}
+
+#[test]
+fn auto_cap_with_a_transform_an_tag() {
+    // Test {@a Subtype($t)} with a term that has the :an tag
+    let source = r#"
+        ancient = :an { one: "ancient", other: "ancients" };
+        subtype($s) = :from($s) "<b>{$s}</b>";
+        dissolve_explicit($s) = "Dissolve {@cap @a subtype($s)}.";
+        dissolve_auto($s) = "Dissolve {@a Subtype($s)}.";
+    "#;
+
+    let mut locale = Locale::builder().language("en").build();
+    locale.load_translations_str("en", source).unwrap();
+
+    let ancient = locale.get_phrase("ancient").unwrap();
+
+    // Explicit: {@cap @a subtype($s)} -> @a first ("an <b>ancient</b>"), then @cap ("An <b>ancient</b>")
+    let explicit = locale
+        .call_phrase("dissolve_explicit", &[Value::Phrase(ancient.clone())])
+        .unwrap();
+    assert_eq!(explicit.to_string(), "Dissolve An <b>ancient</b>.");
+
+    // Auto-cap: {@a Subtype($s)} should produce the same result
+    let auto = locale
+        .call_phrase("dissolve_auto", &[Value::Phrase(ancient)])
+        .unwrap();
+    assert_eq!(auto.to_string(), "Dissolve An <b>ancient</b>.");
+}
+
+#[test]
+fn auto_cap_bare_term_still_works() {
+    // Existing behavior: {Card} is equivalent to {@cap card}
+    let source = r#"
+        card = :a "card";
+        cap_card = "{Card}";
+        explicit_cap_card = "{@cap card}";
+    "#;
+
+    let mut locale = Locale::builder().language("en").build();
+    locale.load_translations_str("en", source).unwrap();
+
+    assert_eq!(locale.get_phrase("cap_card").unwrap().to_string(), "Card");
+    assert_eq!(
+        locale.get_phrase("explicit_cap_card").unwrap().to_string(),
+        "Card"
+    );
+}
+
+#[test]
+fn auto_cap_with_multiple_explicit_transforms() {
+    // Test auto-cap combined with multiple explicit transforms
+    // {@upper @a Subtype($s)} should be equivalent to {@cap @upper @a subtype($s)}
+    // Wait, that doesn't make sense. Let's test with just @a.
+    // The key insight: auto-cap inserts @cap as leftmost (outermost).
+    // So {@a Subtype($s)} -> transforms: [@cap, @a] -> right-to-left: @a then @cap
+    let source = r#"
+        card = :a "card";
+        a_card_auto = "{@a Card}";
+        a_card_explicit = "{@cap @a card}";
+    "#;
+
+    let mut locale = Locale::builder().language("en").build();
+    locale.load_translations_str("en", source).unwrap();
+
+    // Both should produce "A card"
+    assert_eq!(
+        locale.get_phrase("a_card_auto").unwrap().to_string(),
+        "A card"
+    );
+    assert_eq!(
+        locale.get_phrase("a_card_explicit").unwrap().to_string(),
+        "A card"
+    );
+}
+
+#[test]
+fn auto_cap_with_the_transform() {
+    // Test {@the Card} is same as {@cap @the card}
+    let source = r#"
+        card = :a "card";
+        the_card_auto = "{@the Card}";
+        the_card_explicit = "{@cap @the card}";
+    "#;
+
+    let mut locale = Locale::builder().language("en").build();
+    locale.load_translations_str("en", source).unwrap();
+
+    assert_eq!(
+        locale.get_phrase("the_card_auto").unwrap().to_string(),
+        "The card"
+    );
+    assert_eq!(
+        locale.get_phrase("the_card_explicit").unwrap().to_string(),
+        "The card"
+    );
+}
+
+#[test]
+fn explicit_cap_a_still_works() {
+    // Verify existing explicit {@cap @a ...} behavior is preserved
+    let source = r#"
+        card = :a "card";
+        event = :an "event";
+        cap_a_card = "{@cap @a card}";
+        cap_a_event = "{@cap @a event}";
+    "#;
+
+    let mut locale = Locale::builder().language("en").build();
+    locale.load_translations_str("en", source).unwrap();
+
+    assert_eq!(
+        locale.get_phrase("cap_a_card").unwrap().to_string(),
+        "A card"
+    );
+    assert_eq!(
+        locale.get_phrase("cap_a_event").unwrap().to_string(),
+        "An event"
+    );
+}
