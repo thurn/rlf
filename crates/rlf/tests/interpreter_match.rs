@@ -613,7 +613,7 @@ fn match_multi_param_wildcard_fallback() {
 }
 
 // =============================================================================
-// Russian multi-param match (from DESIGN_V2.md example)
+// Russian multi-param match (from DESIGN.md example)
 // =============================================================================
 
 #[test]
@@ -697,7 +697,7 @@ fn from_match_inherits_tags_and_variants() {
 
 #[test]
 fn from_match_phrase_call_passes_full_phrase() {
-    // Per DESIGN_V2.md: "References to other phrases like {subtype($s)} pass the
+    // Per DESIGN.md: "References to other phrases like {subtype($s)} pass the
     // full Phrase value of $s — they do not see the per-variant context."
     let mut registry = PhraseRegistry::new();
     registry

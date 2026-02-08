@@ -1,7 +1,7 @@
 //! Integration tests for template parsing.
 //!
 //! These tests validate the public API of the template parser against all
-//! syntax forms documented in DESIGN_V2.md.
+//! syntax forms documented in DESIGN.md.
 
 use rlf::parser::{Reference, Segment, Selector, TransformContext, parse_template};
 
@@ -776,7 +776,7 @@ fn test_lowercase_no_auto_cap() {
 }
 
 // =============================================================================
-// Complex examples from DESIGN_V2.md
+// Complex examples from DESIGN.md
 // =============================================================================
 
 #[test]
