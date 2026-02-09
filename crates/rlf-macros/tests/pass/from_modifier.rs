@@ -25,6 +25,16 @@ rlf! {
         one: "{$label} {$s}",
         *other: "{$label} {$s}"
     };
+
+    // Source phrase with tags for :match inside variant entries
+    sword = :masc { one: "sword", *other: "swords" };
+    wand = :fem { one: "wand", *other: "wands" };
+
+    // :from + variant blocks with :match inside entries
+    magical($s) = :from($s) {
+        one: :match($s) { masc: "magical {$s}", *fem: "magical {$s}" },
+        *other: :match($s) { masc: "magical {$s}", *fem: "magical {$s}" }
+    };
 }
 
 fn main() {
@@ -53,4 +63,17 @@ fn main() {
     assert!(labeled.has_tag("an"));
     assert_eq!(labeled.variant("one"), "allied Ancient");
     assert_eq!(labeled.variant("other"), "allied Ancients");
+
+    // :from + variant blocks with :match inside entries
+    let s = sword(&locale);
+    let m = magical(&locale, s);
+    assert!(m.has_tag("masc"));
+    assert_eq!(m.variant("one"), "magical sword");
+    assert_eq!(m.variant("other"), "magical swords");
+
+    let w = wand(&locale);
+    let m2 = magical(&locale, w);
+    assert!(m2.has_tag("fem"));
+    assert_eq!(m2.variant("one"), "magical wand");
+    assert_eq!(m2.variant("other"), "magical wands");
 }

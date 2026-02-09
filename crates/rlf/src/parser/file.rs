@@ -159,6 +159,42 @@ fn validate_definitions(definitions: &[PhraseDefinition]) -> Result<(), ParseErr
                     ),
                 });
             }
+
+            // Validate :match blocks inside variant entries
+            for entry in entries {
+                if let VariantEntryBody::Match {
+                    match_params,
+                    branches,
+                } = &entry.body
+                {
+                    // :match parameters must be declared in the phrase signature
+                    for mp in match_params {
+                        if !def.parameters.contains(mp) {
+                            return Err(ParseError::Syntax {
+                                line: 0,
+                                column: 0,
+                                message: format!(
+                                    ":match parameter '{}' in variant entry is not declared in phrase '{}' — add it to the parameter list",
+                                    mp, def.name
+                                ),
+                            });
+                        }
+                    }
+
+                    // Create a temporary def for default validation
+                    let temp_def = PhraseDefinition {
+                        kind: def.kind,
+                        name: def.name.clone(),
+                        parameters: def.parameters.clone(),
+                        tags: def.tags.clone(),
+                        from_param: def.from_param.clone(),
+                        match_params: match_params.clone(),
+                        body: PhraseBody::Match(branches.clone()),
+                        has_empty_parens: false,
+                    };
+                    validate_match_defaults(&temp_def, branches)?;
+                }
+            }
         }
 
         // Validate * default markers in match blocks
@@ -470,15 +506,27 @@ fn match_key(input: &mut &str, num_params: usize) -> ModalResult<MatchKey> {
         value_parts.push(part);
     }
 
-    // Validate dimension count matches number of match parameters
-    if value_parts.len() != num_params {
+    // Validate: must have at least num_params parts.
+    // Extra parts form compound tag constraints within the last dimension
+    // (e.g., `masc.anim` in a single-param :match means "match both tags").
+    if value_parts.len() < num_params {
         return Err(ErrMode::Backtrack(ContextError::new()));
     }
 
-    Ok(MatchKey {
-        value: value_parts.join("."),
-        default_dimensions: default_dims,
-    })
+    // Collapse excess parts into the last dimension's value.
+    // default_dimensions tracks one flag per match parameter dimension.
+    if value_parts.len() > num_params {
+        let collapsed_default_dims: Vec<bool> = default_dims[..num_params].to_vec();
+        Ok(MatchKey {
+            value: value_parts.join("."),
+            default_dimensions: collapsed_default_dims,
+        })
+    } else {
+        Ok(MatchKey {
+            value: value_parts.join("."),
+            default_dimensions: default_dims,
+        })
+    }
 }
 
 /// Parse a single component of a match key (identifier or number).
@@ -523,7 +571,7 @@ fn variant_entries(input: &mut &str) -> ModalResult<Vec<VariantEntry>> {
     Ok(entries)
 }
 
-/// Parse a single variant entry: *? key1, key2: "template"
+/// Parse a single variant entry: *? key1, key2: "template" or :match(...) { ... }
 fn variant_entry(input: &mut &str) -> ModalResult<VariantEntry> {
     // Check for * default marker
     let is_default = opt('*').parse_next(input)?.is_some();
@@ -532,11 +580,23 @@ fn variant_entry(input: &mut &str) -> ModalResult<VariantEntry> {
     skip_ws_and_comments(input)?;
     ':'.parse_next(input)?;
     skip_ws_and_comments(input)?;
-    let template = template_string(input)?;
+
+    // Body: either :match(...) { ... } or "template"
+    let body = if input.starts_with(":match") {
+        let match_params = match_modifier(input)?;
+        skip_ws_and_comments(input)?;
+        let branches = match_block(match_params.len()).parse_next(input)?;
+        VariantEntryBody::Match {
+            match_params,
+            branches,
+        }
+    } else {
+        VariantEntryBody::Template(template_string(input)?)
+    };
 
     Ok(VariantEntry {
         keys,
-        template,
+        body,
         is_default,
     })
 }

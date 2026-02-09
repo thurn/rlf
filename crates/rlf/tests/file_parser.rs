@@ -1,6 +1,8 @@
 //! Integration tests for .rlf file parsing
 
-use rlf::parser::{DefinitionKind, PhraseBody, Reference, Segment, TransformContext, parse_file};
+use rlf::parser::{
+    DefinitionKind, PhraseBody, Reference, Segment, TransformContext, VariantEntryBody, parse_file,
+};
 use rlf::types::Tag;
 
 #[test]
@@ -1266,4 +1268,116 @@ fn test_match_no_trailing_comma() {
         PhraseBody::Match(branches) => assert_eq!(branches.len(), 2),
         _ => panic!("expected match body"),
     }
+}
+
+// =============================================================================
+// :match inside variant entries (:from + variant block + :match)
+// =============================================================================
+
+#[test]
+fn test_from_variant_block_match_inside_entry() {
+    let phrases = parse_file(
+        r#"
+        enemy($s) = :from($s) {
+            nom: :match($s) { masc: "вражеский {$s}", *fem: "вражеская {$s}" },
+            *acc: :match($s) { masc: "вражеского {$s}", *fem: "вражескую {$s}" }
+        };
+    "#,
+    )
+    .unwrap();
+
+    assert_eq!(phrases[0].name, "enemy");
+    assert_eq!(phrases[0].kind, DefinitionKind::Phrase);
+    assert_eq!(phrases[0].from_param, Some("s".to_string()));
+
+    match &phrases[0].body {
+        PhraseBody::Variants(entries) => {
+            assert_eq!(entries.len(), 2);
+
+            // nom entry should have a :match body
+            assert_eq!(entries[0].keys, vec!["nom"]);
+            assert!(!entries[0].is_default);
+            match &entries[0].body {
+                VariantEntryBody::Match {
+                    match_params,
+                    branches,
+                } => {
+                    assert_eq!(match_params, &["s"]);
+                    assert_eq!(branches.len(), 2);
+                }
+                VariantEntryBody::Template(_) => panic!("expected match body in nom entry"),
+            }
+
+            // acc entry should also have a :match body
+            assert_eq!(entries[1].keys, vec!["acc"]);
+            assert!(entries[1].is_default);
+            match &entries[1].body {
+                VariantEntryBody::Match {
+                    match_params,
+                    branches,
+                } => {
+                    assert_eq!(match_params, &["s"]);
+                    assert_eq!(branches.len(), 2);
+                }
+                VariantEntryBody::Template(_) => panic!("expected match body in acc entry"),
+            }
+        }
+        _ => panic!("expected variants body"),
+    }
+}
+
+#[test]
+fn test_from_variant_block_mixed_template_and_match() {
+    let phrases = parse_file(
+        r#"
+        wrapper($s) = :from($s) {
+            nom: "добрый {$s}",
+            *acc: :match($s) { masc: "доброго {$s}", *fem: "добрую {$s}" }
+        };
+    "#,
+    )
+    .unwrap();
+
+    match &phrases[0].body {
+        PhraseBody::Variants(entries) => {
+            assert_eq!(entries.len(), 2);
+
+            // nom entry is a plain template
+            assert!(matches!(&entries[0].body, VariantEntryBody::Template(_)));
+
+            // acc entry is a :match block
+            assert!(matches!(&entries[1].body, VariantEntryBody::Match { .. }));
+        }
+        _ => panic!("expected variants body"),
+    }
+}
+
+#[test]
+fn test_from_variant_block_match_with_multiple_definitions() {
+    // Minimal reproduction: three variant entries with :match blocks
+    let phrases = parse_file(
+        r#"enemy($s) = :from($s) { a: :match($s) { *x: "1" }, b: :match($s) { *x: "2" }, *c: :match($s) { *x: "3" } };"#,
+    )
+    .unwrap();
+
+    assert_eq!(phrases.len(), 1);
+}
+
+#[test]
+fn test_from_variant_block_match_undeclared_param_error() {
+    let result = parse_file(
+        r#"
+        enemy($s) = :from($s) {
+            nom: :match($x) { masc: "bad {$s}", *fem: "bad {$s}" },
+            *acc: "ok {$s}"
+        };
+    "#,
+    );
+
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("not declared"),
+        "expected undeclared param error, got: {err}"
+    );
 }

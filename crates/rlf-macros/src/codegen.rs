@@ -11,7 +11,7 @@ use quote::{format_ident, quote};
 
 use crate::input::{
     DefinitionKind, Interpolation, MacroInput, MatchBranch, MatchKey, PhraseBody, PhraseDefinition,
-    Reference, Segment, Selector, Template, TransformContext, TransformRef,
+    Reference, Segment, Selector, Template, TransformContext, TransformRef, VariantEntryBody,
 };
 
 /// Main code generation entry point.
@@ -282,12 +282,8 @@ fn reconstruct_source(input: &MacroInput) -> String {
                     .map(|v| {
                         let keys: Vec<_> = v.keys.iter().map(|k| k.name.as_str()).collect();
                         let default_marker = if v.is_default { "*" } else { "" };
-                        format!(
-                            "{}{}: \"{}\"",
-                            default_marker,
-                            keys.join(", "),
-                            reconstruct_template(&v.template)
-                        )
+                        let body_str = reconstruct_variant_entry_body(&v.body);
+                        format!("{}{}: {}", default_marker, keys.join(", "), body_str)
                     })
                     .collect();
                 line.push_str(&variant_strs.join(", "));
@@ -307,6 +303,30 @@ fn reconstruct_source(input: &MacroInput) -> String {
     }
 
     lines.join("\n")
+}
+
+/// Reconstruct a variant entry body for source output.
+fn reconstruct_variant_entry_body(body: &VariantEntryBody) -> String {
+    match body {
+        VariantEntryBody::Template(template) => {
+            format!("\"{}\"", reconstruct_template(template))
+        }
+        VariantEntryBody::Match {
+            match_params,
+            branches,
+        } => {
+            let params: Vec<_> = match_params
+                .iter()
+                .map(|p| format!("${}", p.name))
+                .collect();
+            let branch_strs: Vec<String> = branches.iter().map(reconstruct_match_branch).collect();
+            format!(
+                ":match({}) {{ {} }}",
+                params.join(", "),
+                branch_strs.join(", ")
+            )
+        }
+    }
 }
 
 /// Reconstruct a match branch for source output.

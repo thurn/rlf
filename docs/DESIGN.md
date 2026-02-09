@@ -516,6 +516,41 @@ count_subtype($n, $s) = :from($s) :match($n) {
 
 The declaration order of `:from` and `:match` does not matter.
 
+**`:from` with variant blocks.** When `:from($param)` is combined with a
+variant block, each variant entry provides a per-variant template evaluated in
+the context of the corresponding variant of the `:from` parameter. This enables
+modifiers to agree in grammatical case with the noun they modify:
+
+```
+ancient = :masc :anim {
+    nom: "Древний", acc: "Древнего", gen: "Древнего",
+};
+
+enemy_subtype($s) = :from($s) {
+    nom: "вражеский {$s}",
+    acc: "вражеского {$s}",
+    *gen: "вражеского {$s}",
+};
+```
+
+Variant entries may also contain `:match` blocks to branch on tags within each
+case variant, enabling agreement in both case AND gender:
+
+```
+enemy_subtype($s) = :from($s) {
+    nom: :match($s) { masc: "вражеский {$s}", *fem: "вражеская {$s}" },
+    acc: :match($s) { masc.anim: "вражеского {$s}", *fem: "вражескую {$s}" },
+    *gen: :match($s) { masc: "вражеского {$s}", *fem: "вражеской {$s}" },
+};
+```
+
+**Compound tag keys.** In a single-parameter `:match`, dotted keys like
+`masc.anim` match when the parameter has ALL listed tags. This differs from
+multi-parameter `:match` where dots separate dimensions.
+
+The `*` default marker on a variant entry designates the fallback when the
+`:from` parameter has a variant key not explicitly listed in the block.
+
 ---
 
 ## Rust Integration

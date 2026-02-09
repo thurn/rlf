@@ -71,14 +71,29 @@ pub enum PhraseBody {
     Match(Vec<MatchBranch>),
 }
 
-/// A variant entry: `key: "template"`
+/// A variant entry: `key: "template"` or `key: :match($p) { ... }`
 #[derive(Debug)]
 pub struct VariantEntry {
-    /// Variant keys (multiple keys share the same template).
+    /// Variant keys (multiple keys share the same body).
     pub keys: Vec<SpannedIdent>,
-    pub template: Template,
+    /// Body: either a simple template or a `:match` block.
+    pub body: VariantEntryBody,
     /// Whether this entry is marked as the default with `*`.
     pub is_default: bool,
+}
+
+/// The body of a variant entry.
+#[derive(Debug)]
+pub enum VariantEntryBody {
+    /// Simple template string.
+    Template(Template),
+    /// `:match($param, ...) { key: "template", ... }` block.
+    Match {
+        /// Parameter names referenced by this `:match`.
+        match_params: Vec<SpannedIdent>,
+        /// Match branches.
+        branches: Vec<MatchBranch>,
+    },
 }
 
 /// A single branch in a `:match` block.

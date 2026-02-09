@@ -8,7 +8,7 @@ use std::mem;
 use crate::input::{
     DefinitionKind, Interpolation, MacroInput, MatchBranch, MatchKey, PhraseBody, PhraseDefinition,
     Reference, Segment, Selector, SpannedIdent, Template, TransformContext, TransformRef,
-    VariantEntry,
+    VariantEntry, VariantEntryBody,
 };
 use proc_macro2::Span;
 use syn::parse::{Parse, ParseStream};
@@ -316,8 +316,54 @@ impl Parse for VariantEntry {
         // Parse colon
         input.parse::<Token![:]>()?;
 
-        // Parse template string
-        let template: Template = input.parse()?;
+        // Parse body: :match(...) { ... } or "template"
+        let body = if input.peek(Token![:]) && !input.peek2(Brace) {
+            // Check if this is :match
+            let fork = input.fork();
+            fork.parse::<Token![:]>().ok();
+            if fork.peek(Token![match]) {
+                // Parse :match(...) { ... } block
+                input.parse::<Token![:]>()?;
+                input.parse::<Token![match]>()?;
+                let match_content;
+                syn::parenthesized!(match_content in input);
+                let mut match_params = Vec::new();
+                while !match_content.is_empty() {
+                    if match_content.peek(Token![$]) {
+                        match_content.parse::<Token![$]>()?;
+                    } else {
+                        return Err(syn::Error::new(
+                            match_content.span(),
+                            "expected '$' before parameter name in :match",
+                        ));
+                    }
+                    let param: Ident = match_content.parse()?;
+                    match_params.push(SpannedIdent::new(&param));
+                    if match_content.peek(Token![,]) {
+                        match_content.parse::<Token![,]>()?;
+                    }
+                }
+                if match_params.is_empty() {
+                    return Err(syn::Error::new(
+                        input.span(),
+                        ":match requires at least one parameter",
+                    ));
+                }
+                let num_params = match_params.len();
+                let branches = parse_match_block(input, num_params)?;
+                let PhraseBody::Match(branches) = branches else {
+                    unreachable!()
+                };
+                VariantEntryBody::Match {
+                    match_params,
+                    branches,
+                }
+            } else {
+                VariantEntryBody::Template(input.parse()?)
+            }
+        } else {
+            VariantEntryBody::Template(input.parse()?)
+        };
 
         // Parse optional trailing comma
         if input.peek(Token![,]) {
@@ -326,7 +372,7 @@ impl Parse for VariantEntry {
 
         Ok(VariantEntry {
             keys,
-            template,
+            body,
             is_default,
         })
     }
@@ -414,8 +460,10 @@ fn parse_match_key(input: ParseStream, num_params: usize) -> syn::Result<MatchKe
         value_parts.push(part);
     }
 
-    // Validate dimension count matches number of match parameters
-    if value_parts.len() != num_params {
+    // Validate: must have at least num_params parts.
+    // Extra parts form compound tag constraints within the last dimension
+    // (e.g., `masc.anim` in a single-param :match means "match both tags").
+    if value_parts.len() < num_params {
         return Err(syn::Error::new(
             span,
             format!(
@@ -424,6 +472,11 @@ fn parse_match_key(input: ParseStream, num_params: usize) -> syn::Result<MatchKe
                 num_params
             ),
         ));
+    }
+
+    // Collapse excess dimensions: keep only num_params default flags
+    if value_parts.len() > num_params {
+        default_dims.truncate(num_params);
     }
 
     Ok(MatchKey {

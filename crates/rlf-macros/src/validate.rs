@@ -23,7 +23,7 @@ use strsim::levenshtein;
 
 use crate::input::{
     DefinitionKind, Interpolation, MacroInput, PhraseBody, PhraseDefinition, Reference, Segment,
-    Selector, Template, TransformContext,
+    Selector, Template, TransformContext, VariantEntryBody,
 };
 
 /// Known transforms (universal only for Phase 5).
@@ -172,7 +172,7 @@ fn validate_phrase(phrase: &PhraseDefinition, ctx: &ValidationContext) -> syn::R
         }
         PhraseBody::Variants(variants) => {
             for variant in variants {
-                validate_template(&variant.template, &params, ctx, &phrase.name.name)?;
+                validate_variant_entry_body(&variant.body, &params, ctx, &phrase.name.name)?;
             }
         }
         PhraseBody::Match(branches) => {
@@ -198,6 +198,26 @@ fn validate_template(
         }
     }
     Ok(())
+}
+
+/// Validate a variant entry body (template or match block).
+fn validate_variant_entry_body(
+    body: &VariantEntryBody,
+    params: &HashSet<String>,
+    ctx: &ValidationContext,
+    current_phrase: &str,
+) -> syn::Result<()> {
+    match body {
+        VariantEntryBody::Template(template) => {
+            validate_template(template, params, ctx, current_phrase)
+        }
+        VariantEntryBody::Match { branches, .. } => {
+            for branch in branches {
+                validate_template(&branch.template, params, ctx, current_phrase)?;
+            }
+            Ok(())
+        }
+    }
 }
 
 /// Validate an interpolation: reference, transforms, and selectors.
@@ -622,7 +642,7 @@ fn collect_phrase_refs(
         PhraseBody::Simple(template) => collect_template_refs(template, params, ctx, &mut refs),
         PhraseBody::Variants(variants) => {
             for variant in variants {
-                collect_template_refs(&variant.template, params, ctx, &mut refs);
+                collect_variant_entry_body_refs(&variant.body, params, ctx, &mut refs);
             }
         }
         PhraseBody::Match(branches) => {
@@ -632,6 +652,24 @@ fn collect_phrase_refs(
         }
     }
     refs
+}
+
+fn collect_variant_entry_body_refs(
+    body: &VariantEntryBody,
+    params: &HashSet<String>,
+    ctx: &ValidationContext,
+    refs: &mut Vec<(String, Span)>,
+) {
+    match body {
+        VariantEntryBody::Template(template) => {
+            collect_template_refs(template, params, ctx, refs);
+        }
+        VariantEntryBody::Match { branches, .. } => {
+            for branch in branches {
+                collect_template_refs(&branch.template, params, ctx, refs);
+            }
+        }
+    }
 }
 
 fn collect_template_refs(

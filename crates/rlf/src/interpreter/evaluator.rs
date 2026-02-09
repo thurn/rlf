@@ -12,7 +12,7 @@ use crate::interpreter::transforms::TransformRegistry;
 use crate::interpreter::{EvalContext, EvalError, PhraseRegistry};
 use crate::parser::ast::{
     DefinitionKind, MatchBranch, PhraseBody, PhraseDefinition, Reference, Segment, Selector,
-    Template, Transform, TransformContext, VariantEntry,
+    Template, Transform, TransformContext, VariantEntry, VariantEntryBody,
 };
 use crate::types::{Phrase, Tag, Value, VariantKey};
 
@@ -325,11 +325,11 @@ fn eval_with_from_modifier(
 
 /// Evaluate a phrase with :from modifier and variant blocks.
 ///
-/// Each variant key in the definition provides a per-variant template. When a
-/// variant key is requested on the result, the corresponding template is
-/// evaluated with the :from parameter bound to that variant of the source
-/// phrase. If the definition lacks the requested key, it falls back to the
-/// `*`-marked default template.
+/// Each variant key in the definition provides a per-variant body (either a
+/// simple template or a `:match` block). When a variant key is requested on
+/// the result, the corresponding body is evaluated with the :from parameter
+/// bound to that variant of the source phrase. If the definition lacks the
+/// requested key, it falls back to the `*`-marked default entry.
 fn eval_from_with_variants(
     def: &PhraseDefinition,
     from_param: &str,
@@ -357,44 +357,38 @@ fn eval_from_with_variants(
         (source_phrase.tags.clone(), source_phrase.variants.clone())
     };
 
-    // Build lookup from variant key -> (template, is_default) for the definition's entries
-    let mut def_variants: HashMap<String, &Template> = HashMap::new();
-    let mut default_template: Option<&Template> = None;
+    // Build lookup from variant key -> entry body for the definition's entries
+    let mut def_variants: HashMap<String, &VariantEntryBody> = HashMap::new();
+    let mut default_body: Option<&VariantEntryBody> = None;
 
     for entry in entries {
         if entry.is_default {
-            default_template = Some(&entry.template);
+            default_body = Some(&entry.body);
         }
         for key in &entry.keys {
-            def_variants.insert(key.clone(), &entry.template);
+            def_variants.insert(key.clone(), &entry.body);
         }
     }
 
-    // Evaluate the default text using the first available default template
+    // Evaluate the default text using the first available default body
     // or the source's default text
-    let default_text = if let Some(tmpl) = default_template {
-        eval_template(tmpl, ctx, registry, transform_registry, lang)?
+    let default_text = if let Some(body) = default_body {
+        eval_variant_entry_body(body, ctx, registry, transform_registry, lang)?
     } else if let Some(first_entry) = entries.first() {
-        eval_template(
-            &first_entry.template,
-            ctx,
-            registry,
-            transform_registry,
-            lang,
-        )?
+        eval_variant_entry_body(&first_entry.body, ctx, registry, transform_registry, lang)?
     } else {
         String::new()
     };
 
     if source_variants.is_empty() {
-        // No source variants: evaluate the default template with the source as-is
+        // No source variants: evaluate the default body with the source as-is
         return Ok(Phrase::builder()
             .text(default_text)
             .tags(inherited_tags)
             .build());
     }
 
-    // For each source variant key, find the matching definition template and evaluate
+    // For each source variant key, find the matching definition entry and evaluate
     let mut result_variants = HashMap::new();
     let mut sorted_keys: Vec<_> = source_variants.keys().collect();
     sorted_keys.sort();
@@ -402,10 +396,10 @@ fn eval_from_with_variants(
     for key in sorted_keys {
         let variant_text = &source_variants[key];
 
-        // Find the matching template: try exact key match, then progressive
+        // Find the matching entry body: try exact key match, then progressive
         // fallback by stripping trailing ".segment", then default
-        let template = find_variant_template(key.as_ref(), &def_variants)
-            .or(default_template)
+        let body = find_variant_entry_body(key.as_ref(), &def_variants)
+            .or(default_body)
             .ok_or_else(|| EvalError::MissingVariant {
                 phrase: format!(":from variant block in '{}'", def.name),
                 key: key.to_string(),
@@ -438,13 +432,8 @@ fn eval_from_with_variants(
             ctx.string_context().map(ToString::to_string),
         );
 
-        let variant_result = eval_template(
-            template,
-            &mut variant_ctx,
-            registry,
-            transform_registry,
-            lang,
-        )?;
+        let variant_result =
+            eval_variant_entry_body(body, &mut variant_ctx, registry, transform_registry, lang)?;
         result_variants.insert(key.clone(), variant_result);
     }
 
@@ -455,25 +444,51 @@ fn eval_from_with_variants(
         .build())
 }
 
-/// Find a template matching a variant key with progressive fallback.
+/// Evaluate a variant entry body (template or match block).
+fn eval_variant_entry_body(
+    body: &VariantEntryBody,
+    ctx: &mut EvalContext<'_>,
+    registry: &PhraseRegistry,
+    transform_registry: &TransformRegistry,
+    lang: &str,
+) -> Result<String, EvalError> {
+    match body {
+        VariantEntryBody::Template(template) => {
+            eval_template(template, ctx, registry, transform_registry, lang)
+        }
+        VariantEntryBody::Match {
+            match_params,
+            branches,
+        } => eval_match_branches(
+            branches,
+            match_params,
+            ctx,
+            registry,
+            transform_registry,
+            lang,
+        ),
+    }
+}
+
+/// Find a variant entry body matching a variant key with progressive fallback.
 ///
 /// Tries exact key match first, then progressively strips trailing ".segment"
 /// to find a broader match.
-fn find_variant_template<'a>(
+fn find_variant_entry_body<'a>(
     key: &str,
-    def_variants: &HashMap<String, &'a Template>,
-) -> Option<&'a Template> {
+    def_variants: &HashMap<String, &'a VariantEntryBody>,
+) -> Option<&'a VariantEntryBody> {
     // Try exact match
-    if let Some(tmpl) = def_variants.get(key) {
-        return Some(tmpl);
+    if let Some(body) = def_variants.get(key) {
+        return Some(body);
     }
 
     // Try progressively shorter keys (fallback resolution)
     let mut current = key;
     while let Some(dot_pos) = current.rfind('.') {
         current = &current[..dot_pos];
-        if let Some(tmpl) = def_variants.get(current) {
-            return Some(tmpl);
+        if let Some(body) = def_variants.get(current) {
+            return Some(body);
         }
     }
 
@@ -927,7 +942,7 @@ fn select_match_branch<'a>(
     // Build candidate compound keys from resolved keys via cartesian product
     let compound_keys = build_compound_keys(resolved_keys);
 
-    // Try each candidate key against each branch
+    // Try each candidate key against each branch (exact match)
     for candidate in &compound_keys {
         for branch in branches {
             for key in &branch.keys {
@@ -938,10 +953,25 @@ fn select_match_branch<'a>(
         }
     }
 
-    // No exact match found. Try partial matching: for each candidate, check if
-    // it matches a branch when accounting for * defaults in unmatched dimensions.
-    // For single-param match, fall through to default branch.
-    // For multi-param match, try combinations with defaults.
+    // Try compound tag matching: a key like "masc.anim" with a single-param
+    // :match means "match if the parameter has ALL of these tags". Check if all
+    // dot-separated parts of a branch key are present in the resolved tags.
+    for branch in branches {
+        for key in &branch.keys {
+            let key_parts: Vec<&str> = key.value.split('.').collect();
+            if key_parts.len() <= num_dims {
+                continue;
+            }
+            // Compound tag key: more parts than dimensions. Check that each
+            // part exists in the resolved tags for this compound's dimension.
+            if compound_tag_matches(&key_parts, resolved_keys, num_dims) {
+                return Ok(&branch.template);
+            }
+        }
+    }
+
+    // Try partial matching: for each candidate, check if it matches a branch
+    // when accounting for * defaults in unmatched dimensions.
     for candidate in &compound_keys {
         let candidate_parts: Vec<&str> = candidate.split('.').collect();
         for branch in branches {
@@ -981,6 +1011,38 @@ fn select_match_branch<'a>(
     })
 }
 
+/// Check if a compound tag key matches resolved keys.
+///
+/// A compound key like `"masc.anim"` in a single-param `:match` means "match
+/// if the parameter has ALL of these tags". For multi-param matches, excess
+/// parts beyond `num_dims` form compound constraints on the last dimension.
+fn compound_tag_matches(
+    key_parts: &[&str],
+    resolved_keys: &[Vec<String>],
+    num_dims: usize,
+) -> bool {
+    // Split key_parts into per-dimension groups. The first (num_dims - 1)
+    // dimensions each get one part; the last dimension gets all remaining parts.
+    if key_parts.len() <= num_dims || resolved_keys.len() < num_dims {
+        return false;
+    }
+
+    // Check dimensions before the last one (exact match required)
+    for dim in 0..num_dims.saturating_sub(1) {
+        if !resolved_keys[dim].contains(&key_parts[dim].to_string()) {
+            return false;
+        }
+    }
+
+    // For the last dimension, ALL remaining key parts must be present in resolved tags
+    let last_dim = num_dims - 1;
+    let compound_parts = &key_parts[last_dim..];
+    let available_tags = &resolved_keys[last_dim];
+    compound_parts
+        .iter()
+        .all(|part| available_tags.contains(&part.to_string()))
+}
+
 /// Build a Phrase from variant entries.
 ///
 /// Evaluates each variant template and populates the variants HashMap.
@@ -1001,7 +1063,7 @@ fn build_phrase_from_variants(
     let mut context_text: Option<String> = None;
 
     for (i, entry) in entries.iter().enumerate() {
-        let text = eval_template(&entry.template, ctx, registry, transform_registry, lang)?;
+        let text = eval_variant_entry_body(&entry.body, ctx, registry, transform_registry, lang)?;
 
         // First variant's text becomes the fallback default
         if i == 0 {

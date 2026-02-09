@@ -125,10 +125,24 @@ pub enum PhraseBody {
 pub struct VariantEntry {
     /// Variant keys (multiple keys share the same template).
     pub keys: Vec<String>,
-    /// Template for this variant.
-    pub template: Template,
+    /// Body of this variant entry: either a simple template or a `:match` block.
+    pub body: VariantEntryBody,
     /// Whether this entry is marked as the default with `*`.
     pub is_default: bool,
+}
+
+/// The body of a variant entry: either a template or a `:match` block.
+#[derive(Debug, Clone, PartialEq)]
+pub enum VariantEntryBody {
+    /// Simple template string.
+    Template(Template),
+    /// `:match($param, ...) { key: "template", ... }` block.
+    Match {
+        /// Parameter names referenced by this `:match`.
+        match_params: Vec<String>,
+        /// Match branches.
+        branches: Vec<MatchBranch>,
+    },
 }
 
 /// A single branch in a `:match` block.

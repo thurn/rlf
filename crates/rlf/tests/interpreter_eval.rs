@@ -1065,6 +1065,178 @@ fn eval_from_variant_block_chained_composition() {
 }
 
 // =============================================================================
+// :from + Variant Blocks with :match Inside Entries
+// =============================================================================
+
+#[test]
+fn eval_from_variant_block_match_inside_entry() {
+    // Russian Case Study 1 from the proposal: adjective agrees in both case AND gender
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        ancient = :masc :anim {
+            nom: "Древний", acc: "Древнего", gen: "Древнего"
+        };
+        spirit = :fem {
+            nom: "Дух", acc: "Духа", gen: "Духа"
+        };
+        enemy_subtype($s) = :from($s) {
+            nom: :match($s) { masc: "вражеский {$s}", *fem: "вражеская {$s}" },
+            acc: :match($s) { masc.anim: "вражеского {$s}", *fem: "вражескую {$s}" },
+            *gen: :match($s) { masc: "вражеского {$s}", *fem: "вражеской {$s}" }
+        };
+    "#,
+        )
+        .unwrap();
+
+    // Test with :masc :anim noun
+    let ancient = registry.get_phrase("en", "ancient").unwrap();
+    let result = registry
+        .call_phrase("en", "enemy_subtype", &[Value::Phrase(ancient)])
+        .unwrap();
+
+    assert!(result.has_tag("masc"));
+    assert!(result.has_tag("anim"));
+    assert_eq!(result.variant("nom"), "вражеский Древний");
+    assert_eq!(result.variant("acc"), "вражеского Древнего");
+    assert_eq!(result.variant("gen"), "вражеского Древнего");
+
+    // Test with :fem noun -- different adjective forms
+    let spirit = registry.get_phrase("en", "spirit").unwrap();
+    let result = registry
+        .call_phrase("en", "enemy_subtype", &[Value::Phrase(spirit)])
+        .unwrap();
+
+    assert!(result.has_tag("fem"));
+    assert_eq!(result.variant("nom"), "вражеская Дух");
+    assert_eq!(result.variant("acc"), "вражескую Духа");
+    assert_eq!(result.variant("gen"), "вражеской Духа");
+}
+
+#[test]
+fn eval_from_variant_block_match_inside_consumer_selects() {
+    // End-to-end test: consumer phrase selects :acc on the composed phrase
+    let mut locale = Locale::builder().language("en").build();
+    locale
+        .load_translations_str(
+            "en",
+            r#"
+        ancient = :masc :anim {
+            nom: "Древний", acc: "Древнего", gen: "Древнего"
+        };
+        enemy_subtype($s) = :from($s) {
+            nom: :match($s) { masc: "вражеский {$s}", *fem: "вражеская {$s}" },
+            acc: :match($s) { masc.anim: "вражеского {$s}", *fem: "вражескую {$s}" },
+            *gen: :match($s) { masc: "вражеского {$s}", *fem: "вражеской {$s}" }
+        };
+        dissolve_target($t) = "растворите {$t:acc}";
+    "#,
+        )
+        .unwrap();
+
+    let ancient = locale.get_phrase("ancient").unwrap();
+    let enemy = locale
+        .call_phrase("enemy_subtype", &[Value::Phrase(ancient)])
+        .unwrap();
+    let result = locale
+        .call_phrase("dissolve_target", &[Value::Phrase(enemy)])
+        .unwrap();
+
+    assert_eq!(result.to_string(), "растворите вражеского Древнего");
+}
+
+#[test]
+fn eval_from_variant_block_match_default_fallback() {
+    // When a source variant key has no explicit match in the variant block,
+    // falls back to the *-marked default entry which also contains a :match
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        noun = :masc { nom: "слово", acc: "слово", gen: "слова", dat: "слову" };
+        modified($s) = :from($s) {
+            nom: :match($s) { masc: "большой {$s}", *fem: "большая {$s}" },
+            *gen: :match($s) { masc: "большого {$s}", *fem: "большой {$s}" }
+        };
+    "#,
+        )
+        .unwrap();
+
+    let noun = registry.get_phrase("en", "noun").unwrap();
+    let result = registry
+        .call_phrase("en", "modified", &[Value::Phrase(noun)])
+        .unwrap();
+
+    // nom has its own template
+    assert_eq!(result.variant("nom"), "большой слово");
+    // acc and dat fall back to *gen default
+    assert_eq!(result.variant("acc"), "большого слово");
+    assert_eq!(result.variant("dat"), "большого слову");
+    assert_eq!(result.variant("gen"), "большого слова");
+}
+
+#[test]
+fn eval_from_variant_block_mixed_template_and_match() {
+    // Some variant entries use templates, others use :match blocks
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        noun = :masc { nom: "кот", acc: "кота" };
+        wrapper($s) = :from($s) {
+            nom: "добрый {$s}",
+            *acc: :match($s) { masc: "доброго {$s}", *fem: "добрую {$s}" }
+        };
+    "#,
+        )
+        .unwrap();
+
+    let noun = registry.get_phrase("en", "noun").unwrap();
+    let result = registry
+        .call_phrase("en", "wrapper", &[Value::Phrase(noun)])
+        .unwrap();
+
+    // nom uses a plain template
+    assert_eq!(result.variant("nom"), "добрый кот");
+    // acc uses a :match block that selects on gender
+    assert_eq!(result.variant("acc"), "доброго кота");
+}
+
+#[test]
+fn eval_from_variant_block_match_with_dotted_key_fallback() {
+    // Dotted source keys (e.g., nom.few) fall back to the nom template
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        spirit = :masc :anim {
+            nom: "Дух", nom.few: "Духа", nom.many: "Духов",
+            acc: "Духа", acc.few: "Духов", acc.many: "Духов"
+        };
+        allied($s) = :from($s) {
+            nom: :match($s) { masc: "союзный {$s}", *fem: "союзная {$s}" },
+            *acc: :match($s) { masc: "союзного {$s}", *fem: "союзную {$s}" }
+        };
+    "#,
+        )
+        .unwrap();
+
+    let spirit = registry.get_phrase("en", "spirit").unwrap();
+    let result = registry
+        .call_phrase("en", "allied", &[Value::Phrase(spirit)])
+        .unwrap();
+
+    // nom and nom.* use the nom :match block
+    assert_eq!(result.variant("nom"), "союзный Дух");
+    assert_eq!(result.variant("nom.few"), "союзный Духа");
+    assert_eq!(result.variant("nom.many"), "союзный Духов");
+    // acc and acc.* use the *acc default :match block
+    assert_eq!(result.variant("acc"), "союзного Духа");
+    assert_eq!(result.variant("acc.few"), "союзного Духов");
+}
+
+// =============================================================================
 // Escape Sequences
 // =============================================================================
 
