@@ -242,19 +242,23 @@ fn eval_with_from_modifier(
         (source_phrase.tags.clone(), source_phrase.variants.clone())
     };
 
-    // Get the template from the definition body (or evaluate match)
+    // Get the template from the definition body (or evaluate match/variants)
     let template = match &def.body {
         PhraseBody::Simple(t) => t,
-        PhraseBody::Variants(_) => {
-            return Err(EvalError::PhraseNotFound {
-                name: ":from modifier cannot be used with variant definitions".to_string(),
-            });
+        PhraseBody::Variants(entries) => {
+            return eval_from_with_variants(
+                def,
+                from_param,
+                entries,
+                ctx,
+                registry,
+                transform_registry,
+                lang,
+            );
         }
         PhraseBody::Match(_) => {
             // :from + :match: evaluate the match for each inherited variant
             // The match selection runs within each variant evaluation
-            // For now, fall through to evaluate the match body as-is
-            // (full :from + :match integration is in M4b)
             return eval_from_with_match(def, from_param, ctx, registry, transform_registry, lang);
         }
     };
@@ -317,6 +321,163 @@ fn eval_with_from_modifier(
         let text = eval_template(template, ctx, registry, transform_registry, lang)?;
         Ok(Phrase::builder().text(text).tags(inherited_tags).build())
     }
+}
+
+/// Evaluate a phrase with :from modifier and variant blocks.
+///
+/// Each variant key in the definition provides a per-variant template. When a
+/// variant key is requested on the result, the corresponding template is
+/// evaluated with the :from parameter bound to that variant of the source
+/// phrase. If the definition lacks the requested key, it falls back to the
+/// `*`-marked default template.
+fn eval_from_with_variants(
+    def: &PhraseDefinition,
+    from_param: &str,
+    entries: &[VariantEntry],
+    ctx: &mut EvalContext<'_>,
+    registry: &PhraseRegistry,
+    transform_registry: &TransformRegistry,
+    lang: &str,
+) -> Result<Phrase, EvalError> {
+    // Get the source phrase from the parameter and clone its data upfront
+    let (inherited_tags, source_variants) = {
+        let source = ctx
+            .get_param(from_param)
+            .ok_or_else(|| EvalError::PhraseNotFound {
+                name: format!("parameter '{}' not found for :from modifier", from_param),
+            })?;
+        let source_phrase = source
+            .as_phrase()
+            .ok_or_else(|| EvalError::PhraseNotFound {
+                name: format!(
+                    "parameter '{}' must be a Phrase for :from modifier",
+                    from_param
+                ),
+            })?;
+        (source_phrase.tags.clone(), source_phrase.variants.clone())
+    };
+
+    // Build lookup from variant key -> (template, is_default) for the definition's entries
+    let mut def_variants: HashMap<String, &Template> = HashMap::new();
+    let mut default_template: Option<&Template> = None;
+
+    for entry in entries {
+        if entry.is_default {
+            default_template = Some(&entry.template);
+        }
+        for key in &entry.keys {
+            def_variants.insert(key.clone(), &entry.template);
+        }
+    }
+
+    // Evaluate the default text using the first available default template
+    // or the source's default text
+    let default_text = if let Some(tmpl) = default_template {
+        eval_template(tmpl, ctx, registry, transform_registry, lang)?
+    } else if let Some(first_entry) = entries.first() {
+        eval_template(
+            &first_entry.template,
+            ctx,
+            registry,
+            transform_registry,
+            lang,
+        )?
+    } else {
+        String::new()
+    };
+
+    if source_variants.is_empty() {
+        // No source variants: evaluate the default template with the source as-is
+        return Ok(Phrase::builder()
+            .text(default_text)
+            .tags(inherited_tags)
+            .build());
+    }
+
+    // For each source variant key, find the matching definition template and evaluate
+    let mut result_variants = HashMap::new();
+    let mut sorted_keys: Vec<_> = source_variants.keys().collect();
+    sorted_keys.sort();
+
+    for key in sorted_keys {
+        let variant_text = &source_variants[key];
+
+        // Find the matching template: try exact key match, then progressive
+        // fallback by stripping trailing ".segment", then default
+        let template = find_variant_template(key.as_ref(), &def_variants)
+            .or(default_template)
+            .ok_or_else(|| EvalError::MissingVariant {
+                phrase: format!(":from variant block in '{}'", def.name),
+                key: key.to_string(),
+                suggestions: vec![],
+                available: def_variants.keys().cloned().collect(),
+            })?;
+
+        // Build params map: substitute from_param with the variant-specific Phrase
+        let mut variant_params: HashMap<String, Value> = HashMap::new();
+        variant_params.insert(
+            from_param.to_string(),
+            Value::Phrase(
+                Phrase::builder()
+                    .text(variant_text.clone())
+                    .tags(inherited_tags.clone())
+                    .variants(source_variants.clone())
+                    .build(),
+            ),
+        );
+        // Copy all other parameters from the parent context
+        for param_name in &def.parameters {
+            if param_name != from_param
+                && let Some(v) = ctx.get_param(param_name)
+            {
+                variant_params.insert(param_name.clone(), v.clone());
+            }
+        }
+        let mut variant_ctx = EvalContext::with_string_context(
+            &variant_params,
+            ctx.string_context().map(ToString::to_string),
+        );
+
+        let variant_result = eval_template(
+            template,
+            &mut variant_ctx,
+            registry,
+            transform_registry,
+            lang,
+        )?;
+        result_variants.insert(key.clone(), variant_result);
+    }
+
+    Ok(Phrase::builder()
+        .text(default_text)
+        .variants(result_variants)
+        .tags(inherited_tags)
+        .build())
+}
+
+/// Find a template matching a variant key with progressive fallback.
+///
+/// Tries exact key match first, then progressively strips trailing ".segment"
+/// to find a broader match.
+fn find_variant_template<'a>(
+    key: &str,
+    def_variants: &HashMap<String, &'a Template>,
+) -> Option<&'a Template> {
+    // Try exact match
+    if let Some(tmpl) = def_variants.get(key) {
+        return Some(tmpl);
+    }
+
+    // Try progressively shorter keys (fallback resolution)
+    let mut current = key;
+    while let Some(dot_pos) = current.rfind('.') {
+        current = &current[..dot_pos];
+        if let Some(tmpl) = def_variants.get(current) {
+            return Some(tmpl);
+        }
+    }
+
+    None
 }
 
 /// Evaluate a phrase with both :from and :match modifiers.

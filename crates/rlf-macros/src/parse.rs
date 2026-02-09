@@ -170,8 +170,11 @@ impl Parse for PhraseDefinition {
             DefinitionKind::Phrase
         };
 
-        // Validate: phrases cannot have variant block bodies without :match
-        if kind == DefinitionKind::Phrase && matches!(body, PhraseBody::Variants(_)) {
+        // Validate: phrases cannot have variant block bodies without :from or :match
+        if kind == DefinitionKind::Phrase
+            && matches!(body, PhraseBody::Variants(_))
+            && from_param.is_none()
+        {
             return Err(syn::Error::new(
                 name.span,
                 format!(

@@ -852,6 +852,42 @@ fn test_phrase_with_from_is_valid() {
 }
 
 #[test]
+fn test_phrase_with_from_and_variant_block() {
+    let phrases = parse_file(
+        r#"
+        enemy_subtype($s) = :from($s) {
+            nom: "вражеский {$s}",
+            acc: "вражеского {$s}",
+            *gen: "вражеского {$s}"
+        };
+    "#,
+    )
+    .unwrap();
+    assert_eq!(phrases[0].kind, DefinitionKind::Phrase);
+    assert_eq!(phrases[0].from_param, Some("s".to_string()));
+    match &phrases[0].body {
+        PhraseBody::Variants(entries) => {
+            assert_eq!(entries.len(), 3);
+            assert!(!entries[0].is_default);
+            assert!(!entries[1].is_default);
+            assert!(entries[2].is_default);
+        }
+        _ => panic!("expected variant body for :from + variant block"),
+    }
+}
+
+#[test]
+fn test_phrase_without_from_variant_block_rejected() {
+    let result = parse_file(r#"bad($n) = { one: "{$n} card", other: "{$n} cards" };"#);
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("variant block"),
+        "should reject phrase variant block without :from: {err}"
+    );
+}
+
+#[test]
 fn test_mixed_terms_and_phrases() {
     let phrases = parse_file(
         r#"

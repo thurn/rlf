@@ -61,8 +61,11 @@ fn validate_definitions(definitions: &[PhraseDefinition]) -> Result<(), ParseErr
             });
         }
 
-        // Phrases cannot have variant block bodies — use :match for branching
-        if def.kind == DefinitionKind::Phrase && matches!(def.body, PhraseBody::Variants(_)) {
+        // Phrases cannot have variant block bodies unless they use :from
+        if def.kind == DefinitionKind::Phrase
+            && matches!(def.body, PhraseBody::Variants(_))
+            && def.from_param.is_none()
+        {
             return Err(ParseError::Syntax {
                 line: 0,
                 column: 0,

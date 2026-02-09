@@ -766,6 +766,305 @@ fn eval_from_with_additional_parameters() {
 }
 
 // =============================================================================
+// :from + Variant Blocks (Variant-Aware Composition)
+// =============================================================================
+
+#[test]
+fn eval_from_variant_block_basic() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        ancient = :masc :anim {
+            nom: "Древний", acc: "Древнего", gen: "Древнего"
+        };
+        enemy_subtype($s) = :from($s) {
+            nom: "вражеский {$s}",
+            acc: "вражеского {$s}",
+            *gen: "вражеского {$s}"
+        };
+    "#,
+        )
+        .unwrap();
+
+    let ancient = registry.get_phrase("en", "ancient").unwrap();
+    let result = registry
+        .call_phrase("en", "enemy_subtype", &[Value::Phrase(ancient)])
+        .unwrap();
+
+    // Should inherit tags from :from parameter
+    assert!(result.has_tag("masc"));
+    assert!(result.has_tag("anim"));
+
+    // Each variant should use the per-variant template with the source's
+    // corresponding variant
+    assert_eq!(result.variant("nom"), "вражеский Древний");
+    assert_eq!(result.variant("acc"), "вражеского Древнего");
+    assert_eq!(result.variant("gen"), "вражеского Древнего");
+}
+
+#[test]
+fn eval_from_variant_block_with_default_fallback() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        ancient = :masc :anim {
+            nom: "Древний", acc: "Древнего", gen: "Древнего"
+        };
+        enemy_subtype($s) = :from($s) {
+            nom: "вражеский {$s}",
+            *gen: "вражеского {$s}"
+        };
+    "#,
+        )
+        .unwrap();
+
+    let ancient = registry.get_phrase("en", "ancient").unwrap();
+    let result = registry
+        .call_phrase("en", "enemy_subtype", &[Value::Phrase(ancient)])
+        .unwrap();
+
+    // nom has its own template
+    assert_eq!(result.variant("nom"), "вражеский Древний");
+    // acc has no template -> falls back to *gen default template
+    assert_eq!(result.variant("acc"), "вражеского Древнего");
+    // gen matches the *gen template directly
+    assert_eq!(result.variant("gen"), "вражеского Древнего");
+}
+
+#[test]
+fn eval_from_variant_block_different_templates_per_variant() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        ancient = :masc :anim {
+            nom: "Древний", acc: "Древнего", gen: "Древнего"
+        };
+        enemy_subtype($s) = :from($s) {
+            nom: "вражеский {$s}",
+            acc: "вражеского {$s}",
+            *gen: "вражеского {$s}"
+        };
+    "#,
+        )
+        .unwrap();
+
+    // Each variant in the result uses a DIFFERENT template than the others,
+    // so the adjective can agree in case with the noun.
+    let ancient = registry.get_phrase("en", "ancient").unwrap();
+    let result = registry
+        .call_phrase("en", "enemy_subtype", &[Value::Phrase(ancient)])
+        .unwrap();
+
+    assert!(result.has_tag("masc"));
+    assert!(result.has_tag("anim"));
+    // nom template: "вражеский {$s}" with $s = "Древний" (nom variant)
+    assert_eq!(result.variant("nom"), "вражеский Древний");
+    // acc template: "вражеского {$s}" with $s = "Древнего" (acc variant)
+    assert_eq!(result.variant("acc"), "вражеского Древнего");
+    // gen template (default): "вражеского {$s}" with $s = "Древнего" (gen variant)
+    assert_eq!(result.variant("gen"), "вражеского Древнего");
+}
+
+#[test]
+fn eval_from_variant_block_inherits_tags_not_own() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        spirit = :fem {
+            nom: "Дух", acc: "Духа"
+        };
+        enemy_subtype($s) = :from($s) {
+            nom: "вражеская {$s}",
+            *acc: "вражескую {$s}"
+        };
+    "#,
+        )
+        .unwrap();
+
+    let spirit = registry.get_phrase("en", "spirit").unwrap();
+    let result = registry
+        .call_phrase("en", "enemy_subtype", &[Value::Phrase(spirit)])
+        .unwrap();
+
+    // Tags come from the :from source, not the definition
+    assert!(result.has_tag("fem"));
+    assert_eq!(result.variant("nom"), "вражеская Дух");
+    assert_eq!(result.variant("acc"), "вражескую Духа");
+}
+
+#[test]
+fn eval_from_variant_block_dotted_key_fallback() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        spirit = :masc :anim {
+            nom: "Дух", nom.few: "Духа", nom.many: "Духов",
+            acc: "Духа", acc.few: "Духов", acc.many: "Духов"
+        };
+        allied_subtype($s) = :from($s) {
+            nom: "союзный {$s}",
+            *acc: "союзного {$s}"
+        };
+    "#,
+        )
+        .unwrap();
+
+    let spirit = registry.get_phrase("en", "spirit").unwrap();
+    let result = registry
+        .call_phrase("en", "allied_subtype", &[Value::Phrase(spirit)])
+        .unwrap();
+
+    // nom.few should match the "nom" template (progressive fallback)
+    assert_eq!(result.variant("nom"), "союзный Дух");
+    assert_eq!(result.variant("nom.few"), "союзный Духа");
+    assert_eq!(result.variant("nom.many"), "союзный Духов");
+    // acc and acc.* fall back to *acc default template
+    assert_eq!(result.variant("acc"), "союзного Духа");
+    assert_eq!(result.variant("acc.few"), "союзного Духов");
+}
+
+#[test]
+fn eval_from_variant_block_additional_params() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        spirit = :masc { nom: "Дух", acc: "Духа" };
+        labeled_sub($s, $label) = :from($s) {
+            nom: "{$label}: {$s}",
+            *acc: "{$label}: {$s}"
+        };
+    "#,
+        )
+        .unwrap();
+
+    let spirit = registry.get_phrase("en", "spirit").unwrap();
+    let result = registry
+        .call_phrase(
+            "en",
+            "labeled_sub",
+            &[Value::Phrase(spirit), Value::from("Type")],
+        )
+        .unwrap();
+
+    assert!(result.has_tag("masc"));
+    assert_eq!(result.variant("nom"), "Type: Дух");
+    assert_eq!(result.variant("acc"), "Type: Духа");
+}
+
+#[test]
+fn eval_from_variant_block_source_no_variants() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        simple = :fem "carta";
+        wrapped($s) = :from($s) {
+            nom: "la {$s}",
+            *acc: "la {$s}"
+        };
+    "#,
+        )
+        .unwrap();
+
+    let simple = registry.get_phrase("en", "simple").unwrap();
+    let result = registry
+        .call_phrase("en", "wrapped", &[Value::Phrase(simple)])
+        .unwrap();
+
+    // Source has no variants, so result has no variants either
+    assert!(result.has_tag("fem"));
+    assert!(result.variants.is_empty());
+    // Default text comes from the first entry template
+    assert_eq!(result.to_string(), "la carta");
+}
+
+#[test]
+fn eval_from_variant_block_consumer_selects_variant() {
+    let mut locale = Locale::builder().language("en").build();
+    locale
+        .load_translations_str(
+            "en",
+            r#"
+        ancient = :masc :anim {
+            nom: "Древний", acc: "Древнего", gen: "Древнего"
+        };
+        enemy_subtype($s) = :from($s) {
+            nom: "вражеский {$s}",
+            acc: "вражеского {$s}",
+            *gen: "вражеского {$s}"
+        };
+        dissolve_target($t) = "растворите {$t:acc}";
+    "#,
+        )
+        .unwrap();
+
+    let ancient = locale.get_phrase("ancient").unwrap();
+    let enemy = locale
+        .call_phrase("enemy_subtype", &[Value::Phrase(ancient)])
+        .unwrap();
+    let result = locale
+        .call_phrase("dissolve_target", &[Value::Phrase(enemy)])
+        .unwrap();
+
+    // Consumer selects :acc on the composed phrase
+    assert_eq!(result.to_string(), "растворите вражеского Древнего");
+}
+
+#[test]
+fn eval_from_variant_block_parse_in_file_parser() {
+    // Verify the file parser accepts :from + variant blocks
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        noun = :masc { nom: "word", acc: "word" };
+        modified($s) = :from($s) {
+            nom: "big {$s}",
+            *acc: "big {$s}"
+        };
+    "#,
+        )
+        .unwrap();
+
+    let noun = registry.get_phrase("en", "noun").unwrap();
+    let result = registry
+        .call_phrase("en", "modified", &[Value::Phrase(noun)])
+        .unwrap();
+    assert_eq!(result.variant("nom"), "big word");
+    assert_eq!(result.variant("acc"), "big word");
+}
+
+#[test]
+fn eval_from_variant_block_chained_composition() {
+    let mut locale = Locale::builder().language("en").build();
+    locale
+        .load_translations_str(
+            "en",
+            r#"
+        ancient = :an { one: "Ancient", other: "Ancients" };
+        subtype($s) = :from($s) {
+            one: "mighty {$s}",
+            *other: "mighty {$s}"
+        };
+        dissolve_all($s) = "Dissolve all {subtype($s):other}.";
+    "#,
+        )
+        .unwrap();
+
+    let ancient = locale.get_phrase("ancient").unwrap();
+    let result = locale
+        .call_phrase("dissolve_all", &[Value::Phrase(ancient)])
+        .unwrap();
+    assert_eq!(result.to_string(), "Dissolve all mighty Ancients.");
+}
+
+// =============================================================================
 // Escape Sequences
 // =============================================================================
 
