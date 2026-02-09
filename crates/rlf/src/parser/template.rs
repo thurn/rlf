@@ -90,23 +90,73 @@ fn merge_literals(segments: Vec<Segment>) -> Vec<Segment> {
 
 /// Parse a single segment (escape, interpolation, or literal).
 fn segment(input: &mut &str) -> ModalResult<Segment> {
-    alt((escape_sequence, interpolation, literal_char)).parse_next(input)
+    alt((template_escape_sequence, interpolation, literal_char)).parse_next(input)
 }
 
-/// Parse escape sequences: {{ -> {, }} -> }
-fn escape_sequence(input: &mut &str) -> ModalResult<Segment> {
-    alt((
-        "{{".value(Segment::Literal("{".to_string())),
-        "}}".value(Segment::Literal("}".to_string())),
-    ))
-    .parse_next(input)
+/// Parse template escapes: `{{`, `}}`, `\"`, `\\`, and `\u{HEX}`.
+fn template_escape_sequence(input: &mut &str) -> ModalResult<Segment> {
+    if let Some(remaining) = input.strip_prefix("{{") {
+        *input = remaining;
+        return Ok(Segment::Literal("{".to_string()));
+    }
+    if let Some(remaining) = input.strip_prefix("}}") {
+        *input = remaining;
+        return Ok(Segment::Literal("}".to_string()));
+    }
+
+    let escaped = parse_backslash_escape_char(input)?;
+    Ok(Segment::Literal(escaped.to_string()))
 }
 
 /// Parse a single literal character (not { or }).
 fn literal_char(input: &mut &str) -> ModalResult<Segment> {
-    none_of(['{', '}'])
+    none_of(['{', '}', '\\'])
         .map(|c: char| Segment::Literal(c.to_string()))
         .parse_next(input)
+}
+
+/// Parse a backslash escape and return the decoded character.
+fn parse_backslash_escape_char(input: &mut &str) -> ModalResult<char> {
+    let Some(rest) = input.strip_prefix('\\') else {
+        return Err(ErrMode::Backtrack(ContextError::new()));
+    };
+
+    if let Some(remaining) = rest.strip_prefix('"') {
+        *input = remaining;
+        return Ok('"');
+    }
+    if let Some(remaining) = rest.strip_prefix('\\') {
+        *input = remaining;
+        return Ok('\\');
+    }
+    if let Some(unicode_body) = rest.strip_prefix("u{")
+        && let Some((decoded, remaining)) = parse_unicode_escape_body(unicode_body)
+    {
+        *input = remaining;
+        return Ok(decoded);
+    }
+
+    Err(ErrMode::Backtrack(ContextError::new()))
+}
+
+/// Parse the body of `\u{HEX}` and return the decoded character and remaining input.
+fn parse_unicode_escape_body(input: &str) -> Option<(char, &str)> {
+    let close_index = input.find('}')?;
+    let hex_with_underscores = &input[..close_index];
+    let remaining = &input[close_index + 1..];
+
+    if hex_with_underscores.is_empty() {
+        return None;
+    }
+
+    let hex: String = hex_with_underscores.chars().filter(|c| *c != '_').collect();
+    if hex.is_empty() || hex.len() > 6 || !hex.chars().all(|c| c.is_ascii_hexdigit()) {
+        return None;
+    }
+
+    let value = u32::from_str_radix(&hex, 16).ok()?;
+    let decoded = char::from_u32(value)?;
+    Some((decoded, remaining))
 }
 
 /// Parse an interpolation: { transforms* reference selectors* }
@@ -339,20 +389,15 @@ fn string_literal_arg(input: &mut &str) -> ModalResult<Reference> {
     let _ = '"'.parse_next(input)?;
     let mut result = String::new();
     loop {
-        match any.parse_next(input)? {
-            '"' => break,
-            '\\' => {
-                let escaped = any.parse_next(input)?;
-                match escaped {
-                    '"' => result.push('"'),
-                    '\\' => result.push('\\'),
-                    other => {
-                        result.push('\\');
-                        result.push(other);
-                    }
-                }
-            }
-            c => result.push(c),
+        if let Some(remaining) = input.strip_prefix('"') {
+            *input = remaining;
+            break;
+        }
+
+        if input.starts_with('\\') {
+            result.push(parse_backslash_escape_char(input)?);
+        } else {
+            result.push(any.parse_next(input)?);
         }
     }
     Ok(Reference::StringLiteral(result))

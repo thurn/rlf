@@ -316,6 +316,34 @@ fn test_escape_sequences_in_template() {
 }
 
 #[test]
+fn test_template_supports_escaped_quote() {
+    let phrases = parse_file(r#"quote = "He said \"hi\".";"#).unwrap();
+    match &phrases[0].body {
+        PhraseBody::Simple(t) => {
+            assert_eq!(t.segments, vec![Segment::Literal("He said \"hi\".".into())]);
+        }
+        _ => panic!("expected simple body"),
+    }
+}
+
+#[test]
+fn test_template_supports_unicode_escape() {
+    let phrases = parse_file(r#"symbol = "\u{25CF}";"#).unwrap();
+    match &phrases[0].body {
+        PhraseBody::Simple(t) => {
+            assert_eq!(t.segments, vec![Segment::Literal("●".into())]);
+        }
+        _ => panic!("expected simple body"),
+    }
+}
+
+#[test]
+fn test_template_rejects_invalid_unicode_escape() {
+    let result = parse_file(r#"symbol = "\u{}";"#);
+    assert!(result.is_err());
+}
+
+#[test]
 fn test_russian_translation_file() {
     let phrases = parse_file(
         r#"

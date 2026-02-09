@@ -557,6 +557,33 @@ fn test_escape_close_brace() {
 }
 
 #[test]
+fn test_escape_quote() {
+    let t = parse_template(r#"He said \"hi\"."#).unwrap();
+    assert_eq!(t.segments, vec![Segment::Literal("He said \"hi\".".into())]);
+}
+
+#[test]
+fn test_escape_backslash() {
+    let t = parse_template(r#"Path: C:\\temp"#).unwrap();
+    assert_eq!(
+        t.segments,
+        vec![Segment::Literal(r#"Path: C:\temp"#.into())]
+    );
+}
+
+#[test]
+fn test_escape_unicode_scalar() {
+    let t = parse_template(r#"\u{25CF}"#).unwrap();
+    assert_eq!(t.segments, vec![Segment::Literal("●".into())]);
+}
+
+#[test]
+fn test_reject_invalid_unicode_escape() {
+    let result = parse_template(r#"\u{}"#);
+    assert!(result.is_err());
+}
+
+#[test]
 fn test_dollar_literal_in_text() {
     let t = parse_template("Price is $5").unwrap();
     assert_eq!(t.segments, vec![Segment::Literal("Price is $5".into())]);
