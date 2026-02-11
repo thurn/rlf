@@ -26,9 +26,10 @@ use crate::input::{
     Selector, Template, TransformContext, VariantEntryBody,
 };
 
-/// Known transforms (universal only for Phase 5).
-/// Phase 6+ will add @a/@an which require tags.
-const KNOWN_TRANSFORMS: &[&str] = &["cap", "upper", "lower"];
+/// Known transforms validated at macro expansion time.
+///
+/// This includes universal transforms plus built-in English article transforms.
+const KNOWN_TRANSFORMS: &[&str] = &["cap", "upper", "lower", "a", "an", "the"];
 
 /// Validation context built from MacroInput.
 pub struct ValidationContext {
@@ -234,16 +235,14 @@ fn validate_interpolation(
             if !suggestions.is_empty() {
                 msg.push_str(&format!("\nhelp: did you mean '@{}'?", suggestions[0]));
             } else {
-                msg.push_str("\nnote: available transforms: cap, upper, lower");
+                msg.push_str("\nnote: available transforms: cap, upper, lower, a, an, the");
             }
             return Err(syn::Error::new(transform.name.span, msg));
         }
 
         // Transform tag validation (MACRO-12)
-        // Note: Universal transforms (cap, upper, lower) don't require tags.
-        // This infrastructure is for Phase 6+ when @a/@an are added which require
-        // the 'vowel' tag. For now, no validation needed since all transforms
-        // are universal.
+        // Note: Tag requirements are enforced at runtime by the transform itself.
+        // At macro time we only validate that transform names are recognized.
 
         // Validate dynamic context parameter is declared
         let dynamic_param = match &transform.context {
