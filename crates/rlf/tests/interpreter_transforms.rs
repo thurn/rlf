@@ -1565,6 +1565,46 @@ fn transforms_are_language_scoped() {
 }
 
 #[test]
+fn transforms_fallback_to_primary_language_subtag() {
+    let registry = TransformRegistry::new();
+
+    assert_eq!(registry.get("a", "en-US"), Some(TransformKind::EnglishA));
+    assert_eq!(
+        registry.get("plural", "en-x-bracket"),
+        Some(TransformKind::EnglishPlural)
+    );
+    assert_eq!(registry.get("o", "pt-BR"), Some(TransformKind::PortugueseO));
+    assert_eq!(
+        registry.get("count", "zh-Hans"),
+        Some(TransformKind::ChineseCount)
+    );
+    assert_eq!(registry.get("a", "bracket"), None);
+}
+
+#[test]
+fn locale_eval_uses_primary_language_subtag_for_transforms() {
+    let source = r#"
+        card = :a { *one: "card", other: "cards" };
+        draw_card = "Draw {@a card:one}.";
+        many_cards = "{@plural card}";
+    "#;
+
+    let mut locale = Locale::builder().language("en-x-bracket").build();
+    locale
+        .load_translations_str("en-x-bracket", source)
+        .unwrap();
+
+    assert_eq!(
+        locale.get_phrase("draw_card").unwrap().to_string(),
+        "Draw a card."
+    );
+    assert_eq!(
+        locale.get_phrase("many_cards").unwrap().to_string(),
+        "cards"
+    );
+}
+
+#[test]
 fn universal_transforms_work_in_all_languages() {
     let registry = TransformRegistry::new();
 

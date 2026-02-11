@@ -2451,11 +2451,18 @@ impl TransformRegistry {
     /// Resolution order:
     /// 1. Resolve aliases (e.g., @an -> @a, @die/@das -> @der)
     /// 2. Universal transforms (@cap, @upper, @lower)
-    /// 3. Language-specific transforms (@a, @the for English; @der, @ein for German)
+    /// 3. Language-specific transforms for exact language tag
+    /// 4. Language-specific transforms for primary subtag fallback
+    ///
+    /// Primary-subtag fallback lets locale tags like `en-US`, `en-x-test`,
+    /// `pt-BR`, or `zh-Hans` reuse transform definitions registered for
+    /// `en`, `pt`, and `zh` respectively.
     pub fn get(&self, name: &str, lang: &str) -> Option<TransformKind> {
+        let fallback_lang = primary_language_subtag(lang);
+        let alias_lang = fallback_lang.unwrap_or(lang);
         // Resolve aliases first (some are language-specific)
         // Order matters: more specific patterns (with lang) before wildcards
-        let canonical = match (name, lang) {
+        let canonical = match (name, alias_lang) {
             ("an", _) => "a",                // English alias: @an resolves to @a
             ("die" | "das", _) => "der",     // German aliases: @die/@das resolve to @der
             ("eine", _) => "ein",            // German alias: @eine resolves to @ein
@@ -2482,59 +2489,75 @@ impl TransformRegistry {
             _ => {}
         }
 
-        // Language-specific transforms
-        match (lang, canonical) {
-            ("en", "a") => Some(TransformKind::EnglishA),
-            ("en", "the") => Some(TransformKind::EnglishThe),
-            ("en", "plural") => Some(TransformKind::EnglishPlural),
-            ("de", "der") => Some(TransformKind::GermanDer),
-            ("de", "ein") => Some(TransformKind::GermanEin),
-            ("nl", "de") => Some(TransformKind::DutchDe),
-            ("nl", "een") => Some(TransformKind::DutchEen),
-            ("es", "el") => Some(TransformKind::SpanishEl),
-            ("es", "un") => Some(TransformKind::SpanishUn),
-            ("pt", "o") => Some(TransformKind::PortugueseO),
-            ("pt", "um") => Some(TransformKind::PortugueseUm),
-            ("pt", "de") => Some(TransformKind::PortugueseDe),
-            ("pt", "em") => Some(TransformKind::PortugueseEm),
-            ("fr", "le") => Some(TransformKind::FrenchLe),
-            ("fr", "un") => Some(TransformKind::FrenchUn),
-            ("fr", "de") => Some(TransformKind::FrenchDe),
-            ("fr", "au") => Some(TransformKind::FrenchAu),
-            ("fr", "liaison") => Some(TransformKind::FrenchLiaison),
-            ("it", "il") => Some(TransformKind::ItalianIl),
-            ("it", "un") => Some(TransformKind::ItalianUn),
-            ("it", "di") => Some(TransformKind::ItalianDi),
-            ("it", "a") => Some(TransformKind::ItalianA),
-            ("el", "o") => Some(TransformKind::GreekO),
-            ("el", "enas") => Some(TransformKind::GreekEnas),
-            ("ro", "def") => Some(TransformKind::RomanianDef),
-            ("ar", "al") => Some(TransformKind::ArabicAl),
-            ("fa", "ezafe") => Some(TransformKind::PersianEzafe),
-            ("zh", "count") => Some(TransformKind::ChineseCount),
-            ("ja", "count") => Some(TransformKind::JapaneseCount),
-            ("ko", "count") => Some(TransformKind::KoreanCount),
-            ("vi", "count") => Some(TransformKind::VietnameseCount),
-            ("th", "count") => Some(TransformKind::ThaiCount),
-            ("bn", "count") => Some(TransformKind::BengaliCount),
-            ("id", "plural") => Some(TransformKind::IndonesianPlural),
-            ("ko", "particle") => Some(TransformKind::KoreanParticle),
-            ("ja", "particle") => Some(TransformKind::JapaneseParticle),
-            ("tr", "inflect") => Some(TransformKind::TurkishInflect),
-            ("fi", "inflect") => Some(TransformKind::FinnishInflect),
-            ("hu", "inflect") => Some(TransformKind::HungarianInflect),
-            ("hi", "ka") => Some(TransformKind::HindiKa),
-            ("hi", "ko") => Some(TransformKind::HindiKo),
-            ("hi", "se") => Some(TransformKind::HindiSe),
-            ("hi", "me") => Some(TransformKind::HindiMe),
-            ("hi", "par") => Some(TransformKind::HindiPar),
-            ("hi", "ne") => Some(TransformKind::HindiNe),
-            _ => None,
-        }
+        resolve_language_transform(lang, canonical).or_else(|| {
+            fallback_lang
+                .filter(|primary| *primary != lang)
+                .and_then(|primary| resolve_language_transform(primary, canonical))
+        })
     }
 
     /// Check if a transform exists for a language.
     pub fn has_transform(&self, name: &str, lang: &str) -> bool {
         self.get(name, lang).is_some()
+    }
+}
+
+fn primary_language_subtag(lang: &str) -> Option<&str> {
+    let primary = lang.split(['-', '_']).next()?;
+    if primary.is_empty() || primary == lang {
+        None
+    } else {
+        Some(primary)
+    }
+}
+
+fn resolve_language_transform(lang: &str, canonical: &str) -> Option<TransformKind> {
+    match (lang, canonical) {
+        ("en", "a") => Some(TransformKind::EnglishA),
+        ("en", "the") => Some(TransformKind::EnglishThe),
+        ("en", "plural") => Some(TransformKind::EnglishPlural),
+        ("de", "der") => Some(TransformKind::GermanDer),
+        ("de", "ein") => Some(TransformKind::GermanEin),
+        ("nl", "de") => Some(TransformKind::DutchDe),
+        ("nl", "een") => Some(TransformKind::DutchEen),
+        ("es", "el") => Some(TransformKind::SpanishEl),
+        ("es", "un") => Some(TransformKind::SpanishUn),
+        ("pt", "o") => Some(TransformKind::PortugueseO),
+        ("pt", "um") => Some(TransformKind::PortugueseUm),
+        ("pt", "de") => Some(TransformKind::PortugueseDe),
+        ("pt", "em") => Some(TransformKind::PortugueseEm),
+        ("fr", "le") => Some(TransformKind::FrenchLe),
+        ("fr", "un") => Some(TransformKind::FrenchUn),
+        ("fr", "de") => Some(TransformKind::FrenchDe),
+        ("fr", "au") => Some(TransformKind::FrenchAu),
+        ("fr", "liaison") => Some(TransformKind::FrenchLiaison),
+        ("it", "il") => Some(TransformKind::ItalianIl),
+        ("it", "un") => Some(TransformKind::ItalianUn),
+        ("it", "di") => Some(TransformKind::ItalianDi),
+        ("it", "a") => Some(TransformKind::ItalianA),
+        ("el", "o") => Some(TransformKind::GreekO),
+        ("el", "enas") => Some(TransformKind::GreekEnas),
+        ("ro", "def") => Some(TransformKind::RomanianDef),
+        ("ar", "al") => Some(TransformKind::ArabicAl),
+        ("fa", "ezafe") => Some(TransformKind::PersianEzafe),
+        ("zh", "count") => Some(TransformKind::ChineseCount),
+        ("ja", "count") => Some(TransformKind::JapaneseCount),
+        ("ko", "count") => Some(TransformKind::KoreanCount),
+        ("vi", "count") => Some(TransformKind::VietnameseCount),
+        ("th", "count") => Some(TransformKind::ThaiCount),
+        ("bn", "count") => Some(TransformKind::BengaliCount),
+        ("id", "plural") => Some(TransformKind::IndonesianPlural),
+        ("ko", "particle") => Some(TransformKind::KoreanParticle),
+        ("ja", "particle") => Some(TransformKind::JapaneseParticle),
+        ("tr", "inflect") => Some(TransformKind::TurkishInflect),
+        ("fi", "inflect") => Some(TransformKind::FinnishInflect),
+        ("hu", "inflect") => Some(TransformKind::HungarianInflect),
+        ("hi", "ka") => Some(TransformKind::HindiKa),
+        ("hi", "ko") => Some(TransformKind::HindiKo),
+        ("hi", "se") => Some(TransformKind::HindiSe),
+        ("hi", "me") => Some(TransformKind::HindiMe),
+        ("hi", "par") => Some(TransformKind::HindiPar),
+        ("hi", "ne") => Some(TransformKind::HindiNe),
+        _ => None,
     }
 }
