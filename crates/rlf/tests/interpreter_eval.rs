@@ -766,6 +766,107 @@ fn eval_from_with_additional_parameters() {
 }
 
 // =============================================================================
+// :from Passthrough (Case Variant Propagation)
+// =============================================================================
+
+#[test]
+fn eval_from_passthrough_case_variants() {
+    // Confirms :from automatically iterates case-like variants (nom, acc, gen)
+    // without requiring an explicit variant block in the wrapper phrase.
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        noun = :masc { nom: "враг", acc: "врага", gen: "врага" };
+        wrapper($s) = :from($s) "{$s} (wrapped)";
+    "#,
+        )
+        .unwrap();
+
+    let noun = registry.get_phrase("en", "noun").unwrap();
+    let result = registry
+        .call_phrase("en", "wrapper", &[Value::Phrase(noun)])
+        .unwrap();
+
+    // Tags inherited from noun
+    assert!(result.has_tag("masc"));
+
+    // Each variant produces the correct case form with the suffix
+    assert_eq!(result.variant("nom"), "враг (wrapped)");
+    assert_eq!(result.variant("acc"), "врага (wrapped)");
+    assert_eq!(result.variant("gen"), "врага (wrapped)");
+}
+
+#[test]
+fn eval_from_passthrough_composition_chain() {
+    // Passes a term through a :from phrase, then a consumer phrase selects :acc,
+    // confirming the accusative form propagates through the full composition chain.
+    let mut locale = Locale::builder().language("en").build();
+    locale
+        .load_translations_str(
+            "en",
+            r#"
+        noun = :masc { nom: "враг", acc: "врага", gen: "врага" };
+        wrapper($s) = :from($s) "{$s} (wrapped)";
+        dissolve($t) = "развеять {$t:acc}";
+    "#,
+        )
+        .unwrap();
+
+    let noun = locale.get_phrase("noun").unwrap();
+    let wrapped = locale
+        .call_phrase("wrapper", &[Value::Phrase(noun)])
+        .unwrap();
+    let result = locale
+        .call_phrase("dissolve", &[Value::Phrase(wrapped)])
+        .unwrap();
+
+    assert_eq!(result.to_string(), "развеять врага (wrapped)");
+}
+
+#[test]
+fn eval_from_passthrough_with_match() {
+    // Tests :from($p) :match($n) where {$p} in match branches resolves
+    // to the correct case variant without an explicit variant block.
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        noun = :masc { nom: "враг", acc: "врага", gen: "врага" };
+        count_pred($n, $base) = :from($base) :match($n) {
+            1: "{$base}",
+            *other: "{$n} {$base}",
+        };
+    "#,
+        )
+        .unwrap();
+
+    let noun = registry.get_phrase("en", "noun").unwrap();
+
+    // Singular branch: {$base} resolves to per-variant text
+    let singular = registry
+        .call_phrase(
+            "en",
+            "count_pred",
+            &[Value::from(1), Value::Phrase(noun.clone())],
+        )
+        .unwrap();
+    assert!(singular.has_tag("masc"));
+    assert_eq!(singular.variant("nom"), "враг");
+    assert_eq!(singular.variant("acc"), "врага");
+    assert_eq!(singular.variant("gen"), "врага");
+
+    // Plural branch: "{$n} {$base}" resolves per-variant
+    let plural = registry
+        .call_phrase("en", "count_pred", &[Value::from(3), Value::Phrase(noun)])
+        .unwrap();
+    assert!(plural.has_tag("masc"));
+    assert_eq!(plural.variant("nom"), "3 враг");
+    assert_eq!(plural.variant("acc"), "3 врага");
+    assert_eq!(plural.variant("gen"), "3 врага");
+}
+
+// =============================================================================
 // :from + Variant Blocks (Variant-Aware Composition)
 // =============================================================================
 

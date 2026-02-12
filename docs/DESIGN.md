@@ -516,6 +516,60 @@ count_subtype($n, $s) = :from($s) :match($n) {
 
 The declaration order of `:from` and `:match` does not matter.
 
+**Automatic variant passthrough.** `:from` automatically iterates over all
+variants of the source parameter, binding `$param` to each variant's text in
+turn. This means a simple one-line `:from` template already propagates case
+variants correctly -- explicit variant blocks that just pass selectors through
+are unnecessary.
+
+For example, suppose a Russian noun has nominative, accusative, and genitive
+forms:
+
+```
+noun = :masc { nom: "враг", acc: "врага", gen: "врага" };
+```
+
+The verbose approach manually selects each case:
+
+```
+// Verbose: unnecessary variant block
+wrapper($s) = :from($s) {
+    nom: "{$s:nom} (wrapped)",
+    acc: "{$s:acc} (wrapped)",
+    gen: "{$s:gen} (wrapped)",
+};
+```
+
+The simple form produces identical results because `:from` evaluates the
+template once per source variant, binding `$s` to the correct case form each
+time:
+
+```
+// Simple: :from handles variant iteration automatically
+wrapper($s) = :from($s) "{$s} (wrapped)";
+```
+
+Both produce:
+- `wrapper(noun):nom` -> `"враг (wrapped)"`
+- `wrapper(noun):acc` -> `"врага (wrapped)"`
+- `wrapper(noun):gen` -> `"врага (wrapped)"`
+
+Variant blocks are only needed when the **wrapper text itself** changes per
+variant (e.g., Russian adjective agreement where the adjective declines
+alongside the noun). If the surrounding text is identical across variants, use
+the simple one-line form.
+
+This also works with `:from` + `:match`: `{$param}` in match branches resolves
+to the correct per-variant text automatically:
+
+```
+count_pred($n, $base) = :from($base) :match($n) {
+    1: "{$base}",
+    *other: "{$n} {$base}",
+};
+// count_pred(3, noun):acc -> "3 врага"
+```
+
 **`:from` with variant blocks.** When `:from($param)` is combined with a
 variant block, each variant entry provides a per-variant template evaluated in
 the context of the corresponding variant of the `:from` parameter. This enables
