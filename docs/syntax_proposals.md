@@ -104,6 +104,7 @@ work, not passthrough.
 
 ### Impact
 
+
 - **~130 lines saved** in a Russian translation file (20-25 phrases x 6 lines
   reduced to 1 line each).
 - No new syntax, no new concepts, no implementation work beyond tests and docs.
@@ -111,144 +112,7 @@ work, not passthrough.
 
 ---
 
-## Proposal 2: Value-Returning Transforms
-
-### Problem
-
-Russian has ~40 game nouns (enemy, ally, character, card, event, 23 character
-subtypes, figment types). Each requires 12 forms (6 cases x 2 numbers). That's
-~480 hand-written forms. Most Russian nouns follow one of ~4 declension
-patterns. "Враг" (enemy), "Воин" (Warrior), "союзник" (ally) all decline
-identically -- the only difference is the stem.
-
-One of RLF's design principles is to provide a large standard library of
-transforms with per-language knowledge. In principle, a transform like
-`@decline:masc_anim_hard` could generate all 12 forms from a stem. However,
-the current transform architecture cannot do this because **transforms return
-`String`, not `Value`**, so they cannot generate new Phrase structures with
-variant maps.
-
-### Current Architecture
-
-```
-apply_transforms() iterates right-to-left:
-  1. First transform receives Value::Phrase (with tags and variants)
-  2. Transform executes, returns String
-  3. Result wrapped as Value::String for next transform
-  4. Tags and variants are LOST after first transform
-```
-
-Key signatures:
-
-```rust
-// evaluator.rs:796
-fn apply_transforms(...) -> Result<String, EvalError>
-
-// transforms.rs:142
-pub fn execute(&self, value: &Value, context: Option<&Value>, lang: &str)
-    -> Result<String, EvalError>
-```
-
-### Proposed Architecture
-
-Change transforms to return `Value` instead of `String`. This enables a
-**two-tier** system where some transforms generate new Phrase values (with
-variants and tags) while others modify text as before.
-
-**Step 1: Change `TransformKind::execute()` return type.**
-
-```rust
-// transforms.rs -- new signature
-pub fn execute(&self, value: &Value, context: Option<&Value>, lang: &str)
-    -> Result<Value, EvalError>
-```
-
-Existing text-only transforms wrap their `String` result as `Value::String`
-before returning. This is backward-compatible -- all existing transforms
-continue to work with a one-line change per implementation.
-
-**Step 2: Change `apply_transforms()` to thread `Value` through.**
-
-```rust
-// evaluator.rs -- new implementation
-fn apply_transforms(
-    initial_value: &Value,
-    transforms: &[Transform],
-    ...
-) -> Result<Value, EvalError> {
-    let mut current = initial_value.clone();
-    for transform in transforms.iter().rev() {
-        let kind = transform_registry.get(&transform.name, lang)?;
-        let ctx_val = resolve_transform_context(&transform.context, ctx)?;
-        current = kind.execute(&current, ctx_val.as_ref(), lang)?;
-    }
-    Ok(current)
-}
-```
-
-**Step 3: Update callers** to convert `Value` to `String` at the output
-boundary only.
-
-```rust
-// In eval_template(), where transform results are pushed to output:
-let transformed = apply_transforms(&selected, transforms, ...)?;
-output.push_str(&transformed.to_string());
-```
-
-### What This Enables
-
-**Generative transforms** that return `Value::Phrase` with variant maps:
-
-```
-// Hypothetical Russian translation file
-enemy = @decline:masc_anim_hard "враг";
-```
-
-The `@decline` transform would:
-1. Read the stem text ("враг") from `value.to_string()`
-2. Read the declension class ("masc_anim_hard") from the context parameter
-3. Apply Russian morphology rules to generate all case/number forms
-4. Return `Value::Phrase(Phrase { text: "враг", variants: { nom.one: "враг",
-   gen.one: "врага", acc.one: "врага", ... }, tags: ["masc", "anim"] })`
-
-**Tags preserved through chaining.** Since transforms now pass `Value`
-through, a downstream transform can still read tags set by an upstream
-transform or by the original Phrase. This fixes the current limitation where
-`{@cap @a card}` loses tags after `@a` executes.
-
-**Article transforms could return Phrase.** German `@der` currently returns a
-string like "den". If it returned a Phrase, it could carry case/gender variants
-for downstream composition.
-
-### Complexity Assessment
-
-| Change | Files Affected | Risk |
-|--------|---------------|------|
-| `execute()` return type | transforms.rs | Low -- mechanical change |
-| `apply_transforms()` return type | evaluator.rs | Low -- one function |
-| Caller updates | evaluator.rs | Low -- add `.to_string()` at output |
-| Existing transform implementations | transforms.rs | Low -- wrap returns in `Value::String()` |
-| New generative transforms | transforms.rs + semantics | Medium -- new per-language code |
-
-The architecture change itself is low-risk. The per-language morphology
-implementations are the real effort, but they can be added incrementally (one
-language at a time, one declension class at a time).
-
-### Design Note
-
-An alternative is a parse-time `:pattern` macro system that expands templates
-into variant blocks before evaluation. This is simpler to implement but
-language-agnostic -- it shifts morphological knowledge to the translator. The
-Value-returning transform approach aligns better with RLF's principle of
-encoding language knowledge in the standard library so translators don't need
-to be linguists.
-
-Both approaches could coexist: `:pattern` for irregular forms, `@decline` for
-regular paradigms.
-
----
-
-## Proposal 3: Required Explicit Selection
+## Proposal 2: Required Explicit Selection
 
 ### Problem
 
@@ -335,7 +199,7 @@ already tracks this implicitly (via the variant binding in
 
 ---
 
-## Proposal 4: Body-less `:from` for Transparent Wrappers
+## Proposal 3: Body-less `:from` for Transparent Wrappers
 
 ### Problem
 
@@ -401,7 +265,7 @@ variant chain is preserved.
 
 ---
 
-## Proposal 5: Translation Linter
+## Proposal 4: Translation Linter
 
 ### Problem
 
@@ -582,9 +446,9 @@ predicate_with_indefinite_article($p) = :from($p);
 
 #### Lint 5: Missing Selector on Multi-Dimensional Phrase (runtime)
 
-This is Proposal 3 (Required Explicit Selection). Unlike the other lints, this
+This is Proposal 2 (Required Explicit Selection). Unlike the other lints, this
 one runs during evaluation because it requires knowing the runtime `Value` type
-of a parameter. See Proposal 3 for details.
+of a parameter. See Proposal 2 for details.
 
 #### Lint 6: Phrase Argument Without `:from` (runtime)
 
@@ -675,7 +539,7 @@ VerboseTransparentWrapper {
 
 **Phase 2: Runtime lints (Lints 5-6).**
 
-Lint 5 (Proposal 3): check in the evaluator during template interpolation for
+Lint 5 (Proposal 2): check in the evaluator during template interpolation for
 bare references to Phrases with multi-dimensional variants outside `:from`
 context. Produces warnings or errors.
 
@@ -713,17 +577,16 @@ All static lints are **suggestions** (non-blocking). They appear in
 
 | Proposal | Impact | Complexity | Action |
 |----------|--------|------------|--------|
-| 1. `:from` passthrough docs | High | None (tests + docs only) | Write tests, update translation appendix |
-| 2. Value-returning transforms | High (future) | Medium | Architecture change, then incremental |
-| 3. Required explicit selection | Medium | Low-Medium | Evaluator validation pass |
-| 4. Body-less `:from` | Low-Medium | Low | ~10-line parser change per parser |
-| 5. Translation linter | Medium | Low-Medium | New `LoadWarning` variants + AST pass |
+| 1. `:from` passthrough docs | High | None (tests + docs only) | Write tests, update DESIGN.md |
+| 2. Required explicit selection | Medium | Low-Medium | Evaluator validation pass |
+| 3. Body-less `:from` | Low-Medium | Low | ~10-line parser change per parser |
+| 4. Translation linter | Medium | Low-Medium | New `LoadWarning` variants + AST pass |
 
-Recommended order: 1, 4, 3, 5, 2. Proposal 1 requires no code changes and
-saves the most lines immediately. Proposal 4 is a small parser change.
-Proposal 3 adds runtime safety. Proposal 5 reinforces proposals 1 and 4 by
-automatically flagging verbose patterns. Proposal 2 is the biggest
-architectural investment but enables the most powerful future capabilities.
+Recommended order: 1, 3, 2, 4. Proposal 1 requires no code changes and saves
+the most lines immediately. Proposal 3 is a small parser change. Proposal 2
+
+adds runtime safety. Proposal 4 reinforces all other proposals by automatically
+flagging verbose patterns and missing `:from`.
 
 ---
 
@@ -731,8 +594,6 @@ architectural investment but enables the most powerful future capabilities.
 
 - English phrase definitions: `rules_engine/src/strings/src/strings.rs`
 - RLF evaluator: `crates/rlf/src/interpreter/evaluator.rs`
-- Transform execution: `crates/rlf/src/interpreter/transforms.rs`
-- Transform registry: `crates/rlf-semantics/src/lib.rs`
 - Value type: `crates/rlf/src/types/value.rs`
 - Phrase type: `crates/rlf/src/types/phrase.rs`
 - RLF macro parser: `crates/rlf-macros/src/parse.rs`
