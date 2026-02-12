@@ -110,6 +110,40 @@ pub enum LoadWarning {
         /// Valid variant key components for this language.
         valid_keys: Vec<String>,
     },
+    /// Variant block on `:from` phrase could be replaced with simple template.
+    RedundantPassthroughBlock {
+        /// Name of the phrase.
+        name: String,
+        /// Language code of the translation.
+        language: String,
+    },
+    /// Explicit selector on `:from` parameter matches enclosing variant key.
+    RedundantFromSelector {
+        /// Name of the phrase.
+        name: String,
+        /// Language code of the translation.
+        language: String,
+        /// The variant key that matches the selector.
+        variant_key: String,
+        /// The parameter with the redundant selector.
+        parameter: String,
+    },
+    /// Phrase without `:from` or tags uses a parameter that may carry metadata.
+    LikelyMissingFrom {
+        /// Name of the phrase.
+        name: String,
+        /// Language code of the translation.
+        language: String,
+        /// The parameter that may carry metadata.
+        parameter: String,
+    },
+    /// `:from` phrase with identity template could use body-less form.
+    VerboseTransparentWrapper {
+        /// Name of the phrase.
+        name: String,
+        /// Language code of the translation.
+        language: String,
+    },
 }
 
 impl fmt::Display for LoadWarning {
@@ -154,6 +188,39 @@ impl fmt::Display for LoadWarning {
                     f,
                     "warning: phrase '{name}' in '{language}' has unrecognized variant key '{key}'; valid keys: {}",
                     valid_keys.join(", ")
+                )
+            }
+            LoadWarning::RedundantPassthroughBlock { name, language } => {
+                write!(
+                    f,
+                    "warning: phrase '{name}' in '{language}' has redundant passthrough variant block; use simple :from template instead"
+                )
+            }
+            LoadWarning::RedundantFromSelector {
+                name,
+                language,
+                variant_key,
+                parameter,
+            } => {
+                write!(
+                    f,
+                    "warning: phrase '{name}' in '{language}' has redundant selector ':{variant_key}' on :from parameter '${parameter}'; bare '${{${parameter}}}' resolves to the same value"
+                )
+            }
+            LoadWarning::LikelyMissingFrom {
+                name,
+                language,
+                parameter,
+            } => {
+                write!(
+                    f,
+                    "warning: phrase '{name}' in '{language}' uses parameter '${parameter}' without :from; tags and variants may be lost"
+                )
+            }
+            LoadWarning::VerboseTransparentWrapper { name, language } => {
+                write!(
+                    f,
+                    "warning: phrase '{name}' in '{language}' uses ':from($p) \"{{$p}}\"'; use body-less ':from($p);' instead"
                 )
             }
         }
