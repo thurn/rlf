@@ -506,35 +506,55 @@ Note: this lint is independent of Lint 1. The variant block may be needed
    matches the enclosing variant entry's key.
 3. Flag those selectors as redundant.
 
-#### Lint 3: Missing `:from` on Single-Parameter Wrapper (static, AST-only)
+#### Lint 3: Likely Missing `:from` (static, AST-only)
 
-**Detects:** A phrase with one parameter and a simple template body that is
-just `"{$p}"` (or `"{$p}"` with only literal text around it), without `:from`.
+**Detects:** A phrase without `:from` and without its own explicit tags, where
+a parameter appears in the template body (directly or via a phrase call). This
+is a strong signal that the phrase is a compositional wrapper that should
+preserve the parameter's grammatical metadata.
 
-**Example trigger:**
+**Example triggers:**
 
 ```
+// Direct parameter reference without :from
 wrapper($p) = "{$p}";
+
+// Parameter passed to a phrase call without :from
+allied_subtype_plural($t) = "allied {subtype($t):other}";
+
+// Parameter used with selector without :from
+subtype_plural($s) = "<b>{$s:other}</b>";
 ```
 
-**Suggested fix:**
+**Suggested fix (for each):**
 
 ```
 wrapper($p) = :from($p);
+allied_subtype_plural($t) = :from($t) "allied {subtype($t):other}";
+subtype_plural($s) = :from($s) "<b>{$s:other}</b>";
 ```
 
 **Why:** Without `:from`, the result is a plain string. Tags and variants from
-`$p` are lost, which silently breaks downstream variant selection and transform
-tag-reading.
+the parameter are lost, which silently breaks downstream variant selection and
+transform tag-reading. In the dreamtides codebase, ~10 phrases exhibit this
+pattern and are likely bugs.
+
+**Exclusion:** Phrases that define their own explicit tags (`:a`, `:an`,
+`:masc`, `:fem`, etc.) are excluded. These phrases deliberately define their
+own grammatical identity rather than inheriting from a parameter. In the
+dreamtides codebase, every phrase that takes a Phrase parameter and
+deliberately omits `:from` has its own tags (e.g.,
+`allied_subtype($t) = :an "allied {subtype($t)}"`).
 
 **Detection algorithm:**
 
-1. Find phrases where `from_param` is `None` and `body` is
-   `PhraseBody::Simple(template)`.
-2. Check if the template contains exactly one interpolation that is
-   `Reference::Parameter(name)` matching the sole parameter, with no selectors
-   and no transforms.
-3. If so, flag as missing `:from`.
+1. Find phrases where `from_param` is `None` and `tags` is empty.
+2. Scan the template body for any `Reference::Parameter(name)` (direct
+   reference) or `Reference::PhraseCall` where an argument is
+   `Reference::Parameter(name)` (parameter passed to a phrase call).
+3. If any parameter appears in such a position, flag as likely missing `:from`.
+4. Skip phrases where `tags` is non-empty (these deliberately define their own
+   identity).
 
 #### Lint 4: Verbose Transparent Wrapper (static, AST-only)
 
@@ -566,6 +586,54 @@ This is Proposal 3 (Required Explicit Selection). Unlike the other lints, this
 one runs during evaluation because it requires knowing the runtime `Value` type
 of a parameter. See Proposal 3 for details.
 
+#### Lint 6: Phrase Argument Without `:from` (runtime)
+
+**Detects:** A phrase is called with a `Value::Phrase` argument, but the phrase
+definition has no `:from`. The result loses the argument's tags and variants.
+
+This is the runtime complement to static Lint 3. While Lint 3 flags suspicious
+AST patterns at parse time, Lint 6 catches the actual metadata loss at
+evaluation time with full type information.
+
+**Example triggers (all found as likely bugs in dreamtides):**
+
+```
+// Tag loss: result of allied_subtype_plural has no tags, so
+// downstream {@a allied_subtype_plural($t)} can't read :a/:an
+allied_subtype_plural($t) = "allied {subtype($t):other}";
+
+// Variant loss: result of subtype_plural has no variants, so
+// downstream {subtype_plural($s):nom} fails
+subtype_plural($s) = "<b>{$s:other}</b>";
+
+// Multi-param: n_figments loses $f's tags
+n_figments($n, $f) = :match($n) {
+    1: "a {figment($f)}",
+    *other: "{text_number($n)} {figments_plural($f)}",
+};
+```
+
+**Detection algorithm:**
+
+1. During phrase evaluation (in the evaluator), after resolving all argument
+   values, check if the phrase definition has `from_param = None`.
+2. Check if any resolved argument is a `Value::Phrase` (not `Value::Number`,
+   `Value::Float`, or `Value::String`).
+3. If both conditions hold, emit a warning: the result will be a plain string
+   that has lost the Phrase argument's tags and variant structure.
+4. The warning identifies the phrase name and the parameter(s) that received
+   Phrase values.
+
+**Why runtime, not static:** At parse time, parameter types are unknown — `$t`
+could receive a number, a string, or a Phrase depending on the call site. Only
+at evaluation time can we confirm that a Phrase value was passed and its
+metadata will be lost.
+
+**Interaction with Lint 3:** Lint 3 provides early static feedback at parse
+time for obvious cases (no tags, parameter in template). Lint 6 catches all
+remaining cases at runtime, including multi-parameter phrases and cases where
+the parameter is used indirectly through phrase calls.
+
 ### Implementation
 
 **Phase 1: Static lints (Lints 1-4).**
@@ -591,8 +659,8 @@ RedundantFromSelector {
     parameter: String,
 },
 
-/// Single-parameter phrase wraps parameter without :from.
-MissingFrom {
+/// Phrase without :from or tags uses a parameter that may carry metadata.
+LikelyMissingFrom {
     name: String,
     language: String,
     parameter: String,
@@ -605,17 +673,31 @@ VerboseTransparentWrapper {
 },
 ```
 
-**Phase 2: Runtime lint (Lint 5).**
+**Phase 2: Runtime lints (Lints 5-6).**
 
-This is Proposal 3's implementation -- a check in the evaluator during template
-interpolation. It produces warnings (or errors) for bare references to Phrases
-with multi-dimensional variants outside `:from` context.
+Lint 5 (Proposal 3): check in the evaluator during template interpolation for
+bare references to Phrases with multi-dimensional variants outside `:from`
+context. Produces warnings or errors.
+
+Lint 6: check in the evaluator during phrase call dispatch. When a phrase
+without `:from` receives a `Value::Phrase` argument, emit a warning. New
+`EvalWarning` type (or extend `LoadWarning`):
+
+```rust
+/// Phrase called with Phrase-valued argument but has no :from.
+/// Tags and variants from the argument will be lost in the result.
+PhraseArgumentWithoutFrom {
+    phrase: String,
+    parameter: String,
+    argument_tags: Vec<String>,
+},
+```
 
 ### Severity
 
 All static lints are **suggestions** (non-blocking). They appear in
-`validate_translations()` output alongside existing warnings. The runtime lint
-(Lint 5 / Proposal 3) is configurable as warning or error.
+`validate_translations()` output alongside existing warnings. The runtime lints
+(Lints 5-6) are configurable as warning or error.
 
 ### Impact
 
