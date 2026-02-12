@@ -153,9 +153,23 @@ impl Parse for PhraseDefinition {
             match_params,
         } = parse_tags_from_match(input)?;
 
-        // Parse body: if :match was specified, parse a match block
+        // Parse body: if :match was specified, parse a match block.
+        // Special case: body-less :from — if :from is set and next token is ';',
+        // generate a simple template containing just {$from_param}.
         let body = if !match_params.is_empty() {
             parse_match_block(input, match_params.len())?
+        } else if from_param.is_some() && input.peek(Token![;]) {
+            let from = from_param.as_ref().unwrap();
+            let span = from.span;
+            PhraseBody::Simple(Template {
+                segments: vec![Segment::Interpolation(Interpolation {
+                    transforms: vec![],
+                    reference: Reference::Parameter(SpannedIdent::from_str(&from.name, span)),
+                    selectors: vec![],
+                    span,
+                })],
+                span,
+            })
         } else {
             input.parse()?
         };

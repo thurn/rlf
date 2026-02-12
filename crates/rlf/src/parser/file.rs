@@ -329,11 +329,22 @@ fn phrase_definition(input: &mut &str) -> ModalResult<PhraseDefinition> {
         from_param = Some(fp);
     }
 
-    // Body: if :match was specified, parse a match block; otherwise simple or variant block
+    // Body: if :match was specified, parse a match block; otherwise simple or variant block.
+    // Special case: body-less :from — if :from is set and next char is ';', generate
+    // a simple template containing just {$from_param} as syntactic sugar.
     let body = if !match_params.is_empty() {
         match_block(match_params.len())
             .map(PhraseBody::Match)
             .parse_next(input)?
+    } else if from_param.is_some() && input.starts_with(';') {
+        let param = from_param.as_ref().unwrap().clone();
+        PhraseBody::Simple(Template {
+            segments: vec![Segment::Interpolation {
+                transforms: vec![],
+                reference: Reference::Parameter(param),
+                selectors: vec![],
+            }],
+        })
     } else {
         phrase_body(input)?
     };

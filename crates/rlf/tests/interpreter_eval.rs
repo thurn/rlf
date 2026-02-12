@@ -3393,3 +3393,105 @@ fn error_match_on_term_in_runtime() {
         "should reject :match on term: {err}"
     );
 }
+
+// =============================================================================
+// Body-less :from
+// =============================================================================
+
+#[test]
+fn eval_bodyless_from_inherits_tags_and_variants() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        creature = :an { one: "creature", *other: "creatures" };
+        wrapper($p) = :from($p);
+    "#,
+        )
+        .unwrap();
+
+    let creature = registry.get_phrase("en", "creature").unwrap();
+    let result = registry
+        .call_phrase("en", "wrapper", &[Value::Phrase(creature)])
+        .unwrap();
+
+    assert!(result.has_tag("an"), "body-less :from should inherit tags");
+    assert_eq!(
+        result.variant("one"),
+        "creature",
+        "body-less :from should preserve 'one' variant"
+    );
+    assert_eq!(
+        result.variant("other"),
+        "creatures",
+        "body-less :from should preserve 'other' variant"
+    );
+}
+
+#[test]
+fn eval_bodyless_from_composition_chain() {
+    let mut locale = Locale::builder().language("en").build();
+    locale
+        .load_translations_str(
+            "en",
+            r#"
+        ancient = :an { one: "Ancient", other: "Ancients" };
+        passthrough($p) = :from($p);
+        dissolve($s) = "Dissolve {@a passthrough($s)}.";
+    "#,
+        )
+        .unwrap();
+
+    let ancient = locale.get_phrase("ancient").unwrap();
+    let result = locale
+        .call_phrase("dissolve", &[Value::Phrase(ancient)])
+        .unwrap();
+    assert_eq!(
+        result.to_string(),
+        "Dissolve an Ancient.",
+        "body-less :from should preserve tags through composition chain"
+    );
+}
+
+#[test]
+fn eval_bodyless_from_equivalent_to_explicit() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+        noun = :fem { nom: "звезда", acc: "звезду", *gen: "звезды" };
+        explicit($p) = :from($p) "{$p}";
+        bodyless($p) = :from($p);
+    "#,
+        )
+        .unwrap();
+
+    let noun = registry.get_phrase("en", "noun").unwrap();
+    let explicit = registry
+        .call_phrase("en", "explicit", &[Value::Phrase(noun.clone())])
+        .unwrap();
+    let bodyless = registry
+        .call_phrase("en", "bodyless", &[Value::Phrase(noun)])
+        .unwrap();
+
+    assert_eq!(
+        explicit.variant("nom"),
+        bodyless.variant("nom"),
+        "body-less :from should produce same 'nom' as explicit form"
+    );
+    assert_eq!(
+        explicit.variant("acc"),
+        bodyless.variant("acc"),
+        "body-less :from should produce same 'acc' as explicit form"
+    );
+    assert_eq!(
+        explicit.variant("gen"),
+        bodyless.variant("gen"),
+        "body-less :from should produce same 'gen' as explicit form"
+    );
+    assert_eq!(
+        explicit.has_tag("fem"),
+        bodyless.has_tag("fem"),
+        "body-less :from should inherit same tags as explicit form"
+    );
+}

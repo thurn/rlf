@@ -35,31 +35,37 @@ rlf! {
         one: :match($s) { masc: "magical {$s}", *fem: "magical {$s}" },
         *other: :match($s) { masc: "magical {$s}", *fem: "magical {$s}" }
     };
+
+    // Body-less :from — syntactic sugar for :from($p) "{$p}"
+    transparent($p) = :from($p);
+
+    // Body-less :from with tags
+    tagged_transparent($p) = :fem :from($p);
 }
 
 fn main() {
     let mut locale = Locale::new();
     register_source_phrases(&mut locale);
 
-    let ancient = ancient(&locale);
-    let sub = subtype(&locale, ancient.clone());
+    let anc = ancient(&locale);
+    let sub = subtype(&locale, anc.clone());
 
     // Should inherit :an tag and produce variants
     assert!(sub.has_tag("an"));
     assert_eq!(sub.variant("one"), "<b>Ancient</b>");
     assert_eq!(sub.variant("other"), "<b>Ancients</b>");
 
-    let dec = decorated(&locale, ancient.clone());
+    let dec = decorated(&locale, anc.clone());
     assert_eq!(dec.variant("one"), "[Ancient]");
 
     // :from + variant blocks: per-variant templates
-    let enemy = enemy_subtype(&locale, ancient.clone());
+    let enemy = enemy_subtype(&locale, anc.clone());
     assert!(enemy.has_tag("an"));
     assert_eq!(enemy.variant("one"), "enemy Ancient");
     assert_eq!(enemy.variant("other"), "enemy Ancients");
 
     // :from + variant blocks with additional parameters
-    let labeled = labeled_subtype(&locale, ancient, Value::from("allied"));
+    let labeled = labeled_subtype(&locale, anc, Value::from("allied"));
     assert!(labeled.has_tag("an"));
     assert_eq!(labeled.variant("one"), "allied Ancient");
     assert_eq!(labeled.variant("other"), "allied Ancients");
@@ -76,4 +82,17 @@ fn main() {
     assert!(m2.has_tag("fem"));
     assert_eq!(m2.variant("one"), "magical wand");
     assert_eq!(m2.variant("other"), "magical wands");
+
+    // Body-less :from preserves tags and variants
+    let trans = transparent(&locale, ancient(&locale));
+    assert!(trans.has_tag("an"));
+    assert_eq!(trans.variant("one"), "Ancient");
+    assert_eq!(trans.variant("other"), "Ancients");
+
+    // Body-less :from with explicit tags — :from inherits source tags,
+    // the explicit :fem on the definition is overridden by inherited tags
+    let tagged = tagged_transparent(&locale, ancient(&locale));
+    assert!(tagged.has_tag("an"));
+    assert_eq!(tagged.variant("one"), "Ancient");
+    assert_eq!(tagged.variant("other"), "Ancients");
 }

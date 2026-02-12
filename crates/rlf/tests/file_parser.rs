@@ -1409,3 +1409,58 @@ fn test_from_variant_block_match_undeclared_param_error() {
         "expected undeclared param error, got: {err}"
     );
 }
+
+#[test]
+fn test_bodyless_from() {
+    let phrases = parse_file(r#"wrapper($p) = :from($p);"#).unwrap();
+    assert_eq!(phrases.len(), 1);
+    assert_eq!(phrases[0].name, "wrapper");
+    assert_eq!(phrases[0].from_param, Some("p".to_string()));
+    match &phrases[0].body {
+        PhraseBody::Simple(t) => {
+            assert_eq!(t.segments.len(), 1);
+            match &t.segments[0] {
+                Segment::Interpolation {
+                    transforms,
+                    reference,
+                    selectors,
+                } => {
+                    assert!(
+                        transforms.is_empty(),
+                        "body-less :from should have no transforms"
+                    );
+                    assert_eq!(
+                        reference,
+                        &Reference::Parameter("p".to_string()),
+                        "body-less :from should reference the :from parameter"
+                    );
+                    assert!(
+                        selectors.is_empty(),
+                        "body-less :from should have no selectors"
+                    );
+                }
+                Segment::Literal(_) => {
+                    panic!("expected interpolation segment in body-less :from")
+                }
+            }
+        }
+        _ => panic!("expected simple body for body-less :from"),
+    }
+}
+
+#[test]
+fn test_bodyless_from_with_tags() {
+    let phrases = parse_file(r#"wrapper($p) = :masc :from($p);"#).unwrap();
+    assert_eq!(phrases[0].tags, vec![Tag::new("masc")]);
+    assert_eq!(phrases[0].from_param, Some("p".to_string()));
+    assert!(matches!(phrases[0].body, PhraseBody::Simple(_)));
+}
+
+#[test]
+fn test_bodyless_from_without_from_is_error() {
+    let result = parse_file(r#"bad($p) = ;"#);
+    assert!(
+        result.is_err(),
+        "definition with no body and no :from should be a parse error"
+    );
+}
