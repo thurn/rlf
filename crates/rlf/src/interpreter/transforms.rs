@@ -1787,13 +1787,21 @@ fn japanese_particle_transform(context: Option<&Value>) -> Result<String, EvalEr
 // Turkish Inflect Transform (Phase 9)
 // =============================================================================
 
-/// Turkish vowel harmony type.
+/// Turkish 4-way vowel harmony class.
+///
+/// Turkish has 4-way vowel harmony for high-vowel suffixes (i/ı/u/ü) and
+/// 2-way harmony for low-vowel suffixes (e/a). The class is determined by
+/// the last vowel in the word being inflected.
 #[derive(Clone, Copy)]
 enum TurkishHarmony {
-    /// Front vowels: e, i, ö, ü
-    Front,
-    /// Back vowels: a, ı, o, u
-    Back,
+    /// Front unrounded vowels: e, i
+    FrontUnrounded,
+    /// Front rounded vowels: ö, ü
+    FrontRounded,
+    /// Back unrounded vowels: a, ı
+    BackUnrounded,
+    /// Back rounded vowels: o, u
+    BackRounded,
 }
 
 /// Turkish suffix types for @inflect transform.
@@ -1803,27 +1811,29 @@ enum TurkishSuffix {
     Plural,
     /// Nominative: no suffix (unmarked case)
     Nominative,
-    /// Accusative: -i/-ı (definite object)
+    /// Accusative: -i/-ı/-u/-ü (definite object, 4-way harmony)
     Accusative,
-    /// Genitive: -in/-ın (possession)
+    /// Genitive: -in/-ın/-un/-ün (possession, 4-way harmony)
     Genitive,
-    /// Dative: -e/-a (direction/recipient)
+    /// Dative: -e/-a (direction/recipient, 2-way harmony)
     Dative,
-    /// Locative: -de/-da (location)
+    /// Locative: -de/-da (location, 2-way harmony)
     Locative,
-    /// Ablative: -den/-dan (source/origin)
+    /// Ablative: -den/-dan (source/origin, 2-way harmony)
     Ablative,
-    /// Possessive 1st person singular: -im/-ım (my)
+    /// Instrumental: -le/-la (means/accompaniment, 2-way harmony)
+    Instrumental,
+    /// Possessive 1st person singular: -im/-ım/-um/-üm (my, 4-way harmony)
     Poss1Sg,
-    /// Possessive 2nd person singular: -in/-ın (your)
+    /// Possessive 2nd person singular: -in/-ın/-un/-ün (your, 4-way harmony)
     Poss2Sg,
-    /// Possessive 3rd person singular: -i/-ı (his/her/its)
+    /// Possessive 3rd person singular: -i/-ı/-u/-ü (his/her/its, 4-way harmony)
     Poss3Sg,
-    /// Possessive 1st person plural: -imiz/-ımız (our)
+    /// Possessive 1st person plural: -imiz/-ımız/-umuz/-ümüz (our, 4-way harmony)
     Poss1Pl,
-    /// Possessive 2nd person plural: -iniz/-ınız (your, pl.)
+    /// Possessive 2nd person plural: -iniz/-ınız/-unuz/-ünüz (your pl., 4-way harmony)
     Poss2Pl,
-    /// Possessive 3rd person plural: -leri/-ları (their)
+    /// Possessive 3rd person plural: -leri/-ları (their, 2-way harmony)
     Poss3Pl,
 }
 
@@ -1844,6 +1854,7 @@ fn parse_turkish_suffix_chain(context: Option<&Value>) -> Vec<TurkishSuffix> {
             "dat" => Some(TurkishSuffix::Dative),
             "loc" => Some(TurkishSuffix::Locative),
             "abl" => Some(TurkishSuffix::Ablative),
+            "ins" => Some(TurkishSuffix::Instrumental),
             "poss1sg" => Some(TurkishSuffix::Poss1Sg),
             "poss2sg" => Some(TurkishSuffix::Poss2Sg),
             "poss3sg" => Some(TurkishSuffix::Poss3Sg),
@@ -1855,65 +1866,153 @@ fn parse_turkish_suffix_chain(context: Option<&Value>) -> Vec<TurkishSuffix> {
         .collect()
 }
 
-/// Get the 2-way harmony suffix text for the given suffix and harmony class.
+/// Determine the 4-way harmony class of a Turkish vowel character.
+fn turkish_vowel_harmony(ch: char) -> Option<TurkishHarmony> {
+    match ch {
+        'e' | 'i' => Some(TurkishHarmony::FrontUnrounded),
+        '\u{00f6}' | '\u{00fc}' => Some(TurkishHarmony::FrontRounded), // ö, ü
+        'a' | '\u{0131}' => Some(TurkishHarmony::BackUnrounded),       // a, ı
+        'o' | 'u' => Some(TurkishHarmony::BackRounded),
+        _ => None,
+    }
+}
+
+/// Find the last vowel in a string and return its 4-way harmony class.
+fn turkish_last_vowel_harmony(text: &str) -> Option<TurkishHarmony> {
+    text.chars().rev().find_map(turkish_vowel_harmony)
+}
+
+/// Return the 2-way front/back classification for a 4-way harmony class.
+fn turkish_is_front(harmony: TurkishHarmony) -> bool {
+    matches!(
+        harmony,
+        TurkishHarmony::FrontUnrounded | TurkishHarmony::FrontRounded
+    )
+}
+
+/// Get the suffix text for the given suffix and 4-way harmony class.
+///
+/// Suffixes with low vowels (e/a) use 2-way harmony (front vs back).
+/// Suffixes with high vowels (i/ı/u/ü) use 4-way harmony.
 fn turkish_suffix_form(suffix: TurkishSuffix, harmony: TurkishHarmony) -> &'static str {
-    match (suffix, harmony) {
-        (TurkishSuffix::Plural, TurkishHarmony::Front) => "ler",
-        (TurkishSuffix::Plural, TurkishHarmony::Back) => "lar",
-        (TurkishSuffix::Nominative, _) => "",
-        (TurkishSuffix::Accusative, TurkishHarmony::Front) => "i",
-        (TurkishSuffix::Accusative, TurkishHarmony::Back) => "\u{0131}",
-        (TurkishSuffix::Genitive, TurkishHarmony::Front) => "in",
-        (TurkishSuffix::Genitive, TurkishHarmony::Back) => "\u{0131}n",
-        (TurkishSuffix::Dative, TurkishHarmony::Front) => "e",
-        (TurkishSuffix::Dative, TurkishHarmony::Back) => "a",
-        (TurkishSuffix::Locative, TurkishHarmony::Front) => "de",
-        (TurkishSuffix::Locative, TurkishHarmony::Back) => "da",
-        (TurkishSuffix::Ablative, TurkishHarmony::Front) => "den",
-        (TurkishSuffix::Ablative, TurkishHarmony::Back) => "dan",
-        (TurkishSuffix::Poss1Sg, TurkishHarmony::Front) => "im",
-        (TurkishSuffix::Poss1Sg, TurkishHarmony::Back) => "\u{0131}m",
-        (TurkishSuffix::Poss2Sg, TurkishHarmony::Front) => "in",
-        (TurkishSuffix::Poss2Sg, TurkishHarmony::Back) => "\u{0131}n",
-        (TurkishSuffix::Poss3Sg, TurkishHarmony::Front) => "i",
-        (TurkishSuffix::Poss3Sg, TurkishHarmony::Back) => "\u{0131}",
-        (TurkishSuffix::Poss1Pl, TurkishHarmony::Front) => "imiz",
-        (TurkishSuffix::Poss1Pl, TurkishHarmony::Back) => "\u{0131}m\u{0131}z",
-        (TurkishSuffix::Poss2Pl, TurkishHarmony::Front) => "iniz",
-        (TurkishSuffix::Poss2Pl, TurkishHarmony::Back) => "\u{0131}n\u{0131}z",
-        (TurkishSuffix::Poss3Pl, TurkishHarmony::Front) => "leri",
-        (TurkishSuffix::Poss3Pl, TurkishHarmony::Back) => "lar\u{0131}",
+    match suffix {
+        // 2-way harmony suffixes (low vowel: e/a)
+        TurkishSuffix::Plural if turkish_is_front(harmony) => "ler",
+        TurkishSuffix::Plural => "lar",
+        TurkishSuffix::Nominative => "",
+        TurkishSuffix::Dative if turkish_is_front(harmony) => "e",
+        TurkishSuffix::Dative => "a",
+        TurkishSuffix::Locative if turkish_is_front(harmony) => "de",
+        TurkishSuffix::Locative => "da",
+        TurkishSuffix::Ablative if turkish_is_front(harmony) => "den",
+        TurkishSuffix::Ablative => "dan",
+        TurkishSuffix::Instrumental if turkish_is_front(harmony) => "le",
+        TurkishSuffix::Instrumental => "la",
+        TurkishSuffix::Poss3Pl if turkish_is_front(harmony) => "leri",
+        TurkishSuffix::Poss3Pl => "lar\u{0131}",
+
+        // 4-way harmony suffixes (high vowel: i/ı/u/ü)
+        TurkishSuffix::Accusative => match harmony {
+            TurkishHarmony::FrontUnrounded => "i",
+            TurkishHarmony::FrontRounded => "\u{00fc}", // ü
+            TurkishHarmony::BackUnrounded => "\u{0131}", // ı
+            TurkishHarmony::BackRounded => "u",
+        },
+        TurkishSuffix::Genitive => match harmony {
+            TurkishHarmony::FrontUnrounded => "in",
+            TurkishHarmony::FrontRounded => "\u{00fc}n", // ün
+            TurkishHarmony::BackUnrounded => "\u{0131}n", // ın
+            TurkishHarmony::BackRounded => "un",
+        },
+        TurkishSuffix::Poss1Sg => match harmony {
+            TurkishHarmony::FrontUnrounded => "im",
+            TurkishHarmony::FrontRounded => "\u{00fc}m", // üm
+            TurkishHarmony::BackUnrounded => "\u{0131}m", // ım
+            TurkishHarmony::BackRounded => "um",
+        },
+        TurkishSuffix::Poss2Sg => match harmony {
+            TurkishHarmony::FrontUnrounded => "in",
+            TurkishHarmony::FrontRounded => "\u{00fc}n", // ün
+            TurkishHarmony::BackUnrounded => "\u{0131}n", // ın
+            TurkishHarmony::BackRounded => "un",
+        },
+        TurkishSuffix::Poss3Sg => match harmony {
+            TurkishHarmony::FrontUnrounded => "i",
+            TurkishHarmony::FrontRounded => "\u{00fc}", // ü
+            TurkishHarmony::BackUnrounded => "\u{0131}", // ı
+            TurkishHarmony::BackRounded => "u",
+        },
+        TurkishSuffix::Poss1Pl => match harmony {
+            TurkishHarmony::FrontUnrounded => "imiz",
+            TurkishHarmony::FrontRounded => "\u{00fc}m\u{00fc}z", // ümüz
+            TurkishHarmony::BackUnrounded => "\u{0131}m\u{0131}z", // ımız
+            TurkishHarmony::BackRounded => "umuz",
+        },
+        TurkishSuffix::Poss2Pl => match harmony {
+            TurkishHarmony::FrontUnrounded => "iniz",
+            TurkishHarmony::FrontRounded => "\u{00fc}n\u{00fc}z", // ünüz
+            TurkishHarmony::BackUnrounded => "\u{0131}n\u{0131}z", // ınız
+            TurkishHarmony::BackRounded => "unuz",
+        },
     }
 }
 
 /// Turkish @inflect transform.
 ///
-/// Applies suffix chain with vowel harmony based on :front/:back tag.
+/// Applies suffix chain with 4-way vowel harmony based on :front/:back tag
+/// and the last vowel in the root word. Harmony is updated after each suffix
+/// so that subsequent suffixes harmonize with the most recent vowel.
 ///
 /// Context specifies suffix chain as dot-separated names:
 /// - "pl" -> Plural (-ler/-lar)
 /// - "nom" -> Nominative (no suffix)
-/// - "acc" -> Accusative (-i/-ı)
-/// - "gen" -> Genitive (-in/-ın)
+/// - "acc" -> Accusative (-i/-ı/-u/-ü)
+/// - "gen" -> Genitive (-in/-ın/-un/-ün)
 /// - "dat" -> Dative (-e/-a)
 /// - "loc" -> Locative (-de/-da)
 /// - "abl" -> Ablative (-den/-dan)
-/// - "poss1sg" -> 1st person singular possessive (-im/-ım)
-/// - "poss2sg" -> 2nd person singular possessive (-in/-ın)
-/// - "poss3sg" -> 3rd person singular possessive (-i/-ı)
-/// - "poss1pl" -> 1st person plural possessive (-imiz/-ımız)
-/// - "poss2pl" -> 2nd person plural possessive (-iniz/-ınız)
+/// - "ins" -> Instrumental (-le/-la)
+/// - "poss1sg" -> 1st person singular possessive (-im/-ım/-um/-üm)
+/// - "poss2sg" -> 2nd person singular possessive (-in/-ın/-un/-ün)
+/// - "poss3sg" -> 3rd person singular possessive (-i/-ı/-u/-ü)
+/// - "poss1pl" -> 1st person plural possessive (-imiz/-ımız/-umuz/-ümüz)
+/// - "poss2pl" -> 2nd person plural possessive (-iniz/-ınız/-unuz/-ünüz)
 /// - "poss3pl" -> 3rd person plural possessive (-leri/-ları)
 ///
 /// Example: "pl.poss1sg.abl" on :front "ev" -> "evlerimden"
 fn turkish_inflect_transform(value: &Value, context: Option<&Value>) -> Result<String, EvalError> {
     let text = value.to_string();
 
-    // Get initial harmony from tag
-    let harmony = if value.has_tag("front") {
-        TurkishHarmony::Front
+    // Get initial harmony: use last vowel of root for 4-way classification,
+    // falling back to the :front/:back tag for a 2-way default.
+    let harmony = if let Some(h) = turkish_last_vowel_harmony(&text) {
+        // Verify the tag is consistent (front tag with back vowel is an error)
+        if value.has_tag("front") && !turkish_is_front(h) {
+            return Err(EvalError::MissingTag {
+                transform: "inflect".to_string(),
+                expected: vec!["front".to_string(), "back".to_string()],
+                phrase: text,
+            });
+        }
+        if value.has_tag("back") && turkish_is_front(h) {
+            return Err(EvalError::MissingTag {
+                transform: "inflect".to_string(),
+                expected: vec!["front".to_string(), "back".to_string()],
+                phrase: text,
+            });
+        }
+        if !value.has_tag("front") && !value.has_tag("back") {
+            return Err(EvalError::MissingTag {
+                transform: "inflect".to_string(),
+                expected: vec!["front".to_string(), "back".to_string()],
+                phrase: text,
+            });
+        }
+        h
+    } else if value.has_tag("front") {
+        TurkishHarmony::FrontUnrounded
     } else if value.has_tag("back") {
-        TurkishHarmony::Back
+        TurkishHarmony::BackUnrounded
     } else {
         return Err(EvalError::MissingTag {
             transform: "inflect".to_string(),
@@ -1925,11 +2024,16 @@ fn turkish_inflect_transform(value: &Value, context: Option<&Value>) -> Result<S
     // Parse suffix chain from context
     let suffixes = parse_turkish_suffix_chain(context);
 
-    // Apply each suffix left-to-right, harmony persists through chain
+    // Apply each suffix left-to-right, updating harmony after each suffix
     let mut result = text;
+    let mut current_harmony = harmony;
     for suffix in suffixes {
-        let suffix_text = turkish_suffix_form(suffix, harmony);
+        let suffix_text = turkish_suffix_form(suffix, current_harmony);
         result.push_str(suffix_text);
+        // Update harmony based on the last vowel in the suffix we just added
+        if let Some(new_harmony) = turkish_last_vowel_harmony(suffix_text) {
+            current_harmony = new_harmony;
+        }
     }
 
     Ok(result)

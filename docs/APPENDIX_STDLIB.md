@@ -514,7 +514,7 @@ thing_exists($thing) = "{$thing}{@particle:subj $thing} 있다";
 
 ### Turkish (Türkçe)
 
-**Grammatical features**: Vowel harmony, agglutinative, no gender, six cases
+**Grammatical features**: Vowel harmony (4-way), agglutinative, no gender, seven cases
 
 **Metadata tags**:
 | Tag | Purpose |
@@ -525,10 +525,13 @@ thing_exists($thing) = "{$thing}{@particle:subj $thing} 있다";
 **Transforms**:
 | Transform | Aliases | Reads | Effect |
 |-----------|---------|-------|--------|
-| `@inflect` | - | `:front`, `:back` | Suffix chain with vowel harmony |
+| `@inflect` | - | `:front`, `:back` | Suffix chain with 4-way vowel harmony |
 
-The `@inflect` transform handles agglutinative suffix chains. See **Advanced
-Transforms** section for details.
+The `@inflect` transform handles agglutinative suffix chains with 4-way vowel
+harmony. Suffixes with high vowels (accusative, genitive, possessives) use
+4-way distinction (i/ı/u/ü based on last vowel rounding), while suffixes with
+low vowels (dative, locative, ablative, instrumental, plural) use 2-way
+(e/a). See **Advanced Transforms** section for details.
 
 **Plural categories**: `one`, `other`
 
@@ -536,9 +539,13 @@ Transforms** section for details.
 // tr.rlf
 ev = :back "ev";
 göz = :front "göz";
+yol = :back "yol";
 
-to_house = "{@inflect:dat ev}";              // → "eve"
+to_house = "{@inflect:dat ev}";                  // → "eve"
 from_my_houses = "{@inflect:abl.poss1sg.pl ev}"; // → "evlerimden"
+my_eye = "{@inflect:poss1sg göz}";               // → "gözüm" (4-way: ü)
+my_road = "{@inflect:poss1sg yol}";              // → "yolum" (4-way: u)
+with_horse = "{@inflect:ins at}";                // → "atla"
 ```
 
 ---
@@ -931,7 +938,7 @@ to specify both case and plural simultaneously. The format is `@o:case.plural`, 
 | German | 3 | 4 | 2 | `@der`, `@ein` |
 | Korean | - | - | 1 | `@count`, `@particle` |
 | Vietnamese | - | - | 1 | `@count` |
-| Turkish | - | 6 | 2 | `@inflect` |
+| Turkish | - | 7 | 2 | `@inflect` |
 | Finnish | - | 15 | 2 | `@inflect` |
 | Hungarian | - | 18 | 2 | `@inflect` |
 | Italian | 2 | - | 2 | `@il`, `@un`, `@di`, `@a` |
@@ -1019,10 +1026,28 @@ the full chain.
 // tr.rlf
 ev = :back "ev";           // house (back vowel)
 göz = :front "göz";        // eye (front vowel)
+yol = :back "yol";         // road (back rounded vowel)
 
 from_my_houses = "{@inflect:abl.poss1sg.pl ev}";   // → "evlerimden"
 from_my_eyes = "{@inflect:abl.poss1sg.pl göz}";   // → "gözlerimden"
+my_road = "{@inflect:poss1sg yol}";                // → "yolum" (4-way: u)
 ```
+
+**Turkish 4-way vowel harmony:**
+
+Turkish uses 4-way vowel harmony for suffixes with high vowels (i/ı/u/ü).
+The harmony class is determined by the last vowel in the word:
+
+| Last vowel | Harmony class | High vowel | Low vowel |
+|-----------|---------------|------------|-----------|
+| e, i | Front unrounded | i | e |
+| ö, ü | Front rounded | ü | e |
+| a, ı | Back unrounded | ı | a |
+| o, u | Back rounded | u | a |
+
+Suffixes with low vowels (plural, dative, locative, ablative, instrumental)
+only distinguish front (e) vs. back (a). Suffixes with high vowels (accusative,
+genitive, possessives 1sg/2sg/3sg/1pl/2pl) use all four forms.
 
 **Suffix chain for "evlerimden" (from my houses):**
 
@@ -1030,22 +1055,33 @@ from_my_eyes = "{@inflect:abl.poss1sg.pl göz}";   // → "gözlerimden"
 |--------|----------|-----------|------------|
 | plural | -ler/-lar | -lar | -ler |
 | poss1sg | -im/-ım/-um/-üm | -ım | -im |
-| ablative | -den/-dan/-ten/-tan | -dan | -den |
+| ablative | -den/-dan | -dan | -den |
 
 Result: ev + ler + im + den → "evlerimden"
 
 The transform applies vowel harmony at each step. The `:back`/`:front` tag on
 the root determines the initial harmony class, and subsequent suffixes follow
-the "last vowel" rule.
+the "last vowel" rule — harmony is updated after each suffix based on the
+last vowel in the suffix text.
 
 **Available suffixes:**
 
-| Context | Meaning |
-|---------|---------|
-| `pl` | Plural |
-| `poss1sg`, `poss2sg`, `poss3sg` | Possessive (my/your/their) |
-| `poss1pl`, `poss2pl`, `poss3pl` | Possessive plural |
-| `nom`, `acc`, `dat`, `gen`, `loc`, `abl` | Cases |
+| Context | Meaning | Harmony |
+|---------|---------|---------|
+| `pl` | Plural (-ler/-lar) | 2-way |
+| `nom` | Nominative (no suffix) | — |
+| `acc` | Accusative (-i/-ı/-u/-ü) | 4-way |
+| `gen` | Genitive (-in/-ın/-un/-ün) | 4-way |
+| `dat` | Dative (-e/-a) | 2-way |
+| `loc` | Locative (-de/-da) | 2-way |
+| `abl` | Ablative (-den/-dan) | 2-way |
+| `ins` | Instrumental (-le/-la) | 2-way |
+| `poss1sg` | My (-im/-ım/-um/-üm) | 4-way |
+| `poss2sg` | Your (-in/-ın/-un/-ün) | 4-way |
+| `poss3sg` | His/her/its (-i/-ı/-u/-ü) | 4-way |
+| `poss1pl` | Our (-imiz/-ımız/-umuz/-ümüz) | 4-way |
+| `poss2pl` | Your pl. (-iniz/-ınız/-unuz/-ünüz) | 4-way |
+| `poss3pl` | Their (-leri/-ları) | 2-way |
 
 Suffixes are applied left-to-right as specified in the context.
 
