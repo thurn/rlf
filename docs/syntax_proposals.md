@@ -4,10 +4,10 @@
 
 RLF phrase composition works well for analytic languages (English, Chinese) where
 words don't change form based on grammatical context. For **inflected languages**
-(Russian, German, Arabic, Turkish, Polish, Finnish, Hungarian), the translation
-file author faces significant boilerplate because:
+(Russian, German, Arabic, Turkish, Polish, Finnish, Hungarian), translation files
+can become verbose because:
 
-- Nouns must be defined with 6-12+ variant forms (case × number).
+- Nouns must be defined with 6-12+ variant forms (case x number).
 - Every composition phrase must manually propagate case selectors to inner
   parameters.
 - Every verb phrase must remember to annotate which case it governs on each
@@ -15,20 +15,17 @@ file author faces significant boilerplate because:
 - Pass-through wrapper phrases require explicit `:from` machinery even when
   they're semantically no-ops.
 
-These four proposals address these pain points. They are ordered by impact.
+These four proposals address these pain points. They are ordered by
+implementation priority.
 
 ---
 
-## Proposal 1: Case Passthrough (`:passthrough`)
+## Proposal 1: Document That `:from` Already Handles Passthrough
 
 ### Problem
 
-When a phrase composes two sub-phrases and the outer phrase's case should
-propagate to an inner parameter, the translator must write a variant block that
-repeats the same template for every case. This is the single largest source of
-boilerplate in inflected translations.
-
-**Current Russian translation of `pred_with_constraint`:**
+Several Russian translation phrases contain verbose variant blocks that
+manually pass case selectors through to an inner parameter:
 
 ```
 pred_with_constraint($base, $constraint) = :from($base) {
@@ -41,204 +38,311 @@ pred_with_constraint($base, $constraint) = :from($base) {
 };
 ```
 
-Six lines that all say the same thing: "pass the requested case through to
-`$base`." The `$constraint` parameter is case-invariant (Russian prepositions
-fix the case of their argument internally), so only `$base` varies.
+This pattern recurs in roughly 20-25 phrases: `pred_with_constraint`,
+`allied_pred`, `enemy_pred`, `in_your_void`, `another_pred`, `non_subtype`,
+`fast_predicate`, `allied_subtype`, `enemy_subtype`, `other_pred_plural`, and
+more. Each produces 6 nearly-identical lines for Russian.
 
-This pattern recurs in roughly 20-25 phrases: `predicate_with_indefinite_article`,
-`subtype`, `subtype_plural`, `allied_pred`, `enemy_pred`, `in_your_void`,
-`another_pred`, `non_subtype`, `fast_predicate`, `allied_subtype`,
-`enemy_subtype`, `other_pred_plural`, `non_subtype_enemy`, and more. Each
-produces 6 nearly-identical lines for Russian, 4 for German, and similar counts
-for other case languages.
+### Finding: `:from` Already Handles This
 
-### Proposed Syntax
+The evaluator's `eval_with_from_modifier()` path already iterates over the
+`:from` parameter's variants and binds the parameter to each variant's text as
+the default. This means bare `{$base}` in a simple `:from` template resolves
+to the correct case variant automatically.
+
+The verbose form above is equivalent to:
 
 ```
-pred_with_constraint($base, $constraint) = :from($base) :passthrough($base) "{$base} {$constraint}";
+pred_with_constraint($base, $constraint) = :from($base) "{$base} {$constraint}";
 ```
 
-**Semantics:** When the caller evaluates this phrase with a variant selector
-(e.g., `{pred_with_constraint(...):acc}`), the system substitutes the same
-selector on all references to the passthrough parameter. So `{$base}` becomes
-`{$base:acc}` automatically.
+When called as `pred_with_constraint(enemy(), constraint):acc`:
 
-If a specific reference needs a different selector, an explicit annotation
-overrides the passthrough: `{$base:nom}` would select nominative regardless of
-the outer request.
+1. `:from($base)` iterates over `enemy()`'s variants
+2. For the `acc` variant: `$base` is bound to a Phrase where the default text
+   is the accusative text of `enemy()`
+3. `{$base}` in the template resolves to this accusative text
+4. The result Phrase has an `acc` variant with the composed text
 
-Multiple parameters can be passthrough targets:
-`= :passthrough($a, $b) "{$a} and {$b}"`.
+Similarly, `:from` + `:match` also correctly propagates variant context. The
+`eval_from_with_match()` path evaluates match branches within each inherited
+variant context:
 
-### Justification
+```
+count_pred($n, $base) = :from($base) :match($n) {
+    1: "{$base}",
+    *other: "{$n} {$base}",
+};
+```
 
-- **~130 lines saved** in a Russian translation file (20-25 phrases × 6 lines
+Here `{$base}` in each match branch resolves to the correct case form.
+
+The only case where a variant block is genuinely needed is when the **wrapper
+text itself** changes per case (e.g., Russian adjective agreement where
+"вражеский" declines alongside the noun). That is the variant block doing real
+work, not passthrough.
+
+### Action Items
+
+1. **Write tests** confirming that `= :from($p) "{$p} extra"` produces correct
+   per-variant output without explicit selectors. Existing test
+   `eval_from_modifier_inherits_tags` implicitly covers this (verifying
+   `variant("one")` and `variant("other")` produce correct results) but a more
+   explicit test with case-like variant names (nom, acc, gen) would make the
+   behavior undeniable.
+
+2. **Write a test** showing the composition chain: a term with case variants
+   passed through a `:from` phrase, then selected by a consumer phrase with
+   `:acc`, produces the correct accusative form.
+
+3. **Document this behavior** clearly in `APPENDIX_RUSSIAN_TRANSLATION.md` with
+   before/after examples showing that translators can replace 6-line variant
+   blocks with single-line `:from` templates.
+
+4. **Remove verbose passthrough blocks** from existing translation files (once
+   tests confirm the simple form works).
+
+### Impact
+
+- **~130 lines saved** in a Russian translation file (20-25 phrases x 6 lines
   reduced to 1 line each).
-- Identical savings for German (4 cases), Polish (7 cases), Finnish (15 cases),
-  Turkish (6 cases), Arabic (3 cases), and Hungarian (18 cases).
-- The pattern is mechanical and error-prone: a translator who adds a new case
-  variant to a noun must also update every composition phrase that wraps it.
-  `:passthrough` eliminates this coupling.
-
-### Real-World Example
-
-The card "Scorched Reckoning" produces `dissolve an enemy with spark 3 or more`.
-The predicate "enemy with spark 3 or more" is built by the Rust serializer as:
-
-```
-pred_with_constraint(enemy(), with_spark_constraint("or more", 3))
-```
-
-In Russian, `dissolve_target` needs the accusative of this compound predicate.
-Without `:passthrough`, the translator must ensure `pred_with_constraint` has an
-`acc` variant block that passes `acc` to `$base`. With `:passthrough`, the case
-flows through automatically: `dissolve_target` requests `:acc` →
-`pred_with_constraint` passes `:acc` to `enemy()` → correct form "врага".
+- No new syntax, no new concepts, no implementation work beyond tests and docs.
+- Identical savings for German (4 cases), Polish (7 cases), Finnish (15 cases).
 
 ---
 
-## Proposal 2: Declension Pattern Macros (`:pattern`)
+## Proposal 2: Value-Returning Transforms
 
 ### Problem
 
 Russian has ~40 game nouns (enemy, ally, character, card, event, 23 character
-subtypes, figment types). Each requires 12 forms (6 cases × 2 numbers). That's
-~480 hand-written forms, where a typo in any single form silently produces wrong
-grammar at runtime.
+subtypes, figment types). Each requires 12 forms (6 cases x 2 numbers). That's
+~480 hand-written forms. Most Russian nouns follow one of ~4 declension
+patterns. "Враг" (enemy), "Воин" (Warrior), "союзник" (ally) all decline
+identically -- the only difference is the stem.
 
-Most Russian nouns follow one of ~4 declension patterns. "Враг" (enemy), "Воин"
-(Warrior), "союзник" (ally) all decline identically — the only difference is the
-stem. Yet each must independently list all 12 forms.
+One of RLF's design principles is to provide a large standard library of
+transforms with per-language knowledge. In principle, a transform like
+`@decline:masc_anim_hard` could generate all 12 forms from a stem. However,
+the current transform architecture cannot do this because **transforms return
+`String`, not `Value`**, so they cannot generate new Phrase structures with
+variant maps.
 
-### Proposed Syntax
-
-Define a pattern once, then apply it by stem:
+### Current Architecture
 
 ```
-:pattern masc_anim_hard($stem, $pl) = :masc :anim {
-    nom.one: "{$stem}",       nom.other: "{$pl}и",
-    gen.one: "{$stem}а",      gen.other: "{$pl}ов",
-    acc.one: "{$stem}а",      acc.other: "{$pl}ов",
-    dat.one: "{$stem}у",      dat.other: "{$pl}ам",
-    inst.one: "{$stem}ом",    inst.other: "{$pl}ами",
-    *prep.one: "{$stem}е",    prep.other: "{$pl}ах",
-};
-
-enemy = :pattern masc_anim_hard("враг", "враг");
-warrior = :pattern masc_anim_hard("Воин", "Воин");
-ally = :pattern masc_anim_hard("союзник", "союзник");
+apply_transforms() iterates right-to-left:
+  1. First transform receives Value::Phrase (with tags and variants)
+  2. Transform executes, returns String
+  3. Result wrapped as Value::String for next transform
+  4. Tags and variants are LOST after first transform
 ```
 
-Three lines each instead of twelve.
+Key signatures:
 
-**Semantics:** `:pattern` declarations define a reusable variant template
-parameterized by string arguments. Applying a pattern expands it at parse time
-into the equivalent multi-dimensional variant block. The pattern is pure
-syntactic sugar — it produces the same Phrase structure as writing the variants
-by hand.
+```rust
+// evaluator.rs:796
+fn apply_transforms(...) -> Result<String, EvalError>
 
-Patterns can carry tags (`:masc`, `:anim`) and a default marker (`*`). The
-applying phrase can add additional tags: `ally = :pattern masc_anim_hard(...)`
-inherits `:masc :anim` from the pattern but could add more.
+// transforms.rs:142
+pub fn execute(&self, value: &Value, context: Option<&Value>, lang: &str)
+    -> Result<String, EvalError>
+```
 
-### Justification
+### Proposed Architecture
 
-- **~350 lines saved** across a Russian translation file.
-- **Error reduction:** A declension bug fixed in the pattern definition
-  propagates to all nouns using it. Without patterns, fixing "accusative animate
-  = genitive" requires updating every animate masculine noun independently.
-- Russian has 3-4 productive patterns, German has ~5, Arabic has ~10 broken
-  plural patterns. Each language benefits proportionally.
-- The most common translation error for inflected languages is an incorrect case
-  form for one variant of one noun. Patterns make this structurally impossible
-  for regular nouns.
+Change transforms to return `Value` instead of `String`. This enables a
+**two-tier** system where some transforms generate new Phrase values (with
+variants and tags) while others modify text as before.
 
-### Real-World Example
+**Step 1: Change `TransformKind::execute()` return type.**
 
-The card "Fury of the Clan" produces `dissolve an enemy with cost less than the
-number of allied Warriors`. This requires both "enemy" (враг) and "Warrior"
-(Воин) to have full case paradigms. Both are masculine animate 2nd-declension
-nouns. Without patterns, that's 24 hand-written forms across two nouns, all
-following the same rules. With patterns, each noun is one line referencing the
-shared pattern.
+```rust
+// transforms.rs -- new signature
+pub fn execute(&self, value: &Value, context: Option<&Value>, lang: &str)
+    -> Result<Value, EvalError>
+```
+
+Existing text-only transforms wrap their `String` result as `Value::String`
+before returning. This is backward-compatible -- all existing transforms
+continue to work with a one-line change per implementation.
+
+**Step 2: Change `apply_transforms()` to thread `Value` through.**
+
+```rust
+// evaluator.rs -- new implementation
+fn apply_transforms(
+    initial_value: &Value,
+    transforms: &[Transform],
+    ...
+) -> Result<Value, EvalError> {
+    let mut current = initial_value.clone();
+    for transform in transforms.iter().rev() {
+        let kind = transform_registry.get(&transform.name, lang)?;
+        let ctx_val = resolve_transform_context(&transform.context, ctx)?;
+        current = kind.execute(&current, ctx_val.as_ref(), lang)?;
+    }
+    Ok(current)
+}
+```
+
+**Step 3: Update callers** to convert `Value` to `String` at the output
+boundary only.
+
+```rust
+// In eval_template(), where transform results are pushed to output:
+let transformed = apply_transforms(&selected, transforms, ...)?;
+output.push_str(&transformed.to_string());
+```
+
+### What This Enables
+
+**Generative transforms** that return `Value::Phrase` with variant maps:
+
+```
+// Hypothetical Russian translation file
+enemy = @decline:masc_anim_hard "враг";
+```
+
+The `@decline` transform would:
+1. Read the stem text ("враг") from `value.to_string()`
+2. Read the declension class ("masc_anim_hard") from the context parameter
+3. Apply Russian morphology rules to generate all case/number forms
+4. Return `Value::Phrase(Phrase { text: "враг", variants: { nom.one: "враг",
+   gen.one: "врага", acc.one: "врага", ... }, tags: ["masc", "anim"] })`
+
+**Tags preserved through chaining.** Since transforms now pass `Value`
+through, a downstream transform can still read tags set by an upstream
+transform or by the original Phrase. This fixes the current limitation where
+`{@cap @a card}` loses tags after `@a` executes.
+
+**Article transforms could return Phrase.** German `@der` currently returns a
+string like "den". If it returned a Phrase, it could carry case/gender variants
+for downstream composition.
+
+### Complexity Assessment
+
+| Change | Files Affected | Risk |
+|--------|---------------|------|
+| `execute()` return type | transforms.rs | Low -- mechanical change |
+| `apply_transforms()` return type | evaluator.rs | Low -- one function |
+| Caller updates | evaluator.rs | Low -- add `.to_string()` at output |
+| Existing transform implementations | transforms.rs | Low -- wrap returns in `Value::String()` |
+| New generative transforms | transforms.rs + semantics | Medium -- new per-language code |
+
+The architecture change itself is low-risk. The per-language morphology
+implementations are the real effort, but they can be added incrementally (one
+language at a time, one declension class at a time).
 
 ### Design Note
 
-An alternative lighter approach is a built-in `@inflect($stem, $class)`
-transform that generates forms programmatically based on language-specific
-morphology rules. This is more powerful (handles irregular stems, consonant
-mutations) but harder to implement and requires per-language morphology code in
-the RLF interpreter. The `:pattern` macro approach is language-agnostic — it's
-just template expansion.
+An alternative is a parse-time `:pattern` macro system that expands templates
+into variant blocks before evaluation. This is simpler to implement but
+language-agnostic -- it shifts morphological knowledge to the translator. The
+Value-returning transform approach aligns better with RLF's principle of
+encoding language knowledge in the standard library so translators don't need
+to be linguists.
+
+Both approaches could coexist: `:pattern` for irregular forms, `@decline` for
+regular paradigms.
 
 ---
 
-## Proposal 3: Parameter-Level Case Governance (`:gov`)
+## Proposal 3: Required Explicit Selection
 
 ### Problem
 
-In Russian, each verb governs a specific grammatical case on its direct object.
-"Развеять" (dissolve) governs accusative. "Пожертвовать" (abandon) governs
-instrumental. "Получить контроль над" (gain control of) governs instrumental.
-The translator must remember to write the correct case selector every time a
-parameter appears in a template:
+When a translator writes `{$target}` and the parameter holds a Phrase with
+case variants (nom, acc, gen, ...), the system silently uses the default
+variant (typically nominative). This produces grammatically wrong text like
+"развеять враг" instead of "развеять врага" (accusative). The translator
+meant to write `{$target:acc}` but forgot.
+
+This is the most common translation error for inflected languages, and it
+produces **silently wrong output** rather than an error.
+
+### Current Usage Analysis (dreamtides strings.rs)
+
+| Reference pattern | Count | Notes |
+|-------------------|-------|-------|
+| Bare `{$param}` with numeric value | ~45 | Never need selection |
+| Bare `{$param}` with string value | ~5 | Never need selection |
+| Bare `{$param}` Phrase in `:from` context | ~20 | Default is correct (`:from` binds variant) |
+| Bare `{$param}` Phrase outside `:from` | ~5 | Potentially dangerous |
+| Bare `{term}` without variants | ~100 | Never need selection |
+| Bare `{term}` with variants | ~20 | Relies on default |
+| Explicit `{...:key}` selectors | ~30 | Already correct |
+
+The dangerous category -- Phrase parameters referenced without a selector
+outside `:from` context -- is small (~5 instances). Requiring explicit
+selection here would catch real bugs with minimal disruption.
+
+### Proposed Behavior
+
+**In translation files** (`.rlf` runtime files), produce a **warning** when:
+
+1. A parameter reference `{$param}` has no selector, AND
+2. The parameter's value is a Phrase with multi-dimensional variants (i.e.,
+   variants with dot-separated keys like `nom.one`, `acc.few`), AND
+3. The reference is NOT inside a `:from` variant evaluation context for that
+   parameter
+
+This catches exactly the dangerous case (forgetting `:acc` on a case-inflected
+noun) while allowing:
+
+- Bare numeric/string parameters (no variants to select from)
+- Bare Phrase parameters in `:from` context (`:from` binds the correct variant)
+- Bare references to terms with simple variants like `{one, other}` (these are
+  typically plurals, not case-inflected, and the default is usually correct)
+
+**In source files** (`rlf!` macro), this validation is not needed because the
+source language (English) does not use multi-dimensional case variants.
+
+### Explicit Default Syntax
+
+For cases where the translator intentionally wants the default variant of a
+multi-dimensional Phrase, provide an explicit escape hatch:
 
 ```
-dissolve_target($target) = "{dissolve} {$target:acc}";
-banish_target($target) = "{banish} {$target:acc}";
-abandon_target($target) = "{abandon} {$target:inst}";
-gain_control_of($target) = "получить контроль над {$target:inst}";
+{$target:*}    // "I know this has case variants; give me the default"
 ```
 
-If a translator writes `{$target}` and forgets the `:acc`, the phrase silently
-uses the default variant (likely nominative), producing grammatically wrong text
-like "развеять враг" instead of "развеять врага".
+This makes the intent visible and distinguishes "I want the default" from "I
+forgot to select a case."
 
-### Proposed Syntax
+### Implementation
 
-```
-dissolve_target($target:acc) = "{dissolve} {$target}";
-abandon_target($target:inst) = "{abandon} {$target}";
-```
+The check happens in the evaluator during template interpolation. When
+resolving a `{$param}` reference:
 
-**Semantics:** The `:acc` annotation on `$target` in the parameter list declares
-a default variant selector. Everywhere `$target` appears in the template without
-an explicit selector, the system applies `:acc`. An explicit annotation like
-`{$target:nom}` overrides the default.
+1. Look up the parameter's `Value`
+2. If it's a `Value::Phrase` with any dot-separated variant keys
+3. And no selector was provided
+4. And the current evaluation is not inside a `:from` context for this parameter
+5. Emit a warning (or error, configurable)
 
-This is purely a translation-file feature — the Rust API signature remains
-`dissolve_target($target)`. The governance annotation exists only in the
-translation file's phrase definition.
+This requires threading a "`:from` context set" through the evaluator, tracking
+which parameters are currently bound in a `:from` iteration. The evaluator
+already tracks this implicitly (via the variant binding in
+`eval_with_from_modifier`), so making it explicit is straightforward.
 
-### Justification
+### Impact
 
-- **Error prevention** is the primary benefit, not line-count savings (~50 `:acc`
-  annotations removed). Forgetting a case selector is the most likely translator
-  mistake, and it produces silently wrong output rather than a compile-time error.
-- Makes the governed case **declarative and visible** at the parameter level,
-  documenting the phrase's grammatical requirements.
-- Multiple parameters can have different governance:
-  `give($source:nom, $target:dat, $object:acc) = "{$source} даёт {$target} {$object}"`.
-
-### Real-World Example
-
-The card "Shardwoven Tyrant" has `abandon an ally` (instrumental in Russian) and
-`dissolve an enemy with spark less than that ally's spark` (accusative). Without
-governance annotations, the translator writes two different case selectors in two
-different phrases and must keep them consistent. With governance, the parameter
-declaration self-documents which case each verb requires, and omitting the
-selector at a use site is safe rather than a bug.
+- Catches the most common inflected-language translation error at runtime
+- Minimal disruption to existing English source files (~0 changes needed)
+- Small number of translation file updates (add `:*` to intentional defaults)
+- Makes governed case visible at use sites, improving translation readability
 
 ---
 
-## Proposal 4: Transparent Wrapper (`:transparent`)
+## Proposal 4: Body-less `:from` for Transparent Wrappers
 
 ### Problem
 
 Some phrases exist in the English source to apply English-specific grammar
 (articles, pluralization) but are semantic no-ops in many target languages.
-`predicate_with_indefinite_article` applies English "a"/"an" — Russian, Chinese,
-Japanese, Korean, and Turkish have no indefinite articles.
+`predicate_with_indefinite_article` applies English "a"/"an" -- Russian,
+Chinese, Japanese, Korean, and Turkish have no indefinite articles.
 
 Currently, the translator must write:
 
@@ -252,63 +356,78 @@ information, causing downstream case selection to fail.
 
 ### Proposed Syntax
 
+Allow `:from` without a template body:
+
 ```
-predicate_with_indefinite_article($p) = :transparent($p);
+predicate_with_indefinite_article($p) = :from($p);
 ```
 
-**Semantics:** The phrase returns its argument unchanged — same text, same tags,
-same variant structure. Equivalent to `:from($p) "{$p}"` but with explicit
-intent. No template is needed.
+**Semantics:** The phrase returns its argument unchanged -- same text, same
+tags, same variant structure. Equivalent to `:from($p) "{$p}"` but with
+explicit intent. No template is needed.
 
-If a phrase has multiple parameters, `:transparent($p)` specifies which parameter
-is the identity target. The other parameters are unused (which is already
-supported by RLF — unused parameters don't cause errors).
+If a phrase has multiple parameters, `:from($p)` specifies which parameter is
+the identity target. The other parameters are unused (already supported by
+RLF -- unused parameters don't cause errors).
 
-### Justification
+### Implementation
+
+In both parsers (macro `parse.rs` and runtime `file.rs`), when `:from($param)`
+is followed by `;` instead of a template string or variant block, treat it as
+syntactic sugar for `:from($param) "{$param}"`.
+
+This is a ~10-line parser change in each parser. No evaluator changes needed.
+
+### Impact
 
 - **~10 lines saved** per translation file.
-- **Clarity:** `:transparent` communicates "this phrase doesn't apply in my
-  language" far more clearly than `:from($p) "{$p}"`.
-- **Safety:** A translator who forgets `:from` and writes just `= "{$p}"` will
-  silently lose variant information. `:transparent` makes the safe behavior the
-  easy behavior.
+- **Clarity:** `= :from($p);` communicates "this phrase doesn't apply in my
+  language" far more clearly than `= :from($p) "{$p}"`.
+- **Safety:** A translator who forgets `:from` and writes just `= "{$p}";`
+  will silently lose variant information. The body-less form makes the safe
+  behavior the easy behavior.
 - Applies to 5-6 phrases in every non-English translation (article application,
   English-specific plural wrappers, vowel-based article selection).
 
 ### Real-World Example
 
-The card "Abyssal Plunge" produces `dissolve an enemy with cost 3● or more`. The
-predicate "an enemy with cost 3● or more" flows through
+The card "Abyssal Plunge" produces `dissolve an enemy with cost 3 or more`. The
+predicate "an enemy with cost 3 or more" flows through
 `predicate_with_indefinite_article` to add the "an". In Russian, this wrapper
-must be transparent — the compound predicate's case variants must pass through
+must be transparent -- the compound predicate's case variants must pass through
 intact so that `dissolve_target` can select accusative on the final result. With
-`:transparent`, the translator writes one self-documenting line and the variant
-chain is preserved.
+body-less `:from`, the translator writes one self-documenting line and the
+variant chain is preserved.
 
 ---
 
 ## Implementation Priority
 
-| Proposal | Impact | Complexity | Languages Affected |
-|----------|--------|------------|-------------------|
-| 1. `:passthrough` | High | Low-Medium | All case languages (ru, de, tr, ar, fi, hu, pl, ...) |
-| 2. `:pattern` | Medium-High | Medium | All inflected languages |
-| 3. `:gov` | Medium | Low | All case languages |
-| 4. `:transparent` | Low-Medium | Low | All non-English |
+| Proposal | Impact | Complexity | Action |
+|----------|--------|------------|--------|
+| 1. `:from` passthrough docs | High | None (tests + docs only) | Write tests, update translation appendix |
+| 2. Value-returning transforms | High (future) | Medium | Architecture change, then incremental |
+| 3. Required explicit selection | Medium | Low-Medium | Evaluator validation pass |
+| 4. Body-less `:from` | Low-Medium | Low | ~10-line parser change per parser |
 
-Recommended order: 1, 3, 4, 2. Proposals 1, 3, and 4 are small, low-risk macro
-expansions. Proposal 2 requires a new parsing construct but is the biggest
-quality-of-life improvement for translators working with heavily inflected
-languages.
+Recommended order: 1, 4, 3, 2. Proposal 1 requires no code changes and saves
+the most lines immediately. Proposal 4 is a small parser change. Proposal 3
+adds safety. Proposal 2 is the biggest architectural investment but enables the
+most powerful future capabilities.
 
 ---
 
 ## References
 
 - English phrase definitions: `rules_engine/src/strings/src/strings.rs`
-- RLF evaluator: `~/rlf/crates/rlf/src/interpreter/evaluator.rs`
-- RLF macro codegen: `~/rlf/crates/rlf-macros/src/codegen.rs`
-- CLDR plural rules: `~/rlf/crates/rlf/src/interpreter/plural.rs`
-- `:from` design: `~/rlf/docs/DESIGN.md` (Section: Metadata Inheritance)
-- Variant composition: `~/rlf/docs/PROPOSAL_VARIANT_AWARE_COMPOSITION.md`
-- Migration design: `docs/plans/serializer_rlf_migration.md` (Sections 2.6, 4.3)
+- RLF evaluator: `crates/rlf/src/interpreter/evaluator.rs`
+- Transform execution: `crates/rlf/src/interpreter/transforms.rs`
+- Transform registry: `crates/rlf-semantics/src/lib.rs`
+- Value type: `crates/rlf/src/types/value.rs`
+- Phrase type: `crates/rlf/src/types/phrase.rs`
+- RLF macro parser: `crates/rlf-macros/src/parse.rs`
+- Runtime file parser: `crates/rlf/src/parser/file.rs`
+- Existing `:from` tests: `crates/rlf/tests/interpreter_eval.rs`
+- `:from` + `:match` tests: `crates/rlf/tests/interpreter_match.rs`
+- CLDR plural rules: `crates/rlf/src/interpreter/plural.rs`
+- Design spec: `docs/DESIGN.md`
