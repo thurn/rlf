@@ -392,7 +392,7 @@ fn reconstruct_interpolation(interp: &Interpolation) -> String {
     // Reference ($-prefix for parameters)
     result.push_str(&reconstruct_reference(&interp.reference));
 
-    // Selectors (already typed as Literal/Parameter)
+    // Selectors (already typed as Literal/Parameter/Default)
     for selector in &interp.selectors {
         result.push(':');
         match selector {
@@ -401,6 +401,7 @@ fn reconstruct_interpolation(interp: &Interpolation) -> String {
                 result.push('$');
                 result.push_str(&ident.name);
             }
+            Selector::Default => result.push('*'),
         }
     }
 
@@ -812,5 +813,18 @@ mod tests {
         assert!(output.contains("fn greet"));
         assert!(output.contains("name"));
         assert!(output.contains("impl Into"));
+    }
+
+    #[test]
+    fn test_reconstruct_default_selector() {
+        let input = parse_input(parse_quote! {
+            card = { one: "card", *other: "cards" };
+            show = "The default is {card:*}.";
+        });
+        let source = reconstruct_source(&input);
+        assert!(
+            source.contains("{card:*}"),
+            "default selector should serialize as :*, got: {source}"
+        );
     }
 }

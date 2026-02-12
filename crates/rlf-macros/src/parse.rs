@@ -1021,8 +1021,13 @@ fn extract_selectors(content: &str, span: Span) -> syn::Result<Vec<Selector>> {
     while rest.starts_with(':') && !rest.starts_with("::") {
         rest = &rest[1..]; // Skip :
 
-        // Check for $ prefix (parameterized selector)
-        if rest.starts_with('$') {
+        // Check for * (explicit default selector)
+        if rest.starts_with('*') {
+            rest = &rest[1..]; // Skip *
+            selectors.push(Selector::Default);
+            rest = rest.trim_start();
+        } else if rest.starts_with('$') {
+            // Check for $ prefix (parameterized selector)
             rest = &rest[1..]; // Skip $
             let end = rest
                 .find(|c: char| c.is_whitespace() || c == ':')
@@ -1114,6 +1119,7 @@ mod tests {
         match sel {
             Selector::Literal(ident) => &ident.name,
             Selector::Parameter(ident) => &ident.name,
+            Selector::Default => "*",
         }
     }
 
@@ -1665,5 +1671,48 @@ mod tests {
         let interp2 = get_interpolation(&segments[3]);
         assert_eq!(interp2.selectors.len(), 1);
         assert!(matches!(&interp2.selectors[0], Selector::Literal(ident) if ident.name == "n"));
+    }
+
+    // =========================================================================
+    // Default selector (:*)
+    // =========================================================================
+
+    #[test]
+    fn test_default_selector() {
+        let segments = parse_ok("{card:*}");
+        assert_eq!(segments.len(), 1);
+
+        let interp = get_interpolation(&segments[0]);
+        assert!(matches!(
+            &interp.reference,
+            Reference::Identifier(ident) if ident.name == "card"
+        ));
+        assert_eq!(interp.selectors.len(), 1);
+        assert!(matches!(&interp.selectors[0], Selector::Default));
+    }
+
+    #[test]
+    fn test_default_selector_on_parameter() {
+        let segments = parse_ok("{$item:*}");
+        assert_eq!(segments.len(), 1);
+
+        let interp = get_interpolation(&segments[0]);
+        assert!(matches!(
+            &interp.reference,
+            Reference::Parameter(ident) if ident.name == "item"
+        ));
+        assert_eq!(interp.selectors.len(), 1);
+        assert!(matches!(&interp.selectors[0], Selector::Default));
+    }
+
+    #[test]
+    fn test_default_selector_with_literal_selector() {
+        let segments = parse_ok("{card:nom:*}");
+        assert_eq!(segments.len(), 1);
+
+        let interp = get_interpolation(&segments[0]);
+        assert_eq!(interp.selectors.len(), 2);
+        assert!(matches!(&interp.selectors[0], Selector::Literal(ident) if ident.name == "nom"));
+        assert!(matches!(&interp.selectors[1], Selector::Default));
     }
 }

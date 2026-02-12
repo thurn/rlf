@@ -187,4 +187,6 @@ pub enum Selector {
     /// Parameterized selector with `$` prefix: `:$n`, `:$entity`
     /// The SpannedIdent stores the name without the `$` prefix.
     Parameter(SpannedIdent),
+    /// Explicit default selector: `:*`
+    Default,
 }

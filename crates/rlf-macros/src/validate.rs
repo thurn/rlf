@@ -286,6 +286,7 @@ fn validate_interpolation(
                         .map(|s| match s {
                             Selector::Literal(i) => i.name.clone(),
                             Selector::Parameter(i) => format!("${}", i.name),
+                            Selector::Default => "*".to_string(),
                         })
                         .collect::<Vec<_>>()
                         .join(":")
@@ -333,7 +334,7 @@ fn validate_interpolation(
                 .iter()
                 .filter_map(|selector| match selector {
                     Selector::Literal(ident) => Some(ident.name.clone()),
-                    Selector::Parameter(_) => None,
+                    Selector::Parameter(_) | Selector::Default => None,
                 })
                 .collect::<Vec<_>>()
                 .join(".");

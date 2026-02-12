@@ -3495,3 +3495,77 @@ fn eval_bodyless_from_equivalent_to_explicit() {
         "body-less :from should inherit same tags as explicit form"
     );
 }
+
+// =============================================================================
+// Default Selector (:*)
+// =============================================================================
+
+#[test]
+fn eval_default_selector_on_term() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+            card = :a { one: "card", *other: "cards" };
+            show = "The default is {card:*}.";
+        "#,
+        )
+        .unwrap();
+    let result = registry.get_phrase("en", "show").unwrap();
+    assert_eq!(result.to_string(), "The default is cards.");
+}
+
+#[test]
+fn eval_default_selector_on_parameter() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+            card = :a { one: "card", *other: "cards" };
+            show_default($item) = "Default: {$item:*}";
+        "#,
+        )
+        .unwrap();
+    let card = registry.get_phrase("en", "card").unwrap();
+    let result = registry
+        .call_phrase("en", "show_default", &[Value::from(card)])
+        .unwrap();
+    assert_eq!(result.to_string(), "Default: cards");
+}
+
+#[test]
+fn eval_default_selector_preserves_tags_with_from() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+            card = :a { one: "card", *other: "cards" };
+            wrap($item) = :from($item) "{$item:*}";
+        "#,
+        )
+        .unwrap();
+    let card = registry.get_phrase("en", "card").unwrap();
+    let result = registry
+        .call_phrase("en", "wrap", &[Value::from(card)])
+        .unwrap();
+    assert_eq!(result.to_string(), "cards");
+    assert!(
+        result.has_tag("a"),
+        "tags should be preserved through :* with :from"
+    );
+}
+
+#[test]
+fn eval_default_selector_on_simple_phrase() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+            greeting = "hello";
+            show = "Say: {greeting:*}";
+        "#,
+        )
+        .unwrap();
+    let result = registry.get_phrase("en", "show").unwrap();
+    assert_eq!(result.to_string(), "Say: hello");
+}

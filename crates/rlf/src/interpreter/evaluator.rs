@@ -620,6 +620,19 @@ fn apply_selectors(
         return Ok(value.clone());
     }
 
+    // Handle :* (explicit default selector) — return the phrase's default text
+    if selectors.iter().any(|s| matches!(s, Selector::Default)) {
+        return match value {
+            Value::Phrase(phrase) => Ok(Value::Phrase(
+                Phrase::builder()
+                    .text(phrase.text.clone())
+                    .tags(phrase.tags.clone())
+                    .build(),
+            )),
+            _ => Ok(value.clone()),
+        };
+    }
+
     // Build candidate key parts from selectors. Each selector position may
     // have multiple candidates (e.g., a Phrase with tags [:masc, :anim]).
     let mut candidate_parts: Vec<Vec<String>> = Vec::new();
@@ -711,6 +724,7 @@ fn build_compound_keys(parts: &[Vec<String>]) -> Vec<String> {
 /// - `Selector::Identifier(name)` → use as a literal variant key
 /// - `Selector::Parameter(name)` → look up parameter value, then resolve:
 ///   Number → CLDR plural category, Phrase → all tags, String → literal or parsed number
+/// - `Selector::Default` → handled before this function is called (short-circuit in apply_selectors)
 fn resolve_selector_candidates(
     selector: &Selector,
     ctx: &EvalContext<'_>,
@@ -722,8 +736,8 @@ fn resolve_selector_candidates(
             Ok(vec![name.clone()])
         }
         Selector::Default => {
-            // Explicit default selector: :* — full semantics in a later task
-            Ok(vec![])
+            // Handled by apply_selectors before reaching here
+            unreachable!("Selector::Default should be handled in apply_selectors")
         }
         Selector::Parameter(name) => {
             // Parameterized selector: look up parameter value
