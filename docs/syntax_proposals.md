@@ -95,7 +95,7 @@ work, not passthrough.
    passed through a `:from` phrase, then selected by a consumer phrase with
    `:acc`, produces the correct accusative form.
 
-3. **Document this behavior** clearly in `APPENDIX_RUSSIAN_TRANSLATION.md` with
+3. **Document this behavior** clearly in `DESIGN.md` with
    before/after examples showing that translators can replace 6-line variant
    blocks with single-line `:from` templates.
 
@@ -401,6 +401,232 @@ variant chain is preserved.
 
 ---
 
+## Proposal 5: Translation Linter
+
+### Problem
+
+Translation files are written by translators who may not fully understand RLF's
+evaluation semantics. Several categories of mistakes produce silently wrong
+output or unnecessarily verbose definitions:
+
+- Writing 6-line passthrough variant blocks when a one-line `:from` template
+  suffices (addressed by Proposal 1 documentation, but translators may not
+  read it).
+- Using explicit selectors like `{$base:nom}` inside the `nom:` variant of a
+  `:from` block, where bare `{$base}` already resolves to the nominative form.
+- Writing `= "{$p}"` without `:from`, silently dropping tags and variants.
+- Using `= :from($p) "{$p}"` instead of the shorter `= :from($p);` (Proposal
+  4).
+
+A linter integrated into `load_translations()` would catch these patterns
+automatically and suggest simpler alternatives. The existing `LoadWarning` enum
+and `validate_translations()` API already provide the infrastructure for this.
+
+### Existing Infrastructure
+
+The AST is explicitly public for tooling:
+
+```rust
+// crates/rlf/src/parser/ast.rs
+//! These types are public to enable external tooling (linters, formatters, etc.).
+```
+
+`LoadWarning` already has four variants (`UnknownPhrase`,
+`ParameterCountMismatch`, `InvalidTag`, `InvalidVariantKey`) returned by
+`Locale::validate_translations()`. New lint rules add new `LoadWarning`
+variants and new validation passes over the parsed AST.
+
+### Proposed Lint Rules
+
+#### Lint 1: Redundant Passthrough Variant Block (static, AST-only)
+
+**Detects:** A `:from($p)` phrase with a variant block where every entry's
+template is `"{$p:KEY} ..."` and KEY matches the variant entry's key name.
+
+**Example trigger:**
+
+```
+pred_with_constraint($base, $c) = :from($base) {
+    nom: "{$base:nom} {$c}",
+    acc: "{$base:acc} {$c}",
+    gen: "{$base:gen} {$c}",
+    *prep: "{$base:prep} {$c}",
+};
+```
+
+**Suggested fix:**
+
+```
+pred_with_constraint($base, $c) = :from($base) "{$base} {$c}";
+```
+
+**Detection algorithm:**
+
+1. Find phrases where `from_param` is `Some(p)` and `body` is
+   `PhraseBody::Variants(entries)`.
+2. For each variant entry, check if the template contains an interpolation of
+   `$p` with a single static selector matching the entry's key.
+3. If ALL entries match this pattern (i.e., every entry just passes its own key
+   through to `$p`), flag as redundant.
+4. Entries where the surrounding text differs between variants are NOT flagged
+   (the variant block is doing real work, e.g., adjective agreement).
+
+#### Lint 2: Redundant Explicit Selector in `:from` Context (static, AST-only)
+
+**Detects:** Inside a `:from($p)` variant block, an interpolation `{$p:KEY}`
+where KEY matches the enclosing variant entry's key.
+
+**Example trigger:**
+
+```
+wrapper($s) = :from($s) {
+    nom: "good {$s:nom}",
+    acc: "good {$s:acc}",
+};
+```
+
+**Suggested fix:**
+
+```
+wrapper($s) = :from($s) {
+    nom: "good {$s}",
+    acc: "good {$s}",
+};
+```
+
+Note: this lint is independent of Lint 1. The variant block may be needed
+(because surrounding text differs per entry), but the explicit selector on
+`$p` is still redundant within each entry.
+
+**Detection algorithm:**
+
+1. Find phrases with `from_param = Some(p)` and `PhraseBody::Variants`.
+2. Within each variant entry, scan template interpolations for
+   `Reference::Parameter(p)` with a `Selector::Identifier(key)` where `key`
+   matches the enclosing variant entry's key.
+3. Flag those selectors as redundant.
+
+#### Lint 3: Missing `:from` on Single-Parameter Wrapper (static, AST-only)
+
+**Detects:** A phrase with one parameter and a simple template body that is
+just `"{$p}"` (or `"{$p}"` with only literal text around it), without `:from`.
+
+**Example trigger:**
+
+```
+wrapper($p) = "{$p}";
+```
+
+**Suggested fix:**
+
+```
+wrapper($p) = :from($p);
+```
+
+**Why:** Without `:from`, the result is a plain string. Tags and variants from
+`$p` are lost, which silently breaks downstream variant selection and transform
+tag-reading.
+
+**Detection algorithm:**
+
+1. Find phrases where `from_param` is `None` and `body` is
+   `PhraseBody::Simple(template)`.
+2. Check if the template contains exactly one interpolation that is
+   `Reference::Parameter(name)` matching the sole parameter, with no selectors
+   and no transforms.
+3. If so, flag as missing `:from`.
+
+#### Lint 4: Verbose Transparent Wrapper (static, AST-only)
+
+**Detects:** `= :from($p) "{$p}"` which can be written as `= :from($p);`.
+
+**Example trigger:**
+
+```
+predicate_with_indefinite_article($p) = :from($p) "{$p}";
+```
+
+**Suggested fix:**
+
+```
+predicate_with_indefinite_article($p) = :from($p);
+```
+
+**Detection algorithm:**
+
+1. Find phrases where `from_param = Some(p)` and `body` is
+   `PhraseBody::Simple(template)`.
+2. Check if the template has exactly one segment, an interpolation of
+   `Reference::Parameter(p)` with no selectors and no transforms.
+3. If so, suggest body-less `:from`.
+
+#### Lint 5: Missing Selector on Multi-Dimensional Phrase (runtime)
+
+This is Proposal 3 (Required Explicit Selection). Unlike the other lints, this
+one runs during evaluation because it requires knowing the runtime `Value` type
+of a parameter. See Proposal 3 for details.
+
+### Implementation
+
+**Phase 1: Static lints (Lints 1-4).**
+
+Add a `pub fn lint_definitions(defs: &[PhraseDefinition]) -> Vec<LoadWarning>`
+function that operates purely on the parsed AST. This can be called from
+`load_translations()` or independently by external tools.
+
+New `LoadWarning` variants:
+
+```rust
+/// Variant block on :from phrase could be replaced with simple template.
+RedundantPassthroughBlock {
+    name: String,
+    language: String,
+},
+
+/// Explicit selector on :from parameter matches enclosing variant key.
+RedundantFromSelector {
+    name: String,
+    language: String,
+    variant_key: String,
+    parameter: String,
+},
+
+/// Single-parameter phrase wraps parameter without :from.
+MissingFrom {
+    name: String,
+    language: String,
+    parameter: String,
+},
+
+/// :from phrase with identity template could use body-less form.
+VerboseTransparentWrapper {
+    name: String,
+    language: String,
+},
+```
+
+**Phase 2: Runtime lint (Lint 5).**
+
+This is Proposal 3's implementation -- a check in the evaluator during template
+interpolation. It produces warnings (or errors) for bare references to Phrases
+with multi-dimensional variants outside `:from` context.
+
+### Severity
+
+All static lints are **suggestions** (non-blocking). They appear in
+`validate_translations()` output alongside existing warnings. The runtime lint
+(Lint 5 / Proposal 3) is configurable as warning or error.
+
+### Impact
+
+- Catches verbose patterns that Proposal 1 documentation alone may not prevent
+- Catches the dangerous missing-`:from` pattern that silently loses metadata
+- Gives translators actionable feedback with specific suggested fixes
+- Builds on existing `LoadWarning` / `validate_translations()` infrastructure
+- Static lints require no evaluator changes -- purely AST analysis
+
+---
+
 ## Implementation Priority
 
 | Proposal | Impact | Complexity | Action |
@@ -409,11 +635,13 @@ variant chain is preserved.
 | 2. Value-returning transforms | High (future) | Medium | Architecture change, then incremental |
 | 3. Required explicit selection | Medium | Low-Medium | Evaluator validation pass |
 | 4. Body-less `:from` | Low-Medium | Low | ~10-line parser change per parser |
+| 5. Translation linter | Medium | Low-Medium | New `LoadWarning` variants + AST pass |
 
-Recommended order: 1, 4, 3, 2. Proposal 1 requires no code changes and saves
-the most lines immediately. Proposal 4 is a small parser change. Proposal 3
-adds safety. Proposal 2 is the biggest architectural investment but enables the
-most powerful future capabilities.
+Recommended order: 1, 4, 3, 5, 2. Proposal 1 requires no code changes and
+saves the most lines immediately. Proposal 4 is a small parser change.
+Proposal 3 adds runtime safety. Proposal 5 reinforces proposals 1 and 4 by
+automatically flagging verbose patterns. Proposal 2 is the biggest
+architectural investment but enables the most powerful future capabilities.
 
 ---
 
