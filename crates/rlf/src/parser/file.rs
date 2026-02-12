@@ -936,10 +936,13 @@ fn string_literal_arg(input: &mut &str) -> ModalResult<Reference> {
     Ok(Reference::StringLiteral(result))
 }
 
-/// Parse a selector: :identifier or :$param
+/// Parse a selector: :identifier, :$param, or :*
 fn selector(input: &mut &str) -> ModalResult<Selector> {
     ':'.parse_next(input)?;
-    if input.starts_with('$') {
+    if input.starts_with('*') {
+        let _ = '*'.parse_next(input)?;
+        Ok(Selector::Default)
+    } else if input.starts_with('$') {
         let _ = '$'.parse_next(input)?;
         selector_identifier
             .map(|s| Selector::Parameter(s.to_string()))

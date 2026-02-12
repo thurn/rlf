@@ -721,6 +721,10 @@ fn resolve_selector_candidates(
             // Static selector: use as literal key
             Ok(vec![name.clone()])
         }
+        Selector::Default => {
+            // Explicit default selector: :* — full semantics in a later task
+            Ok(vec![])
+        }
         Selector::Parameter(name) => {
             // Parameterized selector: look up parameter value
             let value = ctx

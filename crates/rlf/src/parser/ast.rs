@@ -70,6 +70,8 @@ pub enum Selector {
     /// Parameterized selector with $ prefix: :$n, :$entity
     /// The String stores the name without the `$` prefix.
     Parameter(String),
+    /// Explicit default selector: :*
+    Default,
 }
 
 // =============================================================================

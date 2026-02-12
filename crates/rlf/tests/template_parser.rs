@@ -1188,3 +1188,57 @@ fn test_phrase_call_with_empty_string_literal() {
         Segment::Literal(_) => panic!("expected interpolation"),
     }
 }
+
+// =============================================================================
+// Default selector (:*)
+// =============================================================================
+
+#[test]
+fn test_default_selector() {
+    let t = parse_template("{card:*}").unwrap();
+    match &t.segments[0] {
+        Segment::Interpolation {
+            reference,
+            selectors,
+            ..
+        } => {
+            assert_eq!(*reference, Reference::Identifier("card".into()));
+            assert_eq!(selectors, &[Selector::Default]);
+        }
+        Segment::Literal(_) => panic!("expected interpolation"),
+    }
+}
+
+#[test]
+fn test_default_selector_with_other_selectors() {
+    let t = parse_template("{card:nom:*}").unwrap();
+    match &t.segments[0] {
+        Segment::Interpolation {
+            reference,
+            selectors,
+            ..
+        } => {
+            assert_eq!(*reference, Reference::Identifier("card".into()));
+            assert_eq!(selectors.len(), 2);
+            assert_eq!(selectors[0], Selector::Identifier("nom".into()));
+            assert_eq!(selectors[1], Selector::Default);
+        }
+        Segment::Literal(_) => panic!("expected interpolation"),
+    }
+}
+
+#[test]
+fn test_parameter_with_default_selector() {
+    let t = parse_template("{$base:*}").unwrap();
+    match &t.segments[0] {
+        Segment::Interpolation {
+            reference,
+            selectors,
+            ..
+        } => {
+            assert_eq!(*reference, Reference::Parameter("base".into()));
+            assert_eq!(selectors, &[Selector::Default]);
+        }
+        Segment::Literal(_) => panic!("expected interpolation"),
+    }
+}
