@@ -1,0 +1,6 @@
+error: unknown transform '@el'
+       note: available transforms: cap, upper, lower, a, an, the, plural
+ --> tests/fail/unsupported_source_transform.rs:5:11
+  |
+5 |     bad = "{@el card}";
+  |           ^^^^^^^^^^^^

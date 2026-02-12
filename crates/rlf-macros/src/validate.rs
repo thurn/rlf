@@ -19,17 +19,13 @@
 use std::collections::{HashMap, HashSet};
 
 use proc_macro2::Span;
+use rlf_semantics::{accepted_transform_names, resolve_transform};
 use strsim::levenshtein;
 
 use crate::input::{
     DefinitionKind, Interpolation, MacroInput, PhraseBody, PhraseDefinition, Reference, Segment,
     Selector, Template, TransformContext, VariantEntryBody,
 };
-
-/// Known transforms validated at macro expansion time.
-///
-/// This includes universal transforms plus built-in English article transforms.
-const KNOWN_TRANSFORMS: &[&str] = &["cap", "upper", "lower", "a", "an", "the"];
 
 /// Validation context built from MacroInput.
 pub struct ValidationContext {
@@ -67,12 +63,9 @@ impl ValidationContext {
                     let mut keys = HashSet::new();
                     for variant in variants {
                         for key in &variant.keys {
-                            // Handle dotted keys (e.g., "nom.one" -> add both "nom" and "nom.one")
+                            // Store exact variant keys; selector fallback behavior is checked
+                            // later using runtime-equivalent prefix matching.
                             keys.insert(key.name.clone());
-                            // Also add the first component for partial matching
-                            if let Some(first) = key.name.split('.').next() {
-                                keys.insert(first.to_string());
-                            }
                         }
                     }
                     phrase_variants.insert(name.clone(), keys);
@@ -82,9 +75,6 @@ impl ValidationContext {
                     for branch in branches {
                         for key in &branch.keys {
                             keys.insert(key.value.name.clone());
-                            if let Some(first) = key.value.name.split('.').next() {
-                                keys.insert(first.to_string());
-                            }
                         }
                     }
                     phrase_variants.insert(name.clone(), keys);
@@ -227,15 +217,20 @@ fn validate_interpolation(
     params: &HashSet<String>,
     ctx: &ValidationContext,
 ) -> syn::Result<()> {
+    let source_transform_names = accepted_transform_names("en");
+
     // Validate transforms exist (MACRO-11)
     for transform in &interp.transforms {
-        if !KNOWN_TRANSFORMS.contains(&transform.name.name.as_str()) {
-            let suggestions = compute_suggestions_str(&transform.name.name, KNOWN_TRANSFORMS);
+        if resolve_transform(&transform.name.name, "en").is_none() {
+            let suggestions = compute_suggestions_str(&transform.name.name, source_transform_names);
             let mut msg = format!("unknown transform '@{}'", transform.name.name);
             if !suggestions.is_empty() {
                 msg.push_str(&format!("\nhelp: did you mean '@{}'?", suggestions[0]));
             } else {
-                msg.push_str("\nnote: available transforms: cap, upper, lower, a, an, the");
+                msg.push_str(&format!(
+                    "\nnote: available transforms: {}",
+                    source_transform_names.join(", ")
+                ));
             }
             return Err(syn::Error::new(transform.name.span, msg));
         }
@@ -321,34 +316,41 @@ fn validate_interpolation(
         // Get phrase variants for literal selector validation
         let phrase_variants = ctx.phrase_variants.get(phrase_name);
 
-        for selector in &interp.selectors {
-            // Parameter selectors are dynamic - skip compile-time check
-            let Selector::Literal(selector_ident) = selector else {
-                continue;
-            };
+        // Compile-time selector existence validation is only applied when all
+        // selectors are literal (static). Parameterized selectors are validated
+        // at runtime.
+        let all_selectors_static = interp
+            .selectors
+            .iter()
+            .all(|s| matches!(s, Selector::Literal(_)));
 
-            // Literal selector - must match a variant key if phrase has variants (MACRO-10)
-            if let Some(variants) = phrase_variants
-                && !variants.contains(&selector_ident.name)
-            {
+        // Static selector - must match a variant key under runtime-equivalent
+        // fallback semantics: exact key first, then progressively shorter
+        // dotted prefixes (e.g., nom.one -> nom).
+        if all_selectors_static && let Some(variants) = phrase_variants {
+            let selector_key = interp
+                .selectors
+                .iter()
+                .filter_map(|selector| match selector {
+                    Selector::Literal(ident) => Some(ident.name.clone()),
+                    Selector::Parameter(_) => None,
+                })
+                .collect::<Vec<_>>()
+                .join(".");
+
+            if !selector_key.is_empty() && !variant_exists_with_fallback(variants, &selector_key) {
                 let mut available: Vec<_> = variants.iter().cloned().collect();
                 available.sort();
                 return Err(syn::Error::new(
-                    selector_ident.span,
+                    interp.span,
                     format!(
                         "phrase '{}' has no variant '{}'\nnote: available variants: {}",
                         phrase_name,
-                        selector_ident.name,
+                        selector_key,
                         available.join(", ")
                     ),
                 ));
             }
-
-            // Tag-based selection compatibility (MACRO-13)
-            // When selecting by a literal value on a phrase that has tags,
-            // validate the tag has matching variants.
-            // For Phase 5, this is infrastructure - tags are used but not for selection yet.
-            // Full implementation deferred to Phase 6+ when tag-based transforms are added.
         }
     }
 
@@ -368,6 +370,23 @@ fn validate_interpolation(
     }
 
     Ok(())
+}
+
+/// Check if a static selector key can resolve against variants using runtime
+/// fallback semantics (exact key, then progressively shorter dotted prefixes).
+fn variant_exists_with_fallback(variants: &HashSet<String>, key: &str) -> bool {
+    if variants.contains(key) {
+        return true;
+    }
+
+    let mut current = key;
+    while let Some(dot_pos) = current.rfind('.') {
+        current = &current[..dot_pos];
+        if variants.contains(current) {
+            return true;
+        }
+    }
+    false
 }
 
 /// Validate a reference (identifier, parameter, or call).
@@ -780,11 +799,13 @@ mod tests {
             .phrase_variants
             .get("noun")
             .expect("should have variants");
-        // Both full keys and first components should be present
+        // Only exact keys are stored; fallback behavior is checked separately.
         assert!(variants.contains("nom.one"));
         assert!(variants.contains("nom.other"));
-        assert!(variants.contains("nom")); // First component
-        assert!(variants.contains("acc")); // First component
+        assert!(variants.contains("acc.one"));
+        assert!(variants.contains("acc.other"));
+        assert!(!variants.contains("nom"));
+        assert!(!variants.contains("acc"));
     }
 
     #[test]
@@ -919,6 +940,28 @@ mod tests {
         let err = result.unwrap_err().to_string();
         assert!(err.contains("has no variant"));
         assert!(err.contains("available variants"));
+    }
+
+    #[test]
+    fn test_validate_static_selector_requires_resolvable_full_key() {
+        let input = parse_input(parse_quote! {
+            card = { nom.one: "card", nom.other: "cards" };
+            bad = "{card:nom}";
+        });
+        let result = validate(&input);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("has no variant 'nom'"));
+    }
+
+    #[test]
+    fn test_validate_mixed_selector_skips_static_variant_existence_check() {
+        let input = parse_input(parse_quote! {
+            card = { nom.one: "card", nom.other: "cards" };
+            ok($n) = "{card:nom:$n}";
+        });
+        let result = validate(&input);
+        assert!(result.is_ok());
     }
 
     #[test]

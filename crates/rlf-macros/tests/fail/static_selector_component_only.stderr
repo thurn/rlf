@@ -1,0 +1,6 @@
+error: phrase 'card' has no variant 'nom'
+       note: available variants: nom.one, nom.other
+ --> tests/fail/static_selector_component_only.rs:8:11
+  |
+8 |     bad = "{card:nom}";
+  |           ^^^^^^^^^^^^

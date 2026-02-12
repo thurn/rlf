@@ -755,6 +755,7 @@ dependencies = [
  "icu_plurals",
  "insta",
  "rlf-macros",
+ "rlf-semantics",
  "serde",
  "strsim",
  "tempfile",
@@ -786,10 +787,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rlf",
+ "rlf-semantics",
  "strsim",
  "syn",
  "trybuild",
 ]
+
+[[package]]
+name = "rlf-semantics"
+version = "0.1.0"
 
 [[package]]
 name = "rustc-demangle"

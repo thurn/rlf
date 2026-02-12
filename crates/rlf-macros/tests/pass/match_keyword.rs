@@ -1,5 +1,5 @@
 // Test :match keyword parsing in the macro
-use rlf::{rlf, Locale, Value};
+use rlf::{Locale, rlf};
 
 rlf! {
     // Simple single-param match

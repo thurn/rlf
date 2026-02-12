@@ -1,0 +1,6 @@
+error: unknown transform '@thee'
+       help: did you mean '@the'?
+ --> tests/fail/unknown_transform_with_suggestion.rs:5:11
+  |
+5 |     bad = "{@thee card}";
+  |           ^^^^^^^^^^^^^^
