@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 
-use crate::interpreter::error::compute_suggestions;
+use crate::interpreter::error::{EvalWarning, compute_suggestions};
 use crate::interpreter::plural::plural_category;
 use crate::interpreter::transforms::TransformRegistry;
 use crate::interpreter::{EvalContext, EvalError, PhraseRegistry};
@@ -56,6 +56,24 @@ pub fn eval_template(
             } => {
                 // 1. Resolve reference to Value
                 let value = resolve_reference(reference, ctx, registry, transform_registry, lang)?;
+
+                // Lint 5: Check for bare parameter reference to Phrase with
+                // multi-dimensional variants outside :from context
+                if selectors.is_empty()
+                    && let Reference::Parameter(param_name) = reference
+                    && !ctx.is_in_from_context(param_name)
+                    && let Value::Phrase(phrase) = &value
+                    && has_multi_dimensional_variants(phrase)
+                {
+                    let mut keys: Vec<String> =
+                        phrase.variants.keys().map(ToString::to_string).collect();
+                    keys.sort();
+                    ctx.add_warning(EvalWarning::MissingSelectorOnMultiDimensional {
+                        parameter: param_name.clone(),
+                        available_keys: keys,
+                    });
+                }
+
                 // 2. Apply selectors to get variant/final value (returns Value to preserve tags)
                 let selected = apply_selectors(&value, selectors, ctx, lang)?;
                 // 3. Apply transforms (right-to-left per DESIGN.md)
@@ -137,6 +155,18 @@ fn resolve_reference(
                 .map(|arg| resolve_reference(arg, ctx, registry, transform_registry, lang))
                 .collect::<Result<Vec<_>, _>>()?;
 
+            // Lint 6: Check if phrase without :from receives Phrase arguments
+            if def.from_param.is_none() {
+                for (param_name, arg_value) in def.parameters.iter().zip(resolved_args.iter()) {
+                    if matches!(arg_value, Value::Phrase(_)) {
+                        ctx.add_warning(EvalWarning::PhraseArgumentWithoutFrom {
+                            phrase: name.clone(),
+                            parameter: param_name.clone(),
+                        });
+                    }
+                }
+            }
+
             // Build param map for child context
             let params: HashMap<String, Value> = def
                 .parameters
@@ -154,6 +184,7 @@ fn resolve_reference(
             child_ctx.push_call(name)?;
             let result = eval_phrase_def(def, &mut child_ctx, registry, transform_registry, lang)?;
             child_ctx.pop_call();
+            ctx.merge_warnings_from(&mut child_ctx);
 
             Ok(Value::Phrase(result))
         }
@@ -263,6 +294,10 @@ fn eval_with_from_modifier(
         }
     };
 
+    // Mark the :from parameter in the context so Lint 5 suppresses
+    // false positives for bare references to it
+    ctx.add_from_context(from_param);
+
     // If source has variants, evaluate template once per variant
     if !source_variants.is_empty() {
         let mut variants = HashMap::new();
@@ -300,6 +335,7 @@ fn eval_with_from_modifier(
                 &variant_params,
                 ctx.string_context().map(ToString::to_string),
             );
+            variant_ctx.add_from_context(from_param);
 
             let variant_result = eval_template(
                 template,
@@ -308,6 +344,7 @@ fn eval_with_from_modifier(
                 transform_registry,
                 lang,
             )?;
+            ctx.merge_warnings_from(&mut variant_ctx);
             variants.insert(key.clone(), variant_result);
         }
 
@@ -370,6 +407,9 @@ fn eval_from_with_variants(
         }
     }
 
+    // Mark the :from parameter in the context
+    ctx.add_from_context(from_param);
+
     // Evaluate the default text using the first available default body
     // or the source's default text
     let default_text = if let Some(body) = default_body {
@@ -431,9 +471,11 @@ fn eval_from_with_variants(
             &variant_params,
             ctx.string_context().map(ToString::to_string),
         );
+        variant_ctx.add_from_context(from_param);
 
         let variant_result =
             eval_variant_entry_body(body, &mut variant_ctx, registry, transform_registry, lang)?;
+        ctx.merge_warnings_from(&mut variant_ctx);
         result_variants.insert(key.clone(), variant_result);
     }
 
@@ -531,6 +573,9 @@ fn eval_from_with_match(
         (source_phrase.tags.clone(), source_phrase.variants.clone())
     };
 
+    // Mark the :from parameter in the context
+    ctx.add_from_context(from_param);
+
     // Evaluate match for default text
     let default_text = eval_match_branches(
         branches,
@@ -574,6 +619,7 @@ fn eval_from_with_match(
                 &variant_params,
                 ctx.string_context().map(ToString::to_string),
             );
+            variant_ctx.add_from_context(from_param);
             let variant_result = eval_match_branches(
                 branches,
                 &def.match_params,
@@ -582,6 +628,7 @@ fn eval_from_with_match(
                 transform_registry,
                 lang,
             )?;
+            ctx.merge_warnings_from(&mut variant_ctx);
             variants.insert(key.clone(), variant_result);
         }
 
@@ -1059,6 +1106,15 @@ fn compound_tag_matches(
     compound_parts
         .iter()
         .all(|part| available_tags.contains(&part.to_string()))
+}
+
+/// Check if a phrase has multi-dimensional variants (dot-separated keys).
+///
+/// Returns true if any variant key contains a "." separator, indicating
+/// compound keys like "nom.one" or "acc.few" that represent multiple
+/// grammatical dimensions (e.g., case x number).
+fn has_multi_dimensional_variants(phrase: &Phrase) -> bool {
+    phrase.variants.keys().any(|key| key.as_str().contains('.'))
 }
 
 /// Build a Phrase from variant entries.

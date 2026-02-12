@@ -1,8 +1,10 @@
 //! Evaluation context for tracking state during recursive evaluation.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::mem;
 
 use crate::interpreter::EvalError;
+use crate::interpreter::error::EvalWarning;
 use crate::types::Value;
 
 /// Evaluation context carrying state through recursive evaluation.
@@ -12,6 +14,8 @@ use crate::types::Value;
 /// - Call stack for cycle detection
 /// - Recursion depth for limiting deep recursion
 /// - Optional string context for format variant selection
+/// - Runtime warnings collected during evaluation
+/// - `:from` context set for suppressing false-positive lint warnings
 pub struct EvalContext<'a> {
     /// Parameters available during evaluation.
     params: &'a HashMap<String, Value>,
@@ -28,6 +32,15 @@ pub struct EvalContext<'a> {
     /// a phrase with variants `{ interface: "X", card_text: "<b>X</b>" }`
     /// produces `"<b>X</b>"` as its default text.
     string_context: Option<String>,
+    /// Runtime warnings collected during evaluation.
+    warnings: Vec<EvalWarning>,
+    /// Parameters currently bound in a `:from` iteration context.
+    ///
+    /// When evaluating inside a `:from($p)` body, `$p` is in this set.
+    /// Bare references to parameters in this set should not trigger
+    /// the "missing selector" lint because `:from` binds the correct
+    /// variant automatically.
+    from_context: HashSet<String>,
 }
 
 impl<'a> EvalContext<'a> {
@@ -39,6 +52,8 @@ impl<'a> EvalContext<'a> {
             depth: 0,
             max_depth: 64,
             string_context: None,
+            warnings: Vec::new(),
+            from_context: HashSet::new(),
         }
     }
 
@@ -50,6 +65,8 @@ impl<'a> EvalContext<'a> {
             depth: 0,
             max_depth,
             string_context: None,
+            warnings: Vec::new(),
+            from_context: HashSet::new(),
         }
     }
 
@@ -64,6 +81,8 @@ impl<'a> EvalContext<'a> {
             depth: 0,
             max_depth: 64,
             string_context,
+            warnings: Vec::new(),
+            from_context: HashSet::new(),
         }
     }
 
@@ -117,5 +136,39 @@ impl<'a> EvalContext<'a> {
     /// Get the current string context, if any.
     pub fn string_context(&self) -> Option<&str> {
         self.string_context.as_deref()
+    }
+
+    /// Add a runtime warning to this context.
+    pub fn add_warning(&mut self, warning: EvalWarning) {
+        if !self.warnings.contains(&warning) {
+            self.warnings.push(warning);
+        }
+    }
+
+    /// Drain all collected warnings from this context.
+    pub fn take_warnings(&mut self) -> Vec<EvalWarning> {
+        mem::take(&mut self.warnings)
+    }
+
+    /// Get a reference to collected warnings.
+    pub fn warnings(&self) -> &[EvalWarning] {
+        &self.warnings
+    }
+
+    /// Merge warnings from a child context into this context.
+    pub fn merge_warnings_from(&mut self, child: &mut EvalContext<'_>) {
+        for warning in child.take_warnings() {
+            self.add_warning(warning);
+        }
+    }
+
+    /// Add a parameter to the `:from` context set.
+    pub fn add_from_context(&mut self, param: &str) {
+        self.from_context.insert(param.to_string());
+    }
+
+    /// Check if a parameter is in the `:from` context set.
+    pub fn is_in_from_context(&self, param: &str) -> bool {
+        self.from_context.contains(param)
     }
 }

@@ -227,6 +227,60 @@ impl fmt::Display for LoadWarning {
     }
 }
 
+/// A warning produced during phrase evaluation.
+///
+/// Runtime warnings indicate potential issues detected during evaluation
+/// that do not prevent evaluation from completing but may indicate
+/// translation bugs (e.g., silent metadata loss or missing variant selectors).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EvalWarning {
+    /// Phrase called with a `Value::Phrase` argument but has no `:from`.
+    ///
+    /// Tags and variants from the argument will be lost in the result.
+    PhraseArgumentWithoutFrom {
+        /// Name of the phrase being called.
+        phrase: String,
+        /// The parameter that received a Phrase value.
+        parameter: String,
+    },
+
+    /// Bare parameter reference to a Phrase with multi-dimensional variants
+    /// outside `:from` context.
+    ///
+    /// The default variant will be used, which may not be grammatically correct.
+    /// Use an explicit selector (e.g., `{$param:acc}`) or `{$param:*}` to
+    /// acknowledge the default.
+    MissingSelectorOnMultiDimensional {
+        /// Name of the parameter with multi-dimensional variants.
+        parameter: String,
+        /// Available variant keys on the parameter's value.
+        available_keys: Vec<String>,
+    },
+}
+
+impl fmt::Display for EvalWarning {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            EvalWarning::PhraseArgumentWithoutFrom { phrase, parameter } => {
+                write!(
+                    f,
+                    "warning: phrase '{phrase}' receives Phrase value for parameter '${parameter}' but has no :from; tags and variants will be lost"
+                )
+            }
+            EvalWarning::MissingSelectorOnMultiDimensional {
+                parameter,
+                available_keys,
+            } => {
+                write!(
+                    f,
+                    "warning: bare reference '${{{parameter}}}' to Phrase with multi-dimensional variants; use an explicit selector or ':*' for the default; available keys: {}",
+                    available_keys.join(", ")
+                )
+            }
+        }
+    }
+}
+
 /// An error that occurred during phrase evaluation.
 #[derive(Debug, Error)]
 pub enum EvalError {

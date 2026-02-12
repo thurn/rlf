@@ -10,7 +10,7 @@ use std::sync::RwLock;
 
 use bon::Builder;
 
-use crate::interpreter::error::{LoadError, LoadWarning};
+use crate::interpreter::error::{EvalWarning, LoadError, LoadWarning};
 use crate::interpreter::language_meta;
 use crate::interpreter::registry::PhraseRegistry;
 use crate::interpreter::transforms::TransformRegistry;
@@ -559,6 +559,52 @@ impl Locale {
         let result = eval_phrase_def(def, &mut ctx, registry, &self.transforms, &self.language)?;
         ctx.pop_call();
         Ok(result)
+    }
+
+    /// Call a phrase with arguments, also returning runtime warnings.
+    ///
+    /// Runtime warnings detect potential translation issues such as
+    /// Phrase arguments passed to phrases without `:from` (metadata loss)
+    /// and bare references to multi-dimensional Phrases without selectors.
+    pub fn call_phrase_with_warnings(
+        &self,
+        name: &str,
+        args: &[Value],
+    ) -> Result<(Phrase, Vec<EvalWarning>), EvalError> {
+        let registry =
+            self.registries
+                .get(&self.language)
+                .ok_or_else(|| EvalError::PhraseNotFound {
+                    name: name.to_string(),
+                })?;
+
+        let def = registry
+            .get(name)
+            .ok_or_else(|| EvalError::PhraseNotFound {
+                name: name.to_string(),
+            })?;
+
+        if def.parameters.len() != args.len() {
+            return Err(EvalError::ArgumentCount {
+                phrase: name.to_string(),
+                expected: def.parameters.len(),
+                got: args.len(),
+            });
+        }
+
+        let params: HashMap<String, Value> = def
+            .parameters
+            .iter()
+            .zip(args.iter())
+            .map(|(name, value)| (name.clone(), value.clone()))
+            .collect();
+
+        let mut ctx = EvalContext::with_string_context(&params, self.string_context.clone());
+        ctx.push_call(name)?;
+        let result = eval_phrase_def(def, &mut ctx, registry, &self.transforms, &self.language)?;
+        ctx.pop_call();
+        let warnings = ctx.take_warnings();
+        Ok((result, warnings))
     }
 
     /// Get a parameterless phrase by PhraseId in the current language.
