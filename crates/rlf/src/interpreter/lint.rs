@@ -143,8 +143,13 @@ fn lint_redundant_from_selector(
     }
 }
 
-/// Detects phrases without `:from` or tags where a parameter is used in the
-/// template body, which likely causes silent metadata loss.
+/// Detects phrases without `:from` or tags where a parameter is used with an
+/// explicit variant selector, which likely causes silent metadata loss.
+///
+/// Only fires when a parameter is used with a selector (e.g. `{$p:other}` or
+/// `{subtype($t):other}`), indicating the caller expects variant metadata
+/// that won't be propagated without `:from`. Bare parameter references like
+/// `{$n}` or `{phrase($p)}` without selectors do not trigger this warning.
 fn lint_likely_missing_from(
     def: &PhraseDefinition,
     language: &str,
@@ -163,36 +168,21 @@ fn lint_likely_missing_from(
         return;
     }
 
-    // Collect all parameter names referenced in the body
-    let param_refs = match &def.body {
-        PhraseBody::Simple(template) => collect_parameter_refs(template),
-        PhraseBody::Match(branches) => {
-            let mut refs = Vec::new();
-            for branch in branches {
-                refs.extend(collect_parameter_refs(&branch.template));
-            }
-            refs
-        }
-        PhraseBody::Variants(entries) => {
-            let mut refs = Vec::new();
-            for entry in entries {
-                match &entry.body {
-                    VariantEntryBody::Template(template) => {
-                        refs.extend(collect_parameter_refs(template));
-                    }
-                    VariantEntryBody::Match { branches, .. } => {
-                        for branch in branches {
-                            refs.extend(collect_parameter_refs(&branch.template));
-                        }
-                    }
-                }
-            }
-            refs
-        }
+    // Find the first parameter used with an explicit variant selector
+    let param_with_selector = match &def.body {
+        PhraseBody::Simple(template) => find_parameter_with_selector(template),
+        PhraseBody::Match(branches) => branches
+            .iter()
+            .find_map(|b| find_parameter_with_selector(&b.template)),
+        PhraseBody::Variants(entries) => entries.iter().find_map(|entry| match &entry.body {
+            VariantEntryBody::Template(template) => find_parameter_with_selector(template),
+            VariantEntryBody::Match { branches, .. } => branches
+                .iter()
+                .find_map(|b| find_parameter_with_selector(&b.template)),
+        }),
     };
 
-    // Report the first parameter found (to avoid noisy duplicate warnings)
-    if let Some(param_name) = param_refs.into_iter().next() {
+    if let Some(param_name) = param_with_selector {
         warnings.push(LoadWarning::LikelyMissingFrom {
             name: def.name.clone(),
             language: language.to_string(),
@@ -303,34 +293,40 @@ fn normalize_template_for_passthrough(
     }
 }
 
-/// Collects parameter names referenced in a template.
+/// Finds the first parameter used with an explicit variant selector in a
+/// template.
 ///
-/// Finds direct parameter references (`{$param}`) and parameters passed as
-/// arguments to phrase calls (`{phrase($param)}`).
-fn collect_parameter_refs(template: &Template) -> Vec<String> {
-    let mut refs = Vec::new();
+/// Returns the parameter name if an interpolation has non-empty selectors and
+/// contains a parameter reference (directly or as a phrase call argument).
+fn find_parameter_with_selector(template: &Template) -> Option<String> {
     for segment in &template.segments {
-        let Segment::Interpolation { reference, .. } = segment else {
+        let Segment::Interpolation {
+            reference,
+            selectors,
+            ..
+        } = segment
+        else {
             continue;
         };
-        collect_param_refs_from_reference(reference, &mut refs);
+        if selectors.is_empty() {
+            continue;
+        }
+        if let Some(name) = extract_first_parameter(reference) {
+            return Some(name);
+        }
     }
-    refs
+    None
 }
 
-/// Recursively collects parameter names from a reference.
-fn collect_param_refs_from_reference(reference: &Reference, refs: &mut Vec<String>) {
+/// Recursively extracts the first parameter name from a reference.
+fn extract_first_parameter(reference: &Reference) -> Option<String> {
     match reference {
-        Reference::Parameter(name) => {
-            if !refs.contains(name) {
-                refs.push(name.clone());
-            }
-        }
+        Reference::Parameter(name) => Some(name.clone()),
         Reference::PhraseCall { args, .. } => {
-            for arg in args {
-                collect_param_refs_from_reference(arg, refs);
-            }
+            args.iter().find_map(|arg| extract_first_parameter(arg))
         }
-        Reference::Identifier(_) | Reference::NumberLiteral(_) | Reference::StringLiteral(_) => {}
+        Reference::Identifier(_) | Reference::NumberLiteral(_) | Reference::StringLiteral(_) => {
+            None
+        }
     }
 }

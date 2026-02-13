@@ -384,7 +384,7 @@ fn lint2_ignores_parameter_selector() {
 // =========================================================================
 
 #[test]
-fn lint3_detects_bare_param_without_from() {
+fn lint3_ignores_bare_param_without_selector() {
     let defs = parse_file(
         r#"
         wrapper($p) = "{$p}";
@@ -392,12 +392,12 @@ fn lint3_detects_bare_param_without_from() {
     )
     .unwrap();
     let warnings = lint_definitions(&defs, "ru");
-    assert_eq!(warnings.len(), 1);
-    assert!(matches!(
-        &warnings[0],
-        LoadWarning::LikelyMissingFrom { name, parameter, .. }
-        if name == "wrapper" && parameter == "p"
-    ));
+    let missing_from: Vec<_> = warnings
+        .iter()
+        .filter(|w| matches!(w, LoadWarning::LikelyMissingFrom { .. }))
+        .collect();
+    // Bare {$p} without a selector does not trigger the warning
+    assert_eq!(missing_from.len(), 0);
 }
 
 #[test]
@@ -491,7 +491,7 @@ fn lint3_ignores_terms() {
 }
 
 #[test]
-fn lint3_ignores_phrase_with_only_literal_text() {
+fn lint3_ignores_param_without_selector() {
     let defs = parse_file(
         r#"
         wrapper($n) = "You have {$n} cards.";
@@ -503,17 +503,33 @@ fn lint3_ignores_phrase_with_only_literal_text() {
         .iter()
         .filter(|w| matches!(w, LoadWarning::LikelyMissingFrom { .. }))
         .collect();
-    // This DOES fire because $n appears in the template and the lint can't
-    // statically distinguish numeric params from Phrase params. The lint is
-    // intentionally over-reporting to catch the dangerous case.
-    assert_eq!(missing_from.len(), 1);
+    // Bare {$n} without a selector does not trigger the warning, avoiding
+    // false positives on numeric parameters.
+    assert_eq!(missing_from.len(), 0);
 }
 
 #[test]
-fn lint3_reports_first_param_only() {
+fn lint3_ignores_multiple_bare_params() {
     let defs = parse_file(
         r#"
         wrapper($a, $b) = "{$a} and {$b}";
+    "#,
+    )
+    .unwrap();
+    let warnings = lint_definitions(&defs, "ru");
+    let missing_from: Vec<_> = warnings
+        .iter()
+        .filter(|w| matches!(w, LoadWarning::LikelyMissingFrom { .. }))
+        .collect();
+    // No selectors on any parameters, so no warning
+    assert_eq!(missing_from.len(), 0);
+}
+
+#[test]
+fn lint3_reports_first_param_with_selector() {
+    let defs = parse_file(
+        r#"
+        wrapper($a, $b) = "{$a:other} and {$b:one}";
     "#,
     )
     .unwrap();
@@ -531,12 +547,32 @@ fn lint3_reports_first_param_only() {
 }
 
 #[test]
-fn lint3_detects_param_in_match_branch() {
+fn lint3_ignores_bare_param_in_match_branch() {
     let defs = parse_file(
         r#"
         wrapper($n, $t) = :match($n) {
             1: "one {$t}",
             *other: "{$n} {$t}"
+        };
+    "#,
+    )
+    .unwrap();
+    let warnings = lint_definitions(&defs, "ru");
+    let missing_from: Vec<_> = warnings
+        .iter()
+        .filter(|w| matches!(w, LoadWarning::LikelyMissingFrom { .. }))
+        .collect();
+    // No selectors on any parameters, so no warning
+    assert_eq!(missing_from.len(), 0);
+}
+
+#[test]
+fn lint3_detects_selector_in_match_branch() {
+    let defs = parse_file(
+        r#"
+        wrapper($n, $t) = :match($n) {
+            1: "one {$t:other}",
+            *other: "{$n} {$t:other}"
         };
     "#,
     )
@@ -707,7 +743,7 @@ fn lint_multiple_definitions_reports_each() {
             nom: "{$s:nom}",
             *acc: "{$s:acc}"
         };
-        bare($t) = "{$t}";
+        bare($t) = "{$t:other}";
     "#,
     )
     .unwrap();
