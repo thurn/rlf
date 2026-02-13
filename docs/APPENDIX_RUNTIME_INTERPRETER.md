@@ -352,6 +352,13 @@ impl Locale {
     /// Call a phrase with arguments in the current language.
     pub fn call_phrase(&self, name: &str, args: &[Value]) -> Result<Phrase, EvalError>;
 
+    /// Call a phrase and collect runtime warnings (metadata-loss detection).
+    pub fn call_phrase_with_warnings(
+        &self,
+        name: &str,
+        args: &[Value],
+    ) -> Result<(Phrase, Vec<EvalWarning>), EvalError>;
+
     /// Parse and evaluate a template string (uses current language).
     pub fn eval_str(
         &self,
@@ -413,6 +420,38 @@ pub enum EvalError {
 }
 ```
 
+### EvalWarning
+
+Non-fatal warnings produced during evaluation that flag likely metadata-loss
+bugs:
+
+```rust
+pub enum EvalWarning {
+    /// Phrase argument carries tags/variants but callee lacks :from.
+    PhraseArgumentWithoutFrom { caller: String, callee: String, param: String },
+    /// Bare {$param} on multi-dimensional Phrase without selector or :from context.
+    MissingSelectorOnMultiDimensional { phrase: String, param: String },
+}
+```
+
+Warnings are collected via `call_phrase_with_warnings` and do not affect
+evaluation results.
+
+### lint_definitions()
+
+Static analysis of parsed phrase definitions:
+
+```rust
+pub fn lint_definitions(
+    defs: &[PhraseDefinition],
+    language: &str,
+) -> Vec<LoadWarning>;
+```
+
+Detects redundant passthrough blocks, redundant `:from` selectors, likely
+missing `:from` annotations, and verbose transparent wrappers. Operates on the
+AST without evaluation.
+
 ### Value Type
 
 ```rust
@@ -465,9 +504,15 @@ pub fn draw(locale: &Locale, n: impl Into<Value>) -> Phrase {
 | Static UI strings | `strings::phrase_name(&locale, ...)` | Panic (programming error) |
 | Data-driven templates | `locale.eval_str(...)` | `Result` (handle gracefully) |
 | Dynamic phrase lookup | `locale.get_phrase(...)` | `Result` (handle gracefully) |
+| Metadata-loss detection | `locale.call_phrase_with_warnings(...)` | `Result` + `Vec<EvalWarning>` |
 
 Use the `Locale` API directly for templates from TOML, JSON, or user-provided
 data. This lets you catch and handle errors rather than panicking.
+
+**Runtime warnings** are separate from errors -- they indicate likely bugs
+(e.g., passing a tagged Phrase to a function without `:from`) but do not block
+evaluation. Use `call_phrase_with_warnings` in development or CI to surface
+these issues.
 
 ### No Language Fallback
 

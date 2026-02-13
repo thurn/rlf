@@ -1062,7 +1062,8 @@ for w in &warnings {
 
 ### LoadWarning Variants
 
-The `LoadWarning` enum has four variants:
+The `LoadWarning` enum has eight variants. The first four are produced by
+`validate_translations()`. The last four are produced by `lint_definitions()`.
 
 | Variant | Description | Fields |
 |---------|-------------|--------|
@@ -1070,12 +1071,37 @@ The `LoadWarning` enum has four variants:
 | `ParameterCountMismatch` | Target phrase has different parameter count than source | `name`, `language`, `source_count`, `translation_count` |
 | `InvalidTag` | Phrase uses a metadata tag not recognized for the target language | `name`, `language`, `tag`, `valid_tags` |
 | `InvalidVariantKey` | Phrase uses a variant key component not recognized for the target language | `name`, `language`, `key`, `valid_keys` |
+| `RedundantPassthroughBlock` | `:from` phrase has a variant block where every entry passes its key through identically -- the block can be removed | `name`, `language` |
+| `RedundantFromSelector` | `{$p:KEY}` inside the `KEY:` entry of a `:from` variant block, where bare `{$p}` already resolves to the same value | `name`, `language`, `param`, `key` |
+| `LikelyMissingFrom` | Phrase without `:from` or tags references a parameter that likely carries metadata -- consider adding `:from` | `name`, `language`, `param` |
+| `VerboseTransparentWrapper` | `:from($p) "{$p}"` identity template can be simplified to body-less `:from($p);` | `name`, `language` |
 
 `InvalidTag` and `InvalidVariantKey` are only checked for languages with known
 validation rules (e.g., Russian, Polish). For unrecognized language codes, tag
 and variant key validation is skipped.
 
 `LoadWarning` implements `Display`, `Debug`, `Clone`, `PartialEq`, and `Eq`.
+
+### lint_definitions()
+
+The `lint_definitions` function performs static analysis on parsed phrase
+definitions, detecting common translation patterns that may indicate bugs or
+unnecessary verbosity:
+
+```rust
+pub fn lint_definitions(
+    defs: &[PhraseDefinition],
+    language: &str,
+) -> Vec<LoadWarning>;
+```
+
+Unlike `validate_translations()` (which compares source and target languages),
+`lint_definitions` operates on a single language's definitions. It checks for
+redundant passthrough blocks, redundant selectors inside `:from` variant
+entries, likely missing `:from` annotations, and verbose transparent wrappers.
+
+Call it after `load_translations_str` or `parse_file` on any language,
+including the source language.
 
 ---
 
@@ -1145,6 +1171,37 @@ Generated functions (from the `rlf!` macro) call `.expect()` on results, so thes
 errors cause panics in application code. This is intentional—these are programming
 errors indicating the RLF definition is inconsistent with how it's being used,
 and should be caught during development.
+
+## Runtime Warnings
+
+In addition to hard errors, the evaluator can produce non-fatal `EvalWarning`
+values that flag likely metadata-loss bugs without blocking evaluation.
+
+### EvalWarning Variants
+
+| Variant | Description | Fields |
+|---------|-------------|--------|
+| `PhraseArgumentWithoutFrom` | A `Value::Phrase` (with tags/variants) was passed to a phrase that lacks `:from` -- tags will be silently lost | `caller`, `callee`, `param` |
+| `MissingSelectorOnMultiDimensional` | Bare `{$param}` references a Phrase with multi-dimensional variants outside `:from` context -- use an explicit selector or `:*` to acknowledge the default | `phrase`, `param` |
+
+`EvalWarning` implements `Display`, `Debug`, `Clone`, `PartialEq`, and `Eq`.
+
+### call_phrase_with_warnings()
+
+To collect runtime warnings during evaluation, use `call_phrase_with_warnings`
+on `Locale`:
+
+```rust
+pub fn call_phrase_with_warnings(
+    &self,
+    name: &str,
+    args: &[Value],
+) -> Result<(Phrase, Vec<EvalWarning>), EvalError>;
+```
+
+The standard `call_phrase` method discards warnings silently. Use
+`call_phrase_with_warnings` in development or CI tooling to surface potential
+metadata-loss patterns.
 
 ---
 

@@ -230,6 +230,25 @@ draw($n) = "Возьмите {card:acc:$n}.";
 // n=5 -> "Возьмите карт."    (acc + CLDR "many" -> acc.many)
 ```
 
+### Explicit default selection (`:*`)
+
+The `:*` selector explicitly selects a phrase's default variant -- the one
+marked with `*` in the definition (or the first if none is marked):
+
+```
+card = :a { one: "card", *other: "cards" };
+show = "The default is {card:*}.";
+// -> "The default is cards."
+```
+
+This is useful when passing a multi-variant Phrase through composition and you
+want the default text without specifying a particular variant key. It also
+suppresses the `MissingSelectorOnMultiDimensional` runtime warning that would
+otherwise fire for bare `{$param}` references to multi-variant values.
+
+`:*` can appear in a selector chain alongside other selectors, though it
+typically appears as the sole selector.
+
 ### Multi-dimensional variants
 
 Multi-dimensional variants use dot notation in declaration and colon chains
@@ -558,6 +577,23 @@ Variant blocks are only needed when the **wrapper text itself** changes per
 variant (e.g., Russian adjective agreement where the adjective declines
 alongside the noun). If the surrounding text is identical across variants, use
 the simple one-line form.
+
+**Body-less `:from`.** When a phrase exists purely to inherit and forward
+metadata (tags and variants) without adding any text, the template body can be
+omitted entirely:
+
+```
+// Body-less: transparent metadata passthrough
+transparent($p) = :from($p);
+
+// Equivalent to:
+transparent($p) = :from($p) "{$p}";
+```
+
+This is useful for type-level wrappers, subtype markers, or any phrase whose
+only purpose is to carry tags forward through a composition chain. The static
+lint `VerboseTransparentWrapper` warns when the explicit form `:from($p) "{$p}"`
+could be simplified to the body-less form.
 
 This also works with `:from` + `:match`: `{$param}` in match branches resolves
 to the correct per-variant text automatically:
