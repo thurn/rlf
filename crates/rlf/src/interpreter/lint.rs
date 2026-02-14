@@ -322,9 +322,7 @@ fn find_parameter_with_selector(template: &Template) -> Option<String> {
 fn extract_first_parameter(reference: &Reference) -> Option<String> {
     match reference {
         Reference::Parameter(name) => Some(name.clone()),
-        Reference::PhraseCall { args, .. } => {
-            args.iter().find_map(|arg| extract_first_parameter(arg))
-        }
+        Reference::PhraseCall { args, .. } => args.iter().find_map(extract_first_parameter),
         Reference::Identifier(_) | Reference::NumberLiteral(_) | Reference::StringLiteral(_) => {
             None
         }

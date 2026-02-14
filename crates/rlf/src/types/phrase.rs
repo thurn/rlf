@@ -31,9 +31,10 @@ use super::{Tag, VariantKey};
 /// assert_eq!(card.variant("one"), "card");
 /// assert_eq!(card.variant("other"), "cards");
 /// ```
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Clone, Default, Builder)]
 pub struct Phrase {
     /// Default text when the phrase is displayed.
+    #[builder(default)]
     pub text: String,
 
     /// Variant key to variant text mapping.
@@ -52,6 +53,20 @@ pub struct Phrase {
 }
 
 impl Phrase {
+    /// Returns an empty phrase with no text, variants, or tags.
+    pub fn empty() -> Phrase {
+        Phrase::default()
+    }
+
+    /// Transforms this phrase's text using `f`, preserving tags and variants.
+    pub fn map_text(self, f: impl FnOnce(String) -> String) -> Phrase {
+        Phrase::builder()
+            .text(f(self.text))
+            .variants(self.variants)
+            .tags(self.tags)
+            .build()
+    }
+
     /// Get a specific variant by key, with fallback resolution.
     ///
     /// Resolution order:
