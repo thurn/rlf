@@ -722,12 +722,39 @@ pub struct Phrase {
 ```
 
 `Phrase` implements `Display` (returns `text`). Use `variant()` to access
-specific forms:
+specific forms, and `join()` to combine multiple phrases while preserving
+shared variant metadata:
 
 ```rust
 let card = strings::card(&locale);
 card.to_string();           // "card"
 card.variant("other");      // "cards"
+```
+
+`Phrase::join` concatenates a slice of phrases with a separator. For every
+variant key present in **all** input phrases, the variant values are joined
+with the same separator. Keys not shared by all phrases are dropped. This is
+the language-agnostic way to combine serialized phrase output at join
+boundaries without inspecting or naming specific variant keys:
+
+```rust
+// Two effect phrases, each with an "inf" variant from the Russian locale
+let dissolve = Phrase::builder()
+    .text("рассеяйте врага".into())
+    .variants(HashMap::from([
+        (VariantKey::new("inf"), "рассеять врага".into()),
+    ]))
+    .build();
+let draw = Phrase::builder()
+    .text("возьмите 2 карты".into())
+    .variants(HashMap::from([
+        (VariantKey::new("inf"), "взять 2 карты".into()),
+    ]))
+    .build();
+
+let joined = Phrase::join(&[dissolve, draw], " и ");
+joined.to_string();        // "рассеяйте врага и возьмите 2 карты"
+joined.variant("inf");     // "рассеять врага и взять 2 карты"
 ```
 
 ### PhraseId

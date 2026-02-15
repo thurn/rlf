@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use bon::Builder;
@@ -129,6 +129,51 @@ impl Phrase {
     /// Get the first tag, if any.
     pub fn first_tag(&self) -> Option<&Tag> {
         self.tags.first()
+    }
+
+    /// Joins multiple phrases with a separator string.
+    ///
+    /// The default text of each phrase is joined with `separator`. For every
+    /// variant key that is present in **all** input phrases, the
+    /// corresponding variant values are also joined with the same separator.
+    /// Variant keys that do not appear in every phrase are dropped. Tags are
+    /// not preserved.
+    ///
+    /// Returns `Phrase::empty()` if `phrases` is empty.
+    pub fn join(phrases: &[Phrase], separator: &str) -> Phrase {
+        if phrases.is_empty() {
+            return Phrase::empty();
+        }
+
+        let text = phrases
+            .iter()
+            .map(|p| p.text.as_str())
+            .collect::<Vec<_>>()
+            .join(separator);
+
+        let shared_keys: BTreeSet<&VariantKey> = phrases
+            .first()
+            .map(|p| {
+                p.variants
+                    .keys()
+                    .filter(|k| phrases[1..].iter().all(|q| q.variants.contains_key(k)))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let variants = shared_keys
+            .into_iter()
+            .map(|key| {
+                let joined = phrases
+                    .iter()
+                    .map(|p| p.variants[key].as_str())
+                    .collect::<Vec<_>>()
+                    .join(separator);
+                (key.clone(), joined)
+            })
+            .collect();
+
+        Phrase::builder().text(text).variants(variants).build()
     }
 }
 
