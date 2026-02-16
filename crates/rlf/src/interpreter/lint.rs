@@ -4,10 +4,12 @@
 //! and other issues that may cause silent metadata loss or unnecessary verbosity.
 
 use crate::interpreter::error::LoadWarning;
+use crate::interpreter::locale::Locale;
 use crate::parser::ast::{
     DefinitionKind, PhraseBody, PhraseDefinition, Reference, Segment, Selector, Template,
     VariantEntryBody,
 };
+use crate::types::Value;
 
 /// Runs static lint rules over parsed phrase definitions, returning warnings.
 ///
@@ -22,6 +24,60 @@ pub fn lint_definitions(defs: &[PhraseDefinition], language: &str) -> Vec<LoadWa
         lint_verbose_transparent_wrapper(def, language, &mut warnings);
     }
     warnings
+}
+
+/// Runs all static and runtime lint checks over registered phrases, prints any
+/// warnings to stdout, and exits with status 0 (no warnings) or 1 (warnings
+/// found).
+///
+/// This is a convenience entry point for CLI lint tools. After registering
+/// your phrases, call this function to perform a complete lint pass:
+///
+/// ```ignore
+/// fn main() {
+///     my_strings::register_source_phrases();
+///     rlf::with_locale(rlf::run_lints);
+/// }
+/// ```
+pub fn run_lints(locale: &Locale) -> ! {
+    let Some(registry) = locale.registry() else {
+        eprintln!("No phrase registry found for current language");
+        std::process::exit(1);
+    };
+
+    let mut all_warnings: Vec<String> = Vec::new();
+
+    // Static lints: analyze phrase definition ASTs without evaluation.
+    let definitions: Vec<_> =
+        registry.phrase_names().filter_map(|name| registry.get(name).cloned()).collect();
+    for warning in &lint_definitions(&definitions, locale.language()) {
+        all_warnings.push(format!("[static] {warning}"));
+    }
+
+    // Runtime lints: evaluate each phrase with representative arguments and
+    // collect any EvalWarning values produced.
+    for name in registry.phrase_names() {
+        let Some(def) = registry.get(name) else {
+            continue;
+        };
+        let args: Vec<Value> = def.parameters.iter().map(|_| Value::Number(1)).collect();
+        if let Ok((_phrase, warnings)) = locale.call_phrase_with_warnings(name, &args) {
+            for warning in &warnings {
+                all_warnings.push(format!("[runtime] phrase '{name}': {warning}"));
+            }
+        }
+    }
+
+    if all_warnings.is_empty() {
+        println!("RLF lint passed: no warnings found");
+        std::process::exit(0);
+    } else {
+        println!("RLF lint found {} warning(s):\n", all_warnings.len());
+        for warning in &all_warnings {
+            println!("  {warning}");
+        }
+        std::process::exit(1);
+    }
 }
 
 /// Detects `:from($p)` phrases with variant blocks where every entry just passes

@@ -9,7 +9,7 @@ pub use global::{language, set_language, with_locale, with_locale_mut};
 
 pub use interpreter::{
     EvalContext, EvalError, EvalWarning, LoadError, LoadWarning, Locale, PhraseRegistry,
-    TransformRegistry, compute_suggestions, lint_definitions,
+    TransformRegistry, compute_suggestions, lint_definitions, run_lints,
 };
 pub use types::{Phrase, PhraseId, Tag, Value, VariantKey};
 

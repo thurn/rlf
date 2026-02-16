@@ -16,7 +16,7 @@ mod transforms;
 pub use context::EvalContext;
 pub use error::{EvalError, EvalWarning, LoadError, LoadWarning, compute_suggestions};
 pub use evaluator::{eval_phrase_def, eval_template};
-pub use lint::lint_definitions;
+pub use lint::{lint_definitions, run_lints};
 pub use locale::Locale;
 pub use plural::plural_category;
 pub use registry::PhraseRegistry;
