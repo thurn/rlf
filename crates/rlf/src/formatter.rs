@@ -399,7 +399,11 @@ fn find_outermost_block(input: &str) -> Option<(String, String, String)> {
 
     let end = end?;
 
-    let prefix: String = chars[..start].iter().collect::<String>().trim_end().to_string();
+    let prefix: String = chars[..start]
+        .iter()
+        .collect::<String>()
+        .trim_end()
+        .to_string();
     let content: String = chars[start + 1..end].iter().collect();
     let suffix: String = chars[end + 1..].iter().collect();
 
@@ -488,8 +492,16 @@ fn try_break_at_equals(definition: &str, base_indent: &str, max_width: usize) ->
     }
 
     let eq_pos = eq_pos?;
-    let lhs: String = chars[..eq_pos].iter().collect::<String>().trim_end().to_string();
-    let rhs: String = chars[eq_pos + 1..].iter().collect::<String>().trim().to_string();
+    let lhs: String = chars[..eq_pos]
+        .iter()
+        .collect::<String>()
+        .trim_end()
+        .to_string();
+    let rhs: String = chars[eq_pos + 1..]
+        .iter()
+        .collect::<String>()
+        .trim()
+        .to_string();
 
     // Check if RHS has annotation prefixes like `:from($t)`, `:match($n)`
     // Try to keep annotations on the first line
@@ -591,7 +603,10 @@ mod tests {
     #[test]
     fn test_comment_preserved() {
         let input = "// This is a comment\nname = \"value\";";
-        assert_eq!(format_file(input, 100), "// This is a comment\nname = \"value\";\n");
+        assert_eq!(
+            format_file(input, 100),
+            "// This is a comment\nname = \"value\";\n"
+        );
     }
 
     #[test]
@@ -603,7 +618,10 @@ mod tests {
     #[test]
     fn test_tag_spacing_fix() {
         let input = "card = :a{ one: \"card\", other: \"cards\" };";
-        assert_eq!(format_file(input, 100), "card = :a { one: \"card\", other: \"cards\" };\n");
+        assert_eq!(
+            format_file(input, 100),
+            "card = :a { one: \"card\", other: \"cards\" };\n"
+        );
     }
 
     #[test]
@@ -615,7 +633,10 @@ mod tests {
     #[test]
     fn test_already_spaced_tag() {
         let input = "card = :a { one: \"card\", other: \"cards\" };";
-        assert_eq!(format_file(input, 100), "card = :a { one: \"card\", other: \"cards\" };\n");
+        assert_eq!(
+            format_file(input, 100),
+            "card = :a { one: \"card\", other: \"cards\" };\n"
+        );
     }
 
     #[test]
@@ -630,7 +651,10 @@ mod tests {
     #[test]
     fn test_short_block_stays_single_line() {
         let input = "card = :a { one: \"card\", other: \"cards\" };";
-        assert_eq!(format_file(input, 100), "card = :a { one: \"card\", other: \"cards\" };\n");
+        assert_eq!(
+            format_file(input, 100),
+            "card = :a { one: \"card\", other: \"cards\" };\n"
+        );
     }
 
     #[test]
@@ -646,8 +670,7 @@ mod tests {
 
     #[test]
     fn test_multiline_block_preserved_when_long() {
-        let input =
-            "cards($n) = :match($n) { 1: \"a card\", *other: \"{$n} cards\" };";
+        let input = "cards($n) = :match($n) { 1: \"a card\", *other: \"{$n} cards\" };";
         let result = format_file(input, 40);
         assert!(result.contains("{\n"));
     }
@@ -685,7 +708,10 @@ mod tests {
         for line in result.lines() {
             let trimmed = line.trim();
             if trimmed.starts_with("a:") || trimmed.starts_with("b:") {
-                assert!(trimmed.ends_with(','), "Line should end with comma: {trimmed}");
+                assert!(
+                    trimmed.ends_with(','),
+                    "Line should end with comma: {trimmed}"
+                );
             }
         }
     }

@@ -48,8 +48,10 @@ pub fn run_lints(locale: &Locale) -> ! {
     let mut all_warnings: Vec<String> = Vec::new();
 
     // Static lints: analyze phrase definition ASTs without evaluation.
-    let definitions: Vec<_> =
-        registry.phrase_names().filter_map(|name| registry.get(name).cloned()).collect();
+    let definitions: Vec<_> = registry
+        .phrase_names()
+        .filter_map(|name| registry.get(name).cloned())
+        .collect();
     for warning in &lint_definitions(&definitions, locale.language()) {
         all_warnings.push(format!("[static] {warning}"));
     }
