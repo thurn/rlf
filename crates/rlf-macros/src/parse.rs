@@ -184,20 +184,6 @@ impl Parse for PhraseDefinition {
             DefinitionKind::Phrase
         };
 
-        // Validate: phrases cannot have variant block bodies without :from or :match
-        if kind == DefinitionKind::Phrase
-            && matches!(body, PhraseBody::Variants(_))
-            && from_param.is_none()
-        {
-            return Err(syn::Error::new(
-                name.span,
-                format!(
-                    "phrase '{}' cannot have a variant block — use :match($param) for branching",
-                    name.name
-                ),
-            ));
-        }
-
         // Validate: :from requires parameters (must be a phrase)
         if kind == DefinitionKind::Term
             && let Some(ref from) = from_param

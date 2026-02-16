@@ -492,8 +492,22 @@ n_allied($n, $entity) = :match($n, $entity) {
 };
 ```
 
-**Restrictions:** A phrase with a variant block **must** use `:match`. Match
-branches support both numeric keys (`0`, `1`, `2`) and named keys (`one`,
+Parameterized phrases can also use variant blocks directly, without `:match`.
+This is useful when variants represent a dimension orthogonal to parameters
+(e.g., verb mood). Callers select variants with `:key` syntax:
+
+```
+draw_cards_effect($c) = {
+    *imp: "draw {$c} cards",
+    inf: "to draw {$c} cards",
+};
+// Usage: {draw_cards_effect($c):inf} selects the infinitive variant
+```
+
+Variant entries inside a parameterized phrase can also contain nested `:match`
+blocks for multi-dimensional branching (e.g., mood × count).
+
+Match branches support both numeric keys (`0`, `1`, `2`) and named keys (`one`,
 `other`, `masc`). No negative numbers or floats as match keys.
 
 ### `:from`

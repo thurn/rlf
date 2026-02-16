@@ -2742,20 +2742,22 @@ fn eval_multi_tag_selector_uses_all_tags() {
 // =============================================================================
 
 #[test]
-fn eval_variant_phrase_with_params_is_error() {
-    // Phrases with parameters cannot have variant blocks
+fn eval_variant_phrase_with_params_is_valid() {
     let mut registry = PhraseRegistry::new();
-    let result = registry.load_phrases(
-        r#"
+    registry
+        .load_phrases(
+            r#"
         text_number($n) = {
             one: "one",
             other: "{$n}",
         };
     "#,
-    );
-    assert!(result.is_err());
-    let err = result.unwrap_err().to_string();
-    assert!(err.contains("variant block"));
+        )
+        .unwrap();
+    let result = registry
+        .call_phrase("en", "text_number", &[Value::from(5)])
+        .unwrap();
+    assert_eq!(result.to_string(), "one");
 }
 
 #[test]
@@ -2841,20 +2843,23 @@ fn eval_variant_term_russian_plural_selection() {
 }
 
 #[test]
-fn eval_variant_phrase_with_params_and_non_numeric_is_error() {
-    // Phrases with parameters cannot have variant blocks
+fn eval_variant_phrase_with_params_and_non_numeric_is_valid() {
     let mut registry = PhraseRegistry::new();
-    let result = registry.load_phrases(
-        r#"
+    registry
+        .load_phrases(
+            r#"
         greeting($name) = {
             formal: "Good day, {$name}.",
             casual: "Hey {$name}!",
         };
+        use_formal($name) = "{greeting($name):formal}";
     "#,
-    );
-    assert!(result.is_err());
-    let err = result.unwrap_err().to_string();
-    assert!(err.contains("variant block"));
+        )
+        .unwrap();
+    let result = registry
+        .call_phrase("en", "use_formal", &[Value::from("Alice")])
+        .unwrap();
+    assert_eq!(result.to_string(), "Good day, Alice.");
 }
 
 #[test]
@@ -3355,19 +3360,20 @@ fn error_empty_parens_in_runtime() {
 }
 
 #[test]
-fn error_phrase_variant_block_in_runtime() {
+fn eval_phrase_variant_block_in_runtime() {
     let mut registry = PhraseRegistry::new();
-    let result = registry.load_phrases(
-        r#"
+    registry
+        .load_phrases(
+            r#"
         cards($n) = { one: "{$n} card", other: "{$n} cards" };
     "#,
-    );
-    assert!(result.is_err());
-    let err = result.unwrap_err().to_string();
-    assert!(
-        err.contains("variant block"),
-        "should reject phrase variant block: {err}"
-    );
+        )
+        .unwrap();
+    let result = registry
+        .call_phrase("en", "cards", &[Value::from(3)])
+        .unwrap();
+    // Default (first) variant is selected
+    assert_eq!(result.to_string(), "3 card");
 }
 
 #[test]
@@ -3568,4 +3574,238 @@ fn eval_default_selector_on_simple_phrase() {
         .unwrap();
     let result = registry.get_phrase("en", "show").unwrap();
     assert_eq!(result.to_string(), "Say: hello");
+}
+
+// =============================================================================
+// Parameterized Phrase Variant Blocks
+// =============================================================================
+
+#[test]
+fn eval_phrase_variant_block_default() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+            draw($c) = {
+                *imp: "draw {$c} cards",
+                inf: "to draw {$c} cards",
+            };
+        "#,
+        )
+        .unwrap();
+    let result = registry
+        .call_phrase("en", "draw", &[Value::from(3)])
+        .unwrap();
+    assert_eq!(result.to_string(), "draw 3 cards");
+}
+
+#[test]
+fn eval_phrase_variant_block_select_variant() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+            draw($c) = {
+                *imp: "draw {$c} cards",
+                inf: "to draw {$c} cards",
+            };
+            use_draw($c) = "{draw($c):inf}";
+        "#,
+        )
+        .unwrap();
+    let result = registry
+        .call_phrase("en", "use_draw", &[Value::from(3)])
+        .unwrap();
+    assert_eq!(result.to_string(), "to draw 3 cards");
+}
+
+#[test]
+fn eval_phrase_variant_block_with_nested_match() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+            action($c) = {
+                *imp: :match($c) { 1: "draw a card", *other: "draw {$c} cards" },
+                inf: :match($c) { 1: "to draw a card", *other: "to draw {$c} cards" },
+            };
+        "#,
+        )
+        .unwrap();
+
+    // Default variant (imp), match on count
+    let one = registry
+        .call_phrase("en", "action", &[Value::from(1)])
+        .unwrap();
+    assert_eq!(one.to_string(), "draw a card");
+
+    let five = registry
+        .call_phrase("en", "action", &[Value::from(5)])
+        .unwrap();
+    assert_eq!(five.to_string(), "draw 5 cards");
+
+    // Select inf variant
+    let mut registry2 = PhraseRegistry::new();
+    registry2
+        .load_phrases(
+            r#"
+            action($c) = {
+                *imp: :match($c) { 1: "draw a card", *other: "draw {$c} cards" },
+                inf: :match($c) { 1: "to draw a card", *other: "to draw {$c} cards" },
+            };
+            use_action($c) = "{action($c):inf}";
+        "#,
+        )
+        .unwrap();
+    let inf_one = registry2
+        .call_phrase("en", "use_action", &[Value::from(1)])
+        .unwrap();
+    assert_eq!(inf_one.to_string(), "to draw a card");
+
+    let inf_five = registry2
+        .call_phrase("en", "use_action", &[Value::from(5)])
+        .unwrap();
+    assert_eq!(inf_five.to_string(), "to draw 5 cards");
+}
+
+#[test]
+fn eval_phrase_variant_block_with_tags() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+            draw($c) = :a {
+                *imp: "draw {$c} cards",
+                inf: "to draw {$c} cards",
+            };
+        "#,
+        )
+        .unwrap();
+    let result = registry
+        .call_phrase("en", "draw", &[Value::from(3)])
+        .unwrap();
+    assert_eq!(result.to_string(), "draw 3 cards");
+    assert!(
+        result.has_tag("a"),
+        "tags should be preserved on variant block phrase"
+    );
+}
+
+#[test]
+fn eval_phrase_variant_block_default_selector() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+            draw($c) = {
+                *imp: "draw {$c} cards",
+                inf: "to draw {$c} cards",
+            };
+            use_default($c) = "{draw($c):*}";
+        "#,
+        )
+        .unwrap();
+    let result = registry
+        .call_phrase("en", "use_default", &[Value::from(3)])
+        .unwrap();
+    assert_eq!(result.to_string(), "draw 3 cards");
+}
+
+#[test]
+fn eval_phrase_variant_block_parameterized_selector() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+            draw($c) = {
+                *imp: "draw {$c} cards",
+                inf: "to draw {$c} cards",
+            };
+            use_mood($c, $mood) = "{draw($c):$mood}";
+        "#,
+        )
+        .unwrap();
+    let result = registry
+        .call_phrase("en", "use_mood", &[Value::from(3), Value::from("inf")])
+        .unwrap();
+    assert_eq!(result.to_string(), "to draw 3 cards");
+
+    let default_result = registry
+        .call_phrase("en", "use_mood", &[Value::from(3), Value::from("imp")])
+        .unwrap();
+    assert_eq!(default_result.to_string(), "draw 3 cards");
+}
+
+#[test]
+fn eval_phrase_variant_block_missing_variant_error() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+            draw($c) = {
+                *imp: "draw {$c} cards",
+                inf: "to draw {$c} cards",
+            };
+            bad($c) = "{draw($c):nonexistent}";
+        "#,
+        )
+        .unwrap();
+    let err = registry
+        .call_phrase("en", "bad", &[Value::from(3)])
+        .unwrap_err();
+    assert!(matches!(
+        err,
+        EvalError::MissingVariant { key, .. } if key == "nonexistent"
+    ));
+}
+
+#[test]
+fn eval_phrase_variant_block_join() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+            draw($c) = {
+                *imp: "draw {$c}",
+                inf: "to draw {$c}",
+            };
+            suffix($c) = {
+                *imp: " cards",
+                inf: " cards (inf)",
+            };
+        "#,
+        )
+        .unwrap();
+    let draw = registry
+        .call_phrase("en", "draw", &[Value::from(3)])
+        .unwrap();
+    let suffix = registry
+        .call_phrase("en", "suffix", &[Value::from(3)])
+        .unwrap();
+    let joined = rlf::Phrase::join(&[draw, suffix], "");
+    assert_eq!(joined.to_string(), "draw 3 cards");
+    assert_eq!(joined.variant("inf").to_string(), "to draw 3 cards (inf)");
+}
+
+#[test]
+fn eval_phrase_variant_block_in_optional_context() {
+    let mut registry = PhraseRegistry::new();
+    registry
+        .load_phrases(
+            r#"
+            draw($c) = {
+                *imp: "draw {$c} cards",
+                inf: "to draw {$c} cards",
+            };
+            optional($body) = "{$body:inf}";
+        "#,
+        )
+        .unwrap();
+    let draw = registry
+        .call_phrase("en", "draw", &[Value::from(3)])
+        .unwrap();
+    let result = registry
+        .call_phrase("en", "optional", &[Value::from(draw)])
+        .unwrap();
+    assert_eq!(result.to_string(), "to draw 3 cards");
 }

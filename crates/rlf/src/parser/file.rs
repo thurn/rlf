@@ -61,21 +61,6 @@ fn validate_definitions(definitions: &[PhraseDefinition]) -> Result<(), ParseErr
             });
         }
 
-        // Phrases cannot have variant block bodies unless they use :from
-        if def.kind == DefinitionKind::Phrase
-            && matches!(def.body, PhraseBody::Variants(_))
-            && def.from_param.is_none()
-        {
-            return Err(ParseError::Syntax {
-                line: 0,
-                column: 0,
-                message: format!(
-                    "phrase '{}' cannot have a variant block — use :match($param) for branching",
-                    def.name
-                ),
-            });
-        }
-
         // :from requires parameters (must be a phrase)
         if def.kind == DefinitionKind::Term && def.from_param.is_some() {
             return Err(ParseError::Syntax {

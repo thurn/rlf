@@ -831,18 +831,16 @@ fn test_term_with_variants_is_valid() {
 }
 
 #[test]
-fn test_params_with_variant_block_is_error() {
-    let result = parse_file(
+fn test_params_with_variant_block_is_valid() {
+    let phrases = parse_file(
         r#"
         cards($n) = { one: "{$n} card", other: "{$n} cards" };
     "#,
-    );
-    assert!(result.is_err());
-    let err = result.unwrap_err().to_string();
-    assert!(
-        err.contains("variant block"),
-        "expected variant block error, got: {err}"
-    );
+    )
+    .unwrap();
+    assert_eq!(phrases[0].kind, DefinitionKind::Phrase);
+    assert!(matches!(phrases[0].body, PhraseBody::Variants(_)));
+    assert_eq!(phrases[0].parameters, vec!["n"]);
 }
 
 #[test]
@@ -907,14 +905,10 @@ fn test_phrase_with_from_and_variant_block() {
 }
 
 #[test]
-fn test_phrase_without_from_variant_block_rejected() {
-    let result = parse_file(r#"bad($n) = { one: "{$n} card", other: "{$n} cards" };"#);
-    assert!(result.is_err());
-    let err = result.unwrap_err().to_string();
-    assert!(
-        err.contains("variant block"),
-        "should reject phrase variant block without :from: {err}"
-    );
+fn test_phrase_without_from_variant_block_accepted() {
+    let phrases = parse_file(r#"draw($n) = { one: "{$n} card", other: "{$n} cards" };"#).unwrap();
+    assert_eq!(phrases[0].kind, DefinitionKind::Phrase);
+    assert!(matches!(phrases[0].body, PhraseBody::Variants(_)));
 }
 
 #[test]
@@ -1235,18 +1229,15 @@ fn test_match_param_not_declared_is_error() {
 }
 
 #[test]
-fn test_phrase_variant_block_without_match_is_error() {
-    let result = parse_file(
+fn test_phrase_variant_block_without_match_is_valid() {
+    let phrases = parse_file(
         r#"
         cards($n) = { one: "{$n} card", other: "{$n} cards" };
     "#,
-    );
-    assert!(result.is_err());
-    let err = result.unwrap_err().to_string();
-    assert!(
-        err.contains("variant block") && err.contains(":match"),
-        "expected variant block suggestion, got: {err}"
-    );
+    )
+    .unwrap();
+    assert_eq!(phrases[0].kind, DefinitionKind::Phrase);
+    assert!(matches!(phrases[0].body, PhraseBody::Variants(_)));
 }
 
 #[test]
@@ -1463,4 +1454,52 @@ fn test_bodyless_from_without_from_is_error() {
         result.is_err(),
         "definition with no body and no :from should be a parse error"
     );
+}
+
+// =============================================================================
+// Parameterized phrase variant blocks
+// =============================================================================
+
+#[test]
+fn test_phrase_variant_block_with_match_inside_entries() {
+    let phrases = parse_file(
+        r#"
+        action($c) = {
+            *imp: :match($c) { 1: "draw a card", *other: "draw {$c} cards" },
+            inf: :match($c) { 1: "to draw a card", *other: "to draw {$c} cards" },
+        };
+    "#,
+    )
+    .unwrap();
+
+    assert_eq!(phrases[0].kind, DefinitionKind::Phrase);
+    match &phrases[0].body {
+        PhraseBody::Variants(entries) => {
+            assert_eq!(entries.len(), 2);
+            assert_eq!(entries[0].keys, vec!["imp"]);
+            assert!(entries[0].is_default);
+            assert!(matches!(&entries[0].body, VariantEntryBody::Match { .. }));
+            assert_eq!(entries[1].keys, vec!["inf"]);
+            assert!(!entries[1].is_default);
+            assert!(matches!(&entries[1].body, VariantEntryBody::Match { .. }));
+        }
+        _ => panic!("expected variants body"),
+    }
+}
+
+#[test]
+fn test_phrase_variant_block_with_tags() {
+    let phrases = parse_file(
+        r#"
+        draw($c) = :a {
+            *imp: "draw {$c} cards",
+            inf: "to draw {$c} cards",
+        };
+    "#,
+    )
+    .unwrap();
+
+    assert_eq!(phrases[0].kind, DefinitionKind::Phrase);
+    assert_eq!(phrases[0].tags, vec![Tag::new("a")]);
+    assert!(matches!(phrases[0].body, PhraseBody::Variants(_)));
 }
