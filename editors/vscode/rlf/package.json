@@ -19,6 +19,9 @@
         "extensions": [
           ".rlf"
         ],
+        "filenamePatterns": [
+          "*.rlf.rs"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
