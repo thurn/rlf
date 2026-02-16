@@ -127,6 +127,10 @@ test-global:
         exit 1
     fi
 
+# Package the VSCode extension as a .vsix file
+vscode-package:
+    cd editors/vscode/rlf && npx --yes @vscode/vsce package --allow-missing-repository
+
 # Clean build artifacts
 clean:
     cargo clean
