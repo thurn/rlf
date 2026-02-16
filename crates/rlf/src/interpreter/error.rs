@@ -63,53 +63,13 @@ pub enum LoadError {
     NoPathForReload { language: String },
 }
 
-/// A warning produced during translation validation.
+/// A warning produced during translation linting.
 ///
 /// Warnings indicate potential issues in translation files that do not prevent
-/// loading but may cause runtime errors. Use `Locale::validate_translations()`
-/// to check loaded translations against source phrases.
+/// loading but may indicate suboptimal patterns. Use `lint_definitions()` to
+/// check phrase definitions for common issues.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LoadWarning {
-    /// Translation file defines a phrase that does not exist in the source language.
-    UnknownPhrase {
-        /// Name of the phrase that is not in the source language.
-        name: String,
-        /// Language code of the translation.
-        language: String,
-    },
-    /// Translation phrase has a different parameter count than the source phrase.
-    ParameterCountMismatch {
-        /// Name of the phrase.
-        name: String,
-        /// Language code of the translation.
-        language: String,
-        /// Number of parameters in the source phrase.
-        source_count: usize,
-        /// Number of parameters in the translation phrase.
-        translation_count: usize,
-    },
-    /// Phrase uses a metadata tag not recognized for this language.
-    InvalidTag {
-        /// Name of the phrase.
-        name: String,
-        /// Language code of the translation.
-        language: String,
-        /// The invalid tag value.
-        tag: String,
-        /// Valid tags for this language.
-        valid_tags: Vec<String>,
-    },
-    /// Phrase uses a variant key component not recognized for this language.
-    InvalidVariantKey {
-        /// Name of the phrase.
-        name: String,
-        /// Language code of the translation.
-        language: String,
-        /// The invalid variant key component.
-        key: String,
-        /// Valid variant key components for this language.
-        valid_keys: Vec<String>,
-    },
     /// Variant block on `:from` phrase could be replaced with simple template.
     RedundantPassthroughBlock {
         /// Name of the phrase.
@@ -149,47 +109,6 @@ pub enum LoadWarning {
 impl fmt::Display for LoadWarning {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            LoadWarning::UnknownPhrase { name, language } => {
-                write!(
-                    f,
-                    "warning: translation '{language}' defines unknown phrase '{name}' not found in source"
-                )
-            }
-            LoadWarning::ParameterCountMismatch {
-                name,
-                language,
-                source_count,
-                translation_count,
-            } => {
-                write!(
-                    f,
-                    "warning: phrase '{name}' in '{language}' has {translation_count} parameter(s), but source has {source_count}"
-                )
-            }
-            LoadWarning::InvalidTag {
-                name,
-                language,
-                tag,
-                valid_tags,
-            } => {
-                write!(
-                    f,
-                    "warning: phrase '{name}' in '{language}' has unrecognized tag ':{tag}'; valid tags: {}",
-                    valid_tags.join(", ")
-                )
-            }
-            LoadWarning::InvalidVariantKey {
-                name,
-                language,
-                key,
-                valid_keys,
-            } => {
-                write!(
-                    f,
-                    "warning: phrase '{name}' in '{language}' has unrecognized variant key '{key}'; valid keys: {}",
-                    valid_keys.join(", ")
-                )
-            }
             LoadWarning::RedundantPassthroughBlock { name, language } => {
                 write!(
                     f,

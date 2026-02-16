@@ -10,12 +10,11 @@ use std::sync::RwLock;
 
 use bon::Builder;
 
-use crate::interpreter::error::{EvalWarning, LoadError, LoadWarning};
-use crate::interpreter::language_meta;
+use crate::interpreter::error::{EvalWarning, LoadError};
 use crate::interpreter::registry::PhraseRegistry;
 use crate::interpreter::transforms::TransformRegistry;
 use crate::interpreter::{EvalContext, EvalError, eval_phrase_def, eval_template};
-use crate::parser::ast::{PhraseBody, Template};
+use crate::parser::ast::Template;
 use crate::parser::{ParseError, parse_file, parse_template};
 use crate::types::{Phrase, Value};
 
@@ -283,146 +282,6 @@ impl Locale {
                 })?;
 
         self.load_translations(language, path)
-    }
-
-    /// Validate translations for a target language against a source language.
-    ///
-    /// Checks for:
-    /// - Phrases in the target language that do not exist in the source language
-    /// - Phrases with a different parameter count than the source
-    /// - Metadata tags not recognized for the target language
-    /// - Variant key components not recognized for the target language
-    ///
-    /// Both the source and target languages must already be loaded. Returns an
-    /// empty vector if no warnings are found or if either language is not loaded.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rlf::{Locale, LoadWarning};
-    ///
-    /// let mut locale = Locale::new();
-    /// locale.load_translations_str("en", r#"hello = "Hello!";"#).unwrap();
-    /// locale.load_translations_str("ru", r#"
-    ///     hello = "Привет!";
-    ///     extra = "Лишнее";
-    /// "#).unwrap();
-    ///
-    /// let warnings = locale.validate_translations("en", "ru");
-    /// assert_eq!(warnings.len(), 1); // "extra" not in source
-    /// ```
-    pub fn validate_translations(
-        &self,
-        source_language: &str,
-        target_language: &str,
-    ) -> Vec<LoadWarning> {
-        let mut warnings = Vec::new();
-
-        let Some(source_registry) = self.registries.get(source_language) else {
-            return warnings;
-        };
-        let Some(target_registry) = self.registries.get(target_language) else {
-            return warnings;
-        };
-
-        let mut target_names: Vec<&str> = target_registry.phrase_names().collect();
-        target_names.sort();
-
-        for name in target_names {
-            if let Some(source_def) = source_registry.get(name) {
-                let target_def = target_registry
-                    .get(name)
-                    .expect("name came from this registry");
-                if source_def.parameters.len() != target_def.parameters.len() {
-                    warnings.push(LoadWarning::ParameterCountMismatch {
-                        name: name.to_string(),
-                        language: target_language.to_string(),
-                        source_count: source_def.parameters.len(),
-                        translation_count: target_def.parameters.len(),
-                    });
-                }
-            } else {
-                warnings.push(LoadWarning::UnknownPhrase {
-                    name: name.to_string(),
-                    language: target_language.to_string(),
-                });
-            }
-        }
-
-        // Language-specific tag validation
-        if let Some(valid_tags) = language_meta::valid_tags(target_language) {
-            let mut all_names: Vec<&str> = target_registry.phrase_names().collect();
-            all_names.sort();
-            for name in all_names {
-                let def = target_registry
-                    .get(name)
-                    .expect("name came from this registry");
-                for tag in &def.tags {
-                    if !valid_tags.contains(&tag.as_str()) {
-                        warnings.push(LoadWarning::InvalidTag {
-                            name: name.to_string(),
-                            language: target_language.to_string(),
-                            tag: tag.to_string(),
-                            valid_tags: valid_tags.iter().map(ToString::to_string).collect(),
-                        });
-                    }
-                }
-            }
-        }
-
-        // Language-specific variant key validation
-        if let Some(valid_keys) = language_meta::valid_variant_keys(target_language) {
-            let mut all_names: Vec<&str> = target_registry.phrase_names().collect();
-            all_names.sort();
-            for name in all_names {
-                let def = target_registry
-                    .get(name)
-                    .expect("name came from this registry");
-                match &def.body {
-                    PhraseBody::Variants(entries) => {
-                        for entry in entries {
-                            for key in &entry.keys {
-                                for component in key.split('.') {
-                                    if !valid_keys.contains(&component) {
-                                        warnings.push(LoadWarning::InvalidVariantKey {
-                                            name: name.to_string(),
-                                            language: target_language.to_string(),
-                                            key: component.to_string(),
-                                            valid_keys: valid_keys
-                                                .iter()
-                                                .map(ToString::to_string)
-                                                .collect(),
-                                        });
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    PhraseBody::Match(branches) => {
-                        for branch in branches {
-                            for key in &branch.keys {
-                                for component in key.value.split('.') {
-                                    if !valid_keys.contains(&component) {
-                                        warnings.push(LoadWarning::InvalidVariantKey {
-                                            name: name.to_string(),
-                                            language: target_language.to_string(),
-                                            key: component.to_string(),
-                                            valid_keys: valid_keys
-                                                .iter()
-                                                .map(ToString::to_string)
-                                                .collect(),
-                                        });
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    PhraseBody::Simple(_) => {}
-                }
-            }
-        }
-
-        warnings
     }
 
     /// Internal loading implementation.

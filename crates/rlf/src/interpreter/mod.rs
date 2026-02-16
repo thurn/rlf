@@ -7,7 +7,6 @@
 mod context;
 mod error;
 mod evaluator;
-pub mod language_meta;
 pub mod lint;
 mod locale;
 mod plural;

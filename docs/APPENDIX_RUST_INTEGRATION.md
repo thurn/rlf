@@ -1017,76 +1017,12 @@ Translation files (`.rlf`) are validated at load time, not compile time.
 When loading a translation file, the interpreter validates and returns `Result`:
 
 1. **Syntax**: Parse errors return `Err(LoadError)` with line/column information
-2. **Phrase references**: Unknown phrases produce warnings (not errors)
-3. **Parameter counts**: Mismatch with source language produces warnings
-
-### validate_translations()
-
-After loading both source and target language phrases, call
-`validate_translations()` to check the target language for potential issues:
-
-```rust
-pub fn validate_translations(
-    &self,
-    source_language: &str,
-    target_language: &str,
-) -> Vec<LoadWarning>;
-```
-
-Both languages must already be loaded via `load_translations` or
-`load_translations_str`. Returns an empty vector if no warnings are found or
-if either language is not loaded.
-
-```rust
-use rlf::{Locale, LoadWarning};
-
-let mut locale = Locale::new();
-locale.load_translations_str("en", r#"
-    hello = "Hello!";
-    greet($name) = "Hello, {$name}!";
-"#).unwrap();
-
-locale.load_translations_str("ru", r#"
-    hello = "Привет!";
-    greet($first, $last) = "Привет, {$first} {$last}!";
-    extra = "Лишнее";
-"#).unwrap();
-
-let warnings = locale.validate_translations("en", "ru");
-for w in &warnings {
-    eprintln!("{w}");
-}
-// warning: phrase 'greet' in 'ru' has 2 parameter(s), but source has 1
-// warning: translation 'ru' defines unknown phrase 'extra' not found in source
-```
-
-### LoadWarning Variants
-
-The `LoadWarning` enum has eight variants. The first four are produced by
-`validate_translations()`. The last four are produced by `lint_definitions()`.
-
-| Variant | Description | Fields |
-|---------|-------------|--------|
-| `UnknownPhrase` | Target defines a phrase not in the source language | `name`, `language` |
-| `ParameterCountMismatch` | Target phrase has different parameter count than source | `name`, `language`, `source_count`, `translation_count` |
-| `InvalidTag` | Phrase uses a metadata tag not recognized for the target language | `name`, `language`, `tag`, `valid_tags` |
-| `InvalidVariantKey` | Phrase uses a variant key component not recognized for the target language | `name`, `language`, `key`, `valid_keys` |
-| `RedundantPassthroughBlock` | `:from` phrase has a variant block where every entry passes its key through identically -- the block can be removed | `name`, `language` |
-| `RedundantFromSelector` | `{$p:KEY}` inside the `KEY:` entry of a `:from` variant block, where bare `{$p}` already resolves to the same value | `name`, `language`, `param`, `key` |
-| `LikelyMissingFrom` | Phrase without `:from` or tags references a parameter that likely carries metadata -- consider adding `:from` | `name`, `language`, `param` |
-| `VerboseTransparentWrapper` | `:from($p) "{$p}"` identity template can be simplified to body-less `:from($p);` | `name`, `language` |
-
-`InvalidTag` and `InvalidVariantKey` are only checked for languages with known
-validation rules (e.g., Russian, Polish). For unrecognized language codes, tag
-and variant key validation is skipped.
-
-`LoadWarning` implements `Display`, `Debug`, `Clone`, `PartialEq`, and `Eq`.
 
 ### lint_definitions()
 
 The `lint_definitions` function performs static analysis on parsed phrase
-definitions, detecting common translation patterns that may indicate bugs or
-unnecessary verbosity:
+definitions within a single language, detecting common translation patterns
+that may indicate bugs or unnecessary verbosity:
 
 ```rust
 pub fn lint_definitions(
@@ -1095,13 +1031,21 @@ pub fn lint_definitions(
 ) -> Vec<LoadWarning>;
 ```
 
-Unlike `validate_translations()` (which compares source and target languages),
-`lint_definitions` operates on a single language's definitions. It checks for
-redundant passthrough blocks, redundant selectors inside `:from` variant
-entries, likely missing `:from` annotations, and verbose transparent wrappers.
-
 Call it after `load_translations_str` or `parse_file` on any language,
 including the source language.
+
+### LoadWarning Variants
+
+The `LoadWarning` enum has four variants, all produced by `lint_definitions()`.
+
+| Variant | Description | Fields |
+|---------|-------------|--------|
+| `RedundantPassthroughBlock` | `:from` phrase has a variant block where every entry passes its key through identically -- the block can be removed | `name`, `language` |
+| `RedundantFromSelector` | `{$p:KEY}` inside the `KEY:` entry of a `:from` variant block, where bare `{$p}` already resolves to the same value | `name`, `language`, `param`, `key` |
+| `LikelyMissingFrom` | Phrase without `:from` or tags references a parameter that likely carries metadata -- consider adding `:from` | `name`, `language`, `param` |
+| `VerboseTransparentWrapper` | `:from($p) "{$p}"` identity template can be simplified to body-less `:from($p);` | `name`, `language` |
+
+`LoadWarning` implements `Display`, `Debug`, `Clone`, `PartialEq`, and `Eq`.
 
 ---
 

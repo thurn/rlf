@@ -284,7 +284,7 @@ output or unnecessarily verbose definitions:
 
 A linter integrated into `load_translations()` would catch these patterns
 automatically and suggest simpler alternatives. The existing `LoadWarning` enum
-and `validate_translations()` API already provide the infrastructure for this.
+and `lint_definitions()` API already provide the infrastructure for this.
 
 ### Existing Infrastructure
 
@@ -295,10 +295,8 @@ The AST is explicitly public for tooling:
 //! These types are public to enable external tooling (linters, formatters, etc.).
 ```
 
-`LoadWarning` already has four variants (`UnknownPhrase`,
-`ParameterCountMismatch`, `InvalidTag`, `InvalidVariantKey`) returned by
-`Locale::validate_translations()`. New lint rules add new `LoadWarning`
-variants and new validation passes over the parsed AST.
+New lint rules add new `LoadWarning` variants and new validation passes over
+the parsed AST.
 
 ### Proposed Lint Rules
 
@@ -560,15 +558,15 @@ PhraseArgumentWithoutFrom {
 ### Severity
 
 All static lints are **suggestions** (non-blocking). They appear in
-`validate_translations()` output alongside existing warnings. The runtime lints
-(Lints 5-6) are configurable as warning or error.
+`lint_definitions()` output. The runtime lints (Lints 5-6) are configurable
+as warning or error.
 
 ### Impact
 
 - Catches verbose patterns that Proposal 1 documentation alone may not prevent
 - Catches the dangerous missing-`:from` pattern that silently loses metadata
 - Gives translators actionable feedback with specific suggested fixes
-- Builds on existing `LoadWarning` / `validate_translations()` infrastructure
+- Builds on existing `LoadWarning` / `lint_definitions()` infrastructure
 - Static lints require no evaluator changes -- purely AST analysis
 
 ---
