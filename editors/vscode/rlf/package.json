@@ -1,0 +1,33 @@
+{
+  "name": "rlf",
+  "displayName": "RLF (Rust Localization Framework)",
+  "description": "Syntax highlighting for RLF definition files",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "rlf",
+        "aliases": [
+          "RLF"
+        ],
+        "extensions": [
+          ".rlf"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "rlf",
+        "scopeName": "source.rlf",
+        "path": "./syntaxes/rlf.tmLanguage.json"
+      }
+    ]
+  }
+}
